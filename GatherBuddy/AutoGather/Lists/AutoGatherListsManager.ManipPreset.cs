@@ -414,7 +414,7 @@ public partial class AutoGatherListsManager
 
         list.SkipLoggedItems = value;
         Save();
-        if (value && list.Enabled && !list.Fallback && list.Items.Count > 0)
+        if (list.Enabled && !list.Fallback && list.Items.Count > 0)
             SetActiveItems(true);
     }
 

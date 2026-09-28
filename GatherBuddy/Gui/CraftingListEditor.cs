@@ -543,7 +543,7 @@ public class CraftingListEditor
         var lineH   = ImGui.GetTextLineHeightWithSpacing();
         var spacing = ImGui.GetStyle().ItemSpacing.Y;
         var frameH  = ImGui.GetFrameHeightWithSpacing();
-        var footerRows = 7 + (_list.QuickSynthAll ? 2 : 0) + (_list.SkipIfEnough ? 1 : 0);
+        var footerRows = 8 + (_list.QuickSynthAll ? 2 : 0) + (_list.SkipIfEnough ? 1 : 0);
         var bottomH = frameH * footerRows + spacing * 2;
         var queueH  = Math.Max(ImGui.GetContentRegionAvail().Y - bottomH, lineH * 3);
 
