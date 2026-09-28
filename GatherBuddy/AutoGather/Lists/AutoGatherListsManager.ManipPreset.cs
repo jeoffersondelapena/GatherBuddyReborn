@@ -403,6 +403,17 @@ public partial class AutoGatherListsManager
             SetActiveItems(true);
     }
 
+    public void SetSkipLoggedItems(AutoGatherList list, bool value)
+    {
+        if (list.SkipLoggedItems == value)
+            return;
+
+        list.SkipLoggedItems = value;
+        Save();
+        if (value && list.Enabled && !list.Fallback && list.Items.Count > 0)
+            SetActiveItems(true);
+    }
+
     public bool RemoveCompletedItemFromLists(IGatherable item)
     {
         var removedAny = false;

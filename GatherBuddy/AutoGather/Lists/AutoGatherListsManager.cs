@@ -1,3 +1,5 @@
+using GatherBuddy.Classes;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using ElliLib.Filesystem;
 using GatherBuddy.Interfaces;
 using GatherBuddy.Plugin;
@@ -120,6 +122,15 @@ public partial class AutoGatherListsManager : IDisposable
     public void Dispose()
     { }
 
+    // the gathering and fishing logs of the logged-in character
+    private static bool IsLogged(IGatherable item)
+        => item switch
+        {
+            Gatherable g => QuestManager.IsGatheringItemGathered((ushort)g.GatheringId),
+            Fish f       => GatherBuddy.FishLog?.IsUnlocked(f) ?? false,
+            _            => false,
+        };
+
     public void SetActiveItems(bool removeCompletedItems = false)
     {
         if (removeCompletedItems && RemoveCompletedItemsFromEnabledLists())
@@ -132,8 +143,8 @@ public partial class AutoGatherListsManager : IDisposable
             .OfType<FileSystem<AutoGatherList>.Leaf>()
             .Select(leaf => leaf.Value)
             .Where(l => l.Enabled)
-            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory)))
-            .Where(i => i.ItemEnabled)
+            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems)))
+            .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && IsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory)));
 

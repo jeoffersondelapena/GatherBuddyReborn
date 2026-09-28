@@ -55,6 +55,8 @@ public static class CraftingListPlanner
             {
                 if (item.Options.Skipping || item.Quantity <= 0)
                     continue;
+                if (_list.SkipCraftedRecipes && QuestManager.IsRecipeComplete(item.RecipeId))
+                    continue;
 
                 var recipe = RecipeManager.GetRecipe(item.RecipeId);
                 if (!recipe.HasValue)
