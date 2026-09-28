@@ -49,9 +49,10 @@ public static class GeneratedLists
             keptVendors.AddRange(freshVendors);
             GatherBuddy.Config.VendorBuyLists = keptVendors;
             GatherBuddy.Config.Save();
+            GatherBuddy.VulcanWindow?.CloseListEditor();
             GatherBuddy.CraftingListManager.Reload();
 
-            var text = $"Generated lists reset: {gathered} gathering/fishing, {fresh.Count} crafting, {freshVendors.Count} vendor (game {snap.Value<string>("game")}). Reopen any crafting list you had open.";
+            var text = $"Generated lists reset: {gathered} gathering/fishing, {fresh.Count} crafting, {freshVendors.Count} vendor (game {snap.Value<string>("game")}).";
             Communicator.Print(text);
             GatherBuddy.Log.Information($"[GeneratedLists] {text}");
         }

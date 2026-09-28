@@ -147,6 +147,11 @@ public partial class Interface
                 "Put every list the generator made (gathering, fishing, crafting, vendor) back to its generated state: off, every item on.\nHand-made lists stay as they are. The copy being replaced is kept once as generated-lists.before-reset.json.",
                 !GeneratedLists.SnapshotExists))
             GeneratedLists.Restore(_plugin.AutoGatherListsManager);
+        ImGui.SameLine();
+        if (ImGuiUtil.DrawDisabledButton("Reset settings to policy", Vector2.Zero,
+                "Apply the agreed settings again (repair, materia, every helper, honk off, fishing data, gearset names). Nothing else changes.",
+                !PolicySettings.SnapshotExists))
+            PolicySettings.Apply();
 
         if (GatherBuddy.AutoGather.ArtisanExporter.ArtisanAssemblyEnabled)
         {
