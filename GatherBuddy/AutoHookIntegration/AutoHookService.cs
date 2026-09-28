@@ -4,6 +4,7 @@ using GatherBuddy.AutoGather;
 using GatherBuddy.AutoHookIntegration.Models;
 using GatherBuddy.Classes;
 using GatherBuddy.FishTimer;
+using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 
 namespace GatherBuddy.AutoHookIntegration;
@@ -27,6 +28,8 @@ public class AutoHookService
         {
             var presets = AutoHookPresetBuilder.BuildPresetsFromFish(presetName, fishList, gbrPreset);
             GatherBuddy.Log.Debug($"[AutoHook Integration] Built {presets.Count} preset(s), starting export...");
+            foreach (var preset in presets)
+                ForkTrace.Info(ForkTrace.Describe(preset));
             
             foreach (var preset in presets)
             {

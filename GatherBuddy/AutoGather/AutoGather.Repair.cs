@@ -89,6 +89,7 @@ public unsafe partial class AutoGather
             return true;
         }
 
+        ForkTrace.Info($"repair (gathering): {((Item)itemToRepair).Name.ExtractText()} is at or below {GatherBuddy.Config.AutoGatherConfig.RepairThreshold}% condition; dark matter on hand, repairing on the spot");
         AutoStatus = "Repairing...";
         StopNavigation();
 
@@ -158,6 +159,7 @@ public unsafe partial class AutoGather
             return true;
         }
 
+        ForkTrace.Info($"repair (fishing): {((Item)itemToRepair).Name.ExtractText()} is at or below {GatherBuddy.Config.AutoGatherConfig.RepairThreshold}% condition; dark matter on hand, repairing on the spot");
         AutoStatus = "Repairing...";
         _lastRepairTime = DateTime.Now;
         var delay = (int)GatherBuddy.Config.AutoGatherConfig.ExecutionDelay;

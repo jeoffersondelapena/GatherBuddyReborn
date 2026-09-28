@@ -483,30 +483,44 @@ namespace GatherBuddy.AutoGather
             }
         }
 
-        public bool GoHome()
+        public bool GoHome(string reason = "unspecified")
         {
             StopNavigation();
 
             if (WentHome)
+            {
+                ForkTrace.Info($"go home ({reason}): already went home this run, staying put");
                 return false;
+            }
 
             WentHome = true;
 
             if (Dalamud.Conditions[ConditionFlag.BoundByDuty])
+            {
+                ForkTrace.Info($"go home ({reason}): bound by duty, staying put");
                 return false;
+            }
 
             if (Lifestream.Enabled && !Lifestream.IsBusy())
             {
                 var command = GatherBuddy.Config.AutoGatherConfig.LifestreamCommand;
                 if (command.Contains("/li "))
                     command = command.Replace("/li ", "");
+                ForkTrace.Info($"go home ({reason}): Lifestream '{command}' from territory {Dalamud.ClientState.TerritoryType}");
                 Lifestream.ExecuteCommand(command);
-                TaskManager.EnqueueImmediate(() => !Lifestream.IsBusy(), 120000, "Wait until Lifestream is done");
+                TaskManager.EnqueueImmediate(() =>
+                {
+                    if (Lifestream.IsBusy())
+                        return false;
+                    ForkTrace.Info($"go home ({reason}): Lifestream finished, now in territory {Dalamud.ClientState.TerritoryType}");
+                    return true;
+                }, 120000, "Wait until Lifestream is done");
                 return true;
             }
             else
             {
                 GatherBuddy.Log.Warning("Lifestream not found or not ready");
+                ForkTrace.Info($"go home ({reason}): Lifestream enabled={Lifestream.Enabled}, busy={Lifestream.Enabled && Lifestream.IsBusy()}");
                 return false;
             }
         }
@@ -980,7 +994,7 @@ namespace GatherBuddy.AutoGather
                 }
 
                 if (!waitAtAetheryte && GatherBuddy.Config.AutoGatherConfig.GoHomeWhenIdle)
-                    if (GoHome())
+                    if (GoHome("idle"))
                         return;
 
                 if (HasReducibleItems())
@@ -1619,7 +1633,7 @@ namespace GatherBuddy.AutoGather
 
                     TaskManager.Enqueue(() =>
                     {
-                        var wentHome = GoHome();
+                        var wentHome = GoHome("persistent amiss");
                         if (wentHome)
                         {
                             GatherBuddy.Log.Information("[AutoGather] Teleported home. Waiting before returning to fishing spot...");
@@ -2340,7 +2354,7 @@ namespace GatherBuddy.AutoGather
                 Task.Run(() => _soundHelper.StartHonkSoundTask(3));
             CloseGatheringAddons();
             if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
-                EnqueueActionWithDelay(() => { GoHome(); });
+                EnqueueActionWithDelay(() => { GoHome("done"); });
             TaskManager.Enqueue(() =>
             {
                 Enabled    = false;

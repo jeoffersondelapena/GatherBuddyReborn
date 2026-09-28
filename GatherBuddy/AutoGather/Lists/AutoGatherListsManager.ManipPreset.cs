@@ -2,6 +2,7 @@ using ElliLib.Filesystem;
 using GatherBuddy.AutoGather.Extensions;
 using GatherBuddy.Classes;
 using GatherBuddy.Enums;
+using GatherBuddy.Helpers;
 using GatherBuddy.Interfaces;
 using GatherBuddy.Plugin;
 using System;
@@ -137,6 +138,7 @@ public partial class AutoGatherListsManager
                 ? GetCustomPresetBaitIds()
                 : null;
             var inventoryCounts = new Dictionary<uint, uint>();
+            var baitSummary = new List<string>();
             var stopwatch = Stopwatch.StartNew();
             foreach (var fish in fishInList)
             {
@@ -156,6 +158,7 @@ public partial class AutoGatherListsManager
                     inventoryCounts[baitId] = baitCount;
                 }
 
+                baitSummary.Add($"{fish.Name[GatherBuddy.Language]} -> {ForkTrace.Named(baitId)} x{baitCount}");
                 if (baitCount > 0 || versatileLureCount > 0)
                     continue;
 
@@ -163,6 +166,7 @@ public partial class AutoGatherListsManager
             }
 
             stopwatch.Stop();
+            ForkTrace.Info($"bait check for list '{list.Name}': {(baitSummary.Count == 0 ? "no fish needs bait" : string.Join("; ", baitSummary))}; Versatile Lure x{versatileLureCount}");
             if (stopwatch.ElapsedMilliseconds >= 10)
                 GatherBuddy.Log.Debug($"[Auto-Gather] Validated fishing bait for list '{list.Name}' in {stopwatch.ElapsedMilliseconds} ms ({fishInList.Count} fish, {inventoryCounts.Count} unique bait IDs).");
             if (missingBaits.Count > 0)

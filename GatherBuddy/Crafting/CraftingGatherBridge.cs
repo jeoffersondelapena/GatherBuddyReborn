@@ -217,6 +217,7 @@ public static class CraftingGatherBridge
         _queueProcessor.QueueCompleted += OnQueueCompleted;
         _waitingForGatherComplete = true;
         GatherBuddy.Log.Information($"[CraftingGatherBridge] Starting queue automation with {executionPlan.QueueView.Count} recipes, retainerRestock={executionPlan.RetainerRestock}");
+        ForkTrace.Info(DescribePlan(executionPlan));
         _queueProcessor.StartQueue(executionPlan, listConsumables, GatherBuddy.RaphaelSolveCoordinator);
         var hasRetainerWork = executionPlan.RetainerRestock && AllaganTools.Enabled
             && (executionPlan.Materials.Count > 0 || executionPlan.RetainerConsumedCraftables.Count > 0);
@@ -226,6 +227,24 @@ public static class CraftingGatherBridge
         GatherBuddy.CraftingStatusWindow?.SetQueueProcessor(_queueProcessor);
     }
     
+    private static string DescribePlan(CraftingExecutionPlan plan)
+    {
+        static string Line(CraftingListItem item)
+        {
+            var recipe = RecipeManager.GetRecipe(item.RecipeId);
+            var name   = recipe?.ItemResult.Value.Name.ExtractText() ?? $"recipe {item.RecipeId}";
+            return $"{name} x{item.Quantity}{(item.IsOriginalRecipe ? "" : " (precraft)")}{(item.Options.Skipping ? " (skipped)" : "")}";
+        }
+
+        static string Items(IReadOnlyDictionary<uint, int> items)
+            => items.Count == 0 ? "none" : string.Join(", ", items.Select(kv => $"{ForkTrace.Named(kv.Key)} x{kv.Value}"));
+
+        return $"plan for '{plan.ListName}': queue [{string.Join("; ", plan.QueueView.Select(Line))}]"
+          + $" | to source {Items(plan.MaterialsView)} | precrafts {Items(plan.PrecraftsView)}"
+          + $" | from retainers {Items(plan.RetainerConsumedCraftablesView)}"
+          + $" | skipIfEnough={plan.SkipIfEnough} skipFinalIfEnough={plan.SkipFinalIfEnough} retainerRestock={plan.RetainerRestock}";
+    }
+
     public static void CreateGatherListForMissingIngredients(Dictionary<uint, int> missing)
     {
         try
@@ -267,6 +286,8 @@ public static class CraftingGatherBridge
                     GatherBuddy.Log.Debug($"[CraftingGatherBridge] Item {gatherItemId} not found in gatherables or fish, skipping");
             }
 
+            ForkTrace.Info($"gather bridge list: {(_gatherList.Items.Count == 0 ? "empty" : string.Join(", ", _gatherList.Items.Select(i => $"{i.Name[GatherBuddy.Language]} x{_gatherList.Quantities[i]}")))}"
+              + $"; paused lists: {(_disabledGatherLists.Count == 0 ? "none" : string.Join(", ", _disabledGatherLists.Select(l => l.Name)))}");
             if (_gatherList.Items.Count > 0 && _plugin != null)
             {
                 _plugin.AutoGatherListsManager.AddList(_gatherList);

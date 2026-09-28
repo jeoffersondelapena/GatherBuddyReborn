@@ -33,6 +33,7 @@ public static class HomeNavigationHelper
         if (command.Contains("/li ", StringComparison.OrdinalIgnoreCase))
             command = command.Replace("/li ", string.Empty, StringComparison.OrdinalIgnoreCase);
 
+        ForkTrace.Info($"go home (after collectables): Lifestream '{command}' from territory {Dalamud.ClientState.TerritoryType}");
         Lifestream.ExecuteCommand(command);
         return true;
     }

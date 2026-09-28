@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game.ClientState.Conditions;
 using GatherBuddy.Automation;
+using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using GatherBuddy.Vulcan;
 using FFXIVClientStructs.FFXIV.Client.Game;
@@ -1012,6 +1013,7 @@ public class CraftingQueueProcessor
         var hasRepairNPC = RepairManager.RepairNPCNearby(out var npc);
         var prioritizeNPC = GatherBuddy.Config.VulcanRepairConfig.PrioritizeNPCRepair;
         var preferredNPC = GatherBuddy.Config.VulcanRepairConfig.PreferredRepairNPC;
+        ForkTrace.Info($"repair (crafting): lowest gear condition {RepairManager.GetMinEquippedPercent()}%, self repair possible={canSelfRepair}, repair NPC nearby={hasRepairNPC}, prioritize NPC={prioritizeNPC}, preferred NPC={(preferredNPC?.Name ?? "none")}");
 
         if (prioritizeNPC && preferredNPC != null)
         {
