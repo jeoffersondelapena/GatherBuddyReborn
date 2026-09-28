@@ -131,12 +131,24 @@ public partial class AutoGatherListsManager : IDisposable
             _            => false,
         };
 
+    private static readonly List<string> _skippedAsLogged = [];
+
     private static bool SkipAsLogged(IGatherable item)
     {
         if (!IsLogged(item))
             return false;
-        GatherBuddy.Log.Debug($"[AutoGather] {item.Name[GatherBuddy.Language]} is already in the log; left out (Skip Logged Items)");
+        _skippedAsLogged.Add(item.Name[GatherBuddy.Language]);
         return true;
+    }
+
+    // one line per refresh, so the always-on log stays readable
+    private static void ReportSkippedAsLogged()
+    {
+        if (_skippedAsLogged.Count == 0)
+            return;
+        var shown = string.Join(", ", _skippedAsLogged.Take(12)) + (_skippedAsLogged.Count > 12 ? $", +{_skippedAsLogged.Count - 12} more" : "");
+        GatherBuddy.Log.Information($"[AutoGather] Skip Logged Items left out {_skippedAsLogged.Count} item(s) already in the log: {shown}");
+        _skippedAsLogged.Clear();
     }
 
     public void SetActiveItems(bool removeCompletedItems = false)
@@ -156,6 +168,7 @@ public partial class AutoGatherListsManager : IDisposable
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory)));
 
+        ReportSkippedAsLogged();
         foreach (var (item, quantity, fallback, usesRetainerInventory) in items)
         {
             if (fallback)
