@@ -635,7 +635,7 @@ namespace GatherBuddy.AutoGather
             var status = ActionManager.Instance()->GetActionStatus(ActionType.Action, Actions.FisherSneakActionId);
             if (status != 0)
             {
-                GatherBuddy.Log.Debug($"[AutoGather] Fisher Sneak not usable right now (status {status}); continuing without it");
+                GatherBuddy.Log.Information($"[AutoGather] Fisher Sneak not usable right now (status {status}); continuing without it");
                 return false;
             }
 
