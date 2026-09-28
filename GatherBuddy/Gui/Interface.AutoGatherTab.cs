@@ -13,6 +13,7 @@ using GatherBuddy.Data;
 using GatherBuddy.Config;
 using GatherBuddy.Crafting;
 using GatherBuddy.CustomInfo;
+using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using Dalamud.Bindings.ImGui;
 using ElliLib;
@@ -141,6 +142,11 @@ public partial class Interface
                 Communicator.PrintClipboardMessage("Auto-gather list ", list.Name, e);
             }
         }
+
+        if (ImGuiUtil.DrawDisabledButton("Reset generated lists", Vector2.Zero,
+                "Put every list the generator made (gathering, fishing, crafting, vendor) back to its generated state: off, every item on.\nHand-made lists stay as they are. The copy being replaced is kept once as generated-lists.before-reset.json.",
+                !GeneratedLists.SnapshotExists))
+            GeneratedLists.Restore(_plugin.AutoGatherListsManager);
 
         if (GatherBuddy.AutoGather.ArtisanExporter.ArtisanAssemblyEnabled)
         {
