@@ -1,0 +1,61 @@
+# Rebase patches onto upstream, build on a Mac, publish the build by commit, push. A conflict fails and leaves the branch alone.
+name: upstream-sync
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: upstream-sync
+jobs:
+  sync:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: patches
+          fetch-depth: 0
+          submodules: recursive
+      - name: Rebase onto upstream
+        id: rebase
+        run: |
+          git config user.name upstream-sync
+          git config user.email upstream-sync@users.noreply.github.com
+          git remote add upstream https://github.com/FFXIV-CombatReborn/GatherBuddyReborn.git
+          git fetch upstream main --tags
+          before=$(git rev-parse HEAD)
+          if ! git rebase upstream/main; then
+            git rebase --abort
+            echo "::error::rebase onto upstream/main conflicts; resolve it by hand"
+            exit 1
+          fi
+          git submodule update --init --recursive
+          echo "before=$before" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "upstream=$(git rev-parse upstream/main)" >> "$GITHUB_OUTPUT"
+          # upstream stamps the version at release time; the newest tag reachable from main is that release
+          echo "version=$(git describe --tags --abbrev=0 upstream/main)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Dalamud dev assemblies
+        run: |
+          # The SDK's macOS default path wins over DALAMUD_HOME, so mirror the Mac's layout exactly.
+          DEV="$HOME/Library/Application Support/XIV on Mac/dalamud/Hooks/dev"
+          curl -fsSL https://goatcorp.github.io/dalamud-distrib/latest.zip -o /tmp/dalamud.zip
+          mkdir -p "$DEV" && unzip -q /tmp/dalamud.zip -d "$DEV"
+          echo "DALAMUD_HOME=$DEV" >> "$GITHUB_ENV"
+      - name: Build
+        run: dotnet build GatherBuddy/GatherBuddy.csproj -c Release -nodeReuse:false -p:Version=${{ steps.rebase.outputs.version }}
+      - name: Describe the build
+        run: |
+          cd GatherBuddy/bin/Release
+          find . -type f ! -name SHA256SUMS ! -name COMMIT ! -name UPSTREAM -print0 | sort -z | xargs -0 shasum -a 256 > SHA256SUMS
+          echo "${{ steps.rebase.outputs.sha }}" > COMMIT
+          echo "${{ steps.rebase.outputs.upstream }}" > UPSTREAM
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: GatherBuddyReborn-${{ steps.rebase.outputs.sha }}
+          path: GatherBuddy/bin/Release
+          retention-days: 30
+      - name: Push the rebased branch
+        if: steps.rebase.outputs.sha != steps.rebase.outputs.before
+        run: git push --force-with-lease=patches:${{ steps.rebase.outputs.before }} origin HEAD:patches
