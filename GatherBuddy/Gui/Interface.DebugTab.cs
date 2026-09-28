@@ -680,7 +680,7 @@ public partial class Interface
     }
 
     private class TerritoryFilterCombo()
-        : FilterComboCache<Territory>(() => GatherBuddy.GameData.Territories.Values.ToList(), MouseWheelType.Control, GatherBuddy.Log)
+        : FilterComboCache<Territory>(() => GatherBuddy.GameData.Territories.Values.ToList(), MouseWheelType.Control, GatherBuddy.Log.Inner)
     {
         protected override string ToString(Territory obj)
             => $"{obj.Name} ({obj.Id})";
@@ -688,7 +688,7 @@ public partial class Interface
 
     private class WeatherFilterCombo()
         : FilterComboCache<string>(() => GatherBuddy.GameData.Weathers.Values.Select(w => w.Name).Distinct().ToList(), MouseWheelType.Control,
-            GatherBuddy.Log)
+            GatherBuddy.Log.Inner)
     {
         protected override string ToString(string obj)
             => obj;
@@ -698,7 +698,7 @@ public partial class Interface
         : FilterComboCache<FishBaitCombo.StringId>(
             () => GatherBuddy.GameData.Fishes.Values.Select(f => new StringId(f.Name.English, f.ItemId, true))
                 .Concat(GatherBuddy.GameData.Bait.Values.Select(b => new StringId(b.Name, b.Id, false))).ToList(), MouseWheelType.Control,
-            GatherBuddy.Log)
+            GatherBuddy.Log.Inner)
     {
         public record StringId(string Name, uint Id, bool Mooch);
 

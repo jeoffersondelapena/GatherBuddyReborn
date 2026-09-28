@@ -1,10 +1,6 @@
-using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using GatherBuddy.AutoHookIntegration.Models;
 using GatherBuddy.Plugin;
 using Lumina.Excel.Sheets;
@@ -14,45 +10,8 @@ namespace GatherBuddy.Helpers;
 // Fork-only diagnostics; the tag keeps them greppable and out of upstream PRs.
 public static class ForkTrace
 {
-    private const long MaxFileBytes = 5 * 1024 * 1024;
-    private static readonly object FileLock = new();
-    private static string? _fileKey;
-    private static string? _filePath;
-
     public static void Info(string message)
-    {
-        GatherBuddy.Log.Information($"[fork] {message}");
-        Append(message);
-    }
-
-    // One file per character: two game windows fight over dalamud.log. Same key as Codex's state files.
-    private static unsafe void Append(string message)
-    {
-        try
-        {
-            var cid = PlayerState.Instance()->ContentId;
-            var key = cid == 0 ? "pre-login" : Convert.ToHexString(SHA256.HashData(BitConverter.GetBytes(cid)))[..16].ToLowerInvariant();
-            lock (FileLock)
-            {
-                if (key != _fileKey)
-                {
-                    var dir = Dalamud.PluginInterface.ConfigDirectory.FullName;
-                    Directory.CreateDirectory(dir);
-                    _filePath = Path.Combine(dir, $"trace-{key}.log");
-                    _fileKey  = key;
-                }
-
-                var file = new FileInfo(_filePath!);
-                if (file.Exists && file.Length > MaxFileBytes)
-                    file.MoveTo(Path.ChangeExtension(_filePath!, ".old.log"), true);
-                File.AppendAllText(_filePath!, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}\n");
-            }
-        }
-        catch (Exception ex)
-        {
-            GatherBuddy.Log.Debug($"[fork] trace file write failed: {ex.Message}");
-        }
-    }
+        => GatherBuddy.Log.Information($"[fork] {message}");
 
     public static string Named(uint itemId)
         => $"{ItemName(itemId)} ({itemId})";

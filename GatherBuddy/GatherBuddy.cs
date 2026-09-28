@@ -31,6 +31,7 @@ using SigScannerWrapper = GatherBuddy.SeFunctions.SigScannerWrapper;
 using ElliLib;
 using ElliLib.Classes;
 using ElliLib.Log;
+using GatherBuddy.Helpers;
 using GatherBuddy.AutoGather;
 using Dalamud.IoC;
 using Dalamud.Game.ClientState.Objects.SubKinds;
@@ -49,7 +50,7 @@ public partial class GatherBuddy : IDalamudPlugin
 
     public static Configuration  Config   { get; private set; } = null!;
     public static GameData       GameData { get; private set; } = null!;
-    public static Logger         Log      { get; private set; } = null!;
+    public static ForkLog        Log      { get; private set; } = null!;
     public static ClientLanguage Language { get; private set; } = ClientLanguage.English;
     public static SeTime         Time     { get; private set; } = null!;
 #if DEBUG
@@ -115,12 +116,12 @@ public partial class GatherBuddy : IDalamudPlugin
         {
             Dalamud.Initialize(pluginInterface);
             Icons.Init(Dalamud.GameData, Dalamud.Textures);
-            Log     = new Logger();
+            Log     = new ForkLog(new Logger());
             Version = Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
-            Backup.CreateAutomaticBackup(Log, pluginInterface.ConfigDirectory, GatherBuddyBackupFiles());
+            Backup.CreateAutomaticBackup(Log.Inner, pluginInterface.ConfigDirectory, GatherBuddyBackupFiles());
             Config   = Configuration.Load();
             Language = Dalamud.ClientState.ClientLanguage;
-            GameData = new GameData(Dalamud.GameData, Log, WorldData.WorldLocationsByNodeId, "fish_overrides.json");
+            GameData = new GameData(Dalamud.GameData, Log.Inner, WorldData.WorldLocationsByNodeId, "fish_overrides.json");
             Time     = new SeTime();
 
             WaymarkManager = new WaymarkManager();
