@@ -56,7 +56,10 @@ public static class CraftingListPlanner
                 if (item.Options.Skipping || item.Quantity <= 0)
                     continue;
                 if (_list.SkipCraftedRecipes && QuestManager.IsRecipeComplete(item.RecipeId))
+                {
+                    GatherBuddy.Log.Debug($"[CraftingListPlanner] Recipe {item.RecipeId} is already in the crafting log; left out (Skip Crafted Recipes)");
                     continue;
+                }
 
                 var recipe = RecipeManager.GetRecipe(item.RecipeId);
                 if (!recipe.HasValue)

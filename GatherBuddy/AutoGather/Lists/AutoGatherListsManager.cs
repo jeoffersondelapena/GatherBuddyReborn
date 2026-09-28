@@ -131,6 +131,14 @@ public partial class AutoGatherListsManager : IDisposable
             _            => false,
         };
 
+    private static bool SkipAsLogged(IGatherable item)
+    {
+        if (!IsLogged(item))
+            return false;
+        GatherBuddy.Log.Debug($"[AutoGather] {item.Name[GatherBuddy.Language]} is already in the log; left out (Skip Logged Items)");
+        return true;
+    }
+
     public void SetActiveItems(bool removeCompletedItems = false)
     {
         if (removeCompletedItems && RemoveCompletedItemsFromEnabledLists())
@@ -144,7 +152,7 @@ public partial class AutoGatherListsManager : IDisposable
             .Select(leaf => leaf.Value)
             .Where(l => l.Enabled)
             .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems)))
-            .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && IsLogged(i.Item)))
+            .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && SkipAsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory)));
 
