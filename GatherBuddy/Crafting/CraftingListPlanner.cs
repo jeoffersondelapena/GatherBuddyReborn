@@ -51,13 +51,14 @@ public static class CraftingListPlanner
 
         public CraftingListPlan Build()
         {
+            var skippedCrafted = 0;
             foreach (var item in GetOriginalRecipesInDependencyOrder())
             {
                 if (item.Options.Skipping || item.Quantity <= 0)
                     continue;
                 if (_list.SkipCraftedRecipes && QuestManager.IsRecipeComplete(item.RecipeId))
                 {
-                    GatherBuddy.Log.Debug($"[CraftingListPlanner] Recipe {item.RecipeId} is already in the crafting log; left out (Skip Crafted Recipes)");
+                    skippedCrafted++;
                     continue;
                 }
 
@@ -67,6 +68,8 @@ public static class CraftingListPlanner
 
                 PlanOriginalRecipe(item, recipe.Value);
             }
+            if (skippedCrafted > 0)
+                GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Crafted Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
 
             return _plan;
         }
