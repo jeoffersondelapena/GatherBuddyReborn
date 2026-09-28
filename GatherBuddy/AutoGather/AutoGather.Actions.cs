@@ -632,9 +632,14 @@ namespace GatherBuddy.AutoGather
                 return false;
             if (Player.Status.Any(s => s.StatusId == Actions.SneakStatusId))
                 return false;
-            if (ActionManager.Instance()->GetActionStatus(ActionType.Action, Actions.FisherSneakActionId) != 0)
+            var status = ActionManager.Instance()->GetActionStatus(ActionType.Action, Actions.FisherSneakActionId);
+            if (status != 0)
+            {
+                GatherBuddy.Log.Debug($"[AutoGather] Fisher Sneak not usable right now (status {status}); continuing without it");
                 return false;
+            }
 
+            GatherBuddy.Log.Information("[AutoGather] Pressing the fisher's Sneak before the approach");
             EnqueueActionWithDelay(() => ActionManager.Instance()->UseAction(ActionType.Action, Actions.FisherSneakActionId));
             return true;
         }
