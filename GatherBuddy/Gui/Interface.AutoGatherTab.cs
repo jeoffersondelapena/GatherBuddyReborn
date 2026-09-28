@@ -291,6 +291,10 @@ public partial class Interface
         ImGuiUtil.Checkbox("Remove Completed##list",
             "Automatically remove enabled items from this list once your inventory reaches the configured quantity for them.",
             list.RemoveCompletedItems, (v) => _plugin.AutoGatherListsManager.SetRemoveCompletedItems(list, v));
+        ImGui.SameLine();
+        ImGuiUtil.Checkbox("Skip Logged Items##list",
+            "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
+            list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
         {
             _autoGatherListsCache.ItemFilterList = list;

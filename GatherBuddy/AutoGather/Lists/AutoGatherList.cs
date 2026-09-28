@@ -34,6 +34,7 @@ public class AutoGatherList
     public bool   Enabled     { get; set; } = false;
     public bool   Fallback    { get; set; } = false;
     public bool   RemoveCompletedItems { get; set; } = false;
+    public bool   SkipLoggedItems      { get; set; } = false;
     internal bool UsesRetainerInventory { get; set; } = true;
 
     private List<IGatherable>                  items              = [];
@@ -55,6 +56,7 @@ public class AutoGatherList
             Enabled            = false,
             Fallback           = Fallback,
             RemoveCompletedItems = RemoveCompletedItems,
+            SkipLoggedItems      = SkipLoggedItems,
             UsesRetainerInventory = UsesRetainerInventory
         };
 
@@ -176,6 +178,7 @@ public class AutoGatherList
         public bool                   Enabled            = list.Enabled;
         public bool                   Fallback           = list.Fallback;
         public bool                   RemoveCompletedItems = list.RemoveCompletedItems;
+        public bool                   SkipLoggedItems      = list.SkipLoggedItems;
 
         internal readonly string ToBase64()
         {
@@ -234,6 +237,7 @@ public class AutoGatherList
             Enabled            = cfg.Enabled,
             Fallback           = cfg.Fallback,
             RemoveCompletedItems = cfg.RemoveCompletedItems,
+            SkipLoggedItems      = cfg.SkipLoggedItems,
             items              = new(cfg.ItemIds.Length),
             quantities         = new(cfg.ItemIds.Length),
             preferredLocations = new(cfg.PrefferedLocations.Count),
