@@ -1431,6 +1431,9 @@ namespace GatherBuddy.AutoGather
             Debug.Assert(next.Fish != null);
             Debug.Assert(next.FishingSpot != null);
 
+            if (ActivateFishingSneak())
+                return;
+
             var fish = next;
             var territoryId = Dalamud.ClientState.TerritoryType;
             
@@ -2124,6 +2127,8 @@ namespace GatherBuddy.AutoGather
                 if (ActivateGatheringBuffs(isTimedNode))
                     return;
             }
+            else if (ActivateFishingSneak())
+                return;
 
             if (closestTargetableNode != null)
             {

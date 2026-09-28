@@ -104,6 +104,9 @@ public partial class AutoGather
         public static readonly BaseAction Prospect      = new(210, 227, 217, 225);
         public static readonly BaseAction ArborCall     = new(211, 228);
         public static readonly BaseAction Sneak         = new(304, 303, 47);
+        // fisher's Sneak; not a BaseAction pair
+        public const uint FisherSneakActionId = 305;
+        public const uint SneakStatusId       = 47;
         public static readonly BaseAction TwelvesBounty = new(282, 280, 825, type: EffectType.CrystalsYield);
         public static readonly BaseAction Bountiful     = new(4087, 4073, 756, type: EffectType.Yield);
         public static readonly BaseAction SolidAge      = new(215, 232, 2765, type: EffectType.Integrity);

@@ -625,6 +625,20 @@ namespace GatherBuddy.AutoGather
             }
         }
 
+        // fisher isn't a BaseAction pair; ActivateGatheringBuffs can't serve it
+        private unsafe bool ActivateFishingSneak()
+        {
+            if (Player.Job != 18 || Player.Level < Actions.Sneak.MinLevel)
+                return false;
+            if (Player.Status.Any(s => s.StatusId == Actions.SneakStatusId))
+                return false;
+            if (ActionManager.Instance()->GetActionStatus(ActionType.Action, Actions.FisherSneakActionId) != 0)
+                return false;
+
+            EnqueueActionWithDelay(() => ActionManager.Instance()->UseAction(ActionType.Action, Actions.FisherSneakActionId));
+            return true;
+        }
+
         private bool ActivateGatheringBuffs(bool activateTruth)
         {
             if (!Player.Status.Any(s => s.StatusId == Actions.Prospect.EffectId) && Player.Level >= Actions.Prospect.MinLevel)
