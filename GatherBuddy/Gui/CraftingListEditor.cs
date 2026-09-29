@@ -584,7 +584,7 @@ public class CraftingListEditor
 
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
-        ImGuiUtil.Checkbox("Skip Logged Recipes##scr",
+        ImGuiUtil.Checkbox("Skip Logged Recipes (fork)##scr",
             "Skip recipes this character has already crafted, according to the crafting log.",
             _list.SkipCraftedRecipes, v =>
             {

@@ -143,12 +143,12 @@ public partial class Interface
             }
         }
 
-        if (ImGuiUtil.DrawDisabledButton("Reset generated lists", Vector2.Zero,
+        if (ImGuiUtil.DrawDisabledButton("Reset generated lists (fork)", Vector2.Zero,
                 "Put every list the generator made (gathering, fishing, crafting, vendor) back to its generated state: off, every item on.\nHand-made lists stay as they are. The copy being replaced is kept once as generated-lists.before-reset.json.",
                 !GeneratedLists.SnapshotExists))
             GeneratedLists.Restore(_plugin.AutoGatherListsManager);
         ImGui.SameLine();
-        if (ImGuiUtil.DrawDisabledButton("Reset settings to policy", Vector2.Zero,
+        if (ImGuiUtil.DrawDisabledButton("Reset settings to policy (fork)", Vector2.Zero,
                 "Apply the agreed settings again (repair, materia, every helper, honk off, fishing data, gearset names). Nothing else changes.",
                 !PolicySettings.SnapshotExists))
             PolicySettings.Apply();
@@ -303,7 +303,7 @@ public partial class Interface
             "Automatically remove enabled items from this list once your inventory reaches the configured quantity for them.",
             list.RemoveCompletedItems, (v) => _plugin.AutoGatherListsManager.SetRemoveCompletedItems(list, v));
         ImGui.SameLine();
-        ImGuiUtil.Checkbox("Skip Logged Items##list",
+        ImGuiUtil.Checkbox("Skip Logged Items (fork)##list",
             "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
             list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
