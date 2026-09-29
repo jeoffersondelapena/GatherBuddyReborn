@@ -69,7 +69,7 @@ public static class CraftingListPlanner
                 PlanOriginalRecipe(item, recipe.Value);
             }
             if (skippedCrafted > 0)
-                GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Crafted Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
+                GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Logged Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
 
             return _plan;
         }

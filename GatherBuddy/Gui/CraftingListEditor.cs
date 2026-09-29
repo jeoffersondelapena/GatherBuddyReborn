@@ -584,17 +584,18 @@ public class CraftingListEditor
 
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
-        var skipCrafted = _list.SkipCraftedRecipes;
-        if (ImGui.Checkbox("Skip Crafted Recipes##scr", ref skipCrafted))
-        {
-            _list.SkipCraftedRecipes = skipCrafted;
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            TriggerQueueRegeneration();
-            RefreshInventoryCounts();
-        }
+        ImGuiUtil.Checkbox("Skip Logged Recipes##scr",
+            "Skip recipes this character has already crafted, according to the crafting log.",
+            _list.SkipCraftedRecipes, v =>
+            {
+                _list.SkipCraftedRecipes = v;
+                InvalidateQueueCache();
+                InvalidateMaterialCaches();
+                InvalidatePresentationCaches();
+                GatherBuddy.CraftingListManager.SaveList(_list);
+                TriggerQueueRegeneration();
+                RefreshInventoryCounts();
+            });
 
         var skipIfEnough = _list.SkipIfEnough;
         if (ImGui.Checkbox("Skip if Already Have Enough##sie", ref skipIfEnough))
