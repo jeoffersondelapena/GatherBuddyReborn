@@ -771,6 +771,13 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         var recipe = RecipeManager.GetRecipe(failure.RecipeId);
         var itemName = recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {failure.RecipeId}";
+        // fork: a level shortfall does not fix itself on a retry
+        if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.JobLevelTooLow)
+        {
+            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
+            SkipRemainingRecipeInstances(failure.RecipeId);
+            return true;
+        }
         var priorFailures = _missingIngredientFailures.GetValueOrDefault(failure.RecipeId);
         var failureContext = failure.Reason switch
         {

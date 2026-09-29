@@ -1,6 +1,7 @@
 using Dalamud.Game.ClientState.Conditions;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
@@ -24,6 +25,31 @@ public static class CraftingGameInterop
     {
         MissingIngredientsUnableToSelect,
         MissingMaterialsUnableToQuickSynth,
+        JobLevelTooLow,
+    }
+
+    // fork: the recipe note never opens a recipe above the class's level, so the queue would only stall on it
+    private static unsafe int JobLevelFor(uint classJob)
+    {
+        var job = Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob);
+        var ps = PlayerState.Instance();
+        if (job == null || ps == null || job.Value.ExpArrayIndex < 0) return 0;
+        return ps->ClassJobLevels[job.Value.ExpArrayIndex];
+    }
+
+    private static bool RecordLevelShortfall(Recipe recipe)
+    {
+        var need = recipe.RecipeLevelTable.ValueNullable?.ClassJobLevel ?? 0;
+        var classJob = 8u + recipe.CraftType.RowId;
+        var have = JobLevelFor(classJob);
+        if (need == 0 || have == 0 || have >= need) return false;
+        var jobName = Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}";
+        var itemName = GetItemName(recipe.ItemResult.RowId);
+        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {jobName} level {need}; yours is {have}. Skipping it (fork).");
+        _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.JobLevelTooLow, recipe.ItemResult.RowId, need, have, 0,
+            $"{jobName} level {have} is below {need}");
+        GatherBuddy.Log.Warning($"[fork] '{itemName}' (recipe {recipe.RowId}) needs {jobName} level {need}, have {have}");
+        return true;
     }
 
     private static string GetItemName(uint itemId)
@@ -258,6 +284,8 @@ public static class CraftingGameInterop
         _taskManagerIdleSince = DateTime.MinValue;
         _lastPreparationFailure = null;
         GatherBuddy.Log.Debug($"[Crafting] StartCraft - entering PreparingCraft state (QuickSynth={useQuickSynthesis})");
+        if (RecordLevelShortfall(recipe))
+            return;
         
         var tm = GatherBuddy.AutoGather?.TaskManager;
         if (tm == null)
