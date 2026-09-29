@@ -54,6 +54,7 @@ public class CraftingQueueProcessor
     private Dictionary<string, RaphaelSolveRequest> _enqueuedRaphaelRequests = new();
     private uint _jobSwitchRequestedFor = 0u;
     private Dictionary<uint, int> _missingIngredientFailures = new();
+    private readonly HashSet<uint> _deferredForLevel = new();
     private string _pauseReason = string.Empty;
 
     private List<CraftingListItem> QueueItems => _executionPlan?.Queue ?? EmptyQueue;
@@ -98,6 +99,7 @@ public class CraftingQueueProcessor
         _enqueuedRaphaelRequests.Clear();
         _jobSwitchRequestedFor = 0u;
         _missingIngredientFailures.Clear();
+        _deferredForLevel.Clear();
         _pauseReason = string.Empty;
         _retainerRestock = executionPlan.RetainerRestock;
         _retainerExecutor = null;
@@ -771,10 +773,31 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         var recipe = RecipeManager.GetRecipe(failure.RecipeId);
         var itemName = recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {failure.RecipeId}";
-        // fork: a level shortfall does not fix itself on a retry
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.JobLevelTooLow)
         {
-            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
+            if (_deferredForLevel.Add(failure.RecipeId))
+            {
+                var deferred = 0;
+                for (var i = _currentQueueIndex; i < QueueItems.Count; i++)
+                {
+                    var item = QueueItems[i];
+                    if (item.RecipeId != failure.RecipeId || item.Options.Skipping) continue;
+                    QueueItems.Add(new CraftingListItem(item.RecipeId, item.Quantity)
+                    {
+                        Options = new ListItemOptions { NQOnly = item.Options.NQOnly },
+                        IngredientPreferences = item.IngredientPreferences, ConsumableOverrides = item.ConsumableOverrides,
+                        IsOriginalRecipe = item.IsOriginalRecipe, CraftSettings = item.CraftSettings, QualityPolicy = item.QualityPolicy,
+                    });
+                    deferred++;
+                }
+                Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; trying it again at the end of the run (fork).");
+                GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
+            }
+            else
+            {
+                Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' still needs {failure.Details}; skipping it (fork).");
+                GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
+            }
             SkipRemainingRecipeInstances(failure.RecipeId);
             return true;
         }
@@ -1528,6 +1551,7 @@ public class CraftingQueueProcessor
         _currentProcessedRecipeTotal = 0;
         _craftHangSince = DateTime.MinValue;
         _missingIngredientFailures.Clear();
+        _deferredForLevel.Clear();
         _enqueuedRaphaelRequests.Clear();
         _jobSwitchRequestedFor = 0u;
         _retainerRestock = false;

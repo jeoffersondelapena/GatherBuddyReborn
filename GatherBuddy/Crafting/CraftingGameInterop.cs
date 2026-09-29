@@ -45,9 +45,8 @@ public static class CraftingGameInterop
         if (need == 0 || have == 0 || have >= need) return false;
         var jobName = Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}";
         var itemName = GetItemName(recipe.ItemResult.RowId);
-        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {jobName} level {need}; yours is {have}. Skipping it (fork).");
         _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.JobLevelTooLow, recipe.ItemResult.RowId, need, have, 0,
-            $"{jobName} level {have} is below {need}");
+            $"{jobName} level {need} (yours is {have})");
         GatherBuddy.Log.Warning($"[fork] '{itemName}' (recipe {recipe.RowId}) needs {jobName} level {need}, have {have}");
         return true;
     }
