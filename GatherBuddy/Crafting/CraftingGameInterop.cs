@@ -53,12 +53,20 @@ public static class CraftingGameInterop
     }
 
     // fork: a master recipe whose book is unread is not in the log either, so the recipe note never opens it
-    private static unsafe bool RecordLockedBook(Recipe recipe)
+    public static unsafe bool BookUnread(Recipe recipe, out string bookName)
     {
+        bookName = "";
         var bookId = recipe.SecretRecipeBook.RowId;
         if (bookId == 0 || PlayerState.Instance()->IsSecretRecipeBookUnlocked(bookId))
             return false;
-        var bookName = recipe.SecretRecipeBook.ValueNullable?.Name.ExtractText() ?? $"book {bookId}";
+        bookName = recipe.SecretRecipeBook.ValueNullable?.Name.ExtractText() ?? $"book {bookId}";
+        return true;
+    }
+
+    private static bool RecordLockedBook(Recipe recipe)
+    {
+        if (!BookUnread(recipe, out var bookName))
+            return false;
         var itemName = GetItemName(recipe.ItemResult.RowId);
         _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.RecipeBookNotLearned, recipe.ItemResult.RowId, 0, 0, 0,
             $"the book {bookName}");

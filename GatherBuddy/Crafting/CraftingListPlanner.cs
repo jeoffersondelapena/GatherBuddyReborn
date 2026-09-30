@@ -52,6 +52,7 @@ public static class CraftingListPlanner
         public CraftingListPlan Build()
         {
             var skippedCrafted = 0;
+            var locked         = new List<string>();
             foreach (var item in GetOriginalRecipesInDependencyOrder())
             {
                 if (item.Options.Skipping || item.Quantity <= 0)
@@ -65,11 +66,22 @@ public static class CraftingListPlanner
                 var recipe = RecipeManager.GetRecipe(item.RecipeId);
                 if (!recipe.HasValue)
                     continue;
+                if (CraftingGameInterop.BookUnread(recipe.Value, out var bookName))
+                {
+                    locked.Add($"{recipe.Value.ItemResult.Value.Name.ExtractText()} ({bookName})");
+                    continue;
+                }
 
                 PlanOriginalRecipe(item, recipe.Value);
             }
             if (skippedCrafted > 0)
                 GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Logged Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
+            if (locked.Count > 0)
+            {
+                var shown = string.Join(", ", locked.Take(3)) + (locked.Count > 3 ? $" and {locked.Count - 3} more" : "");
+                Dalamud.Chat.PrintError($"[GatherBuddy] Left out {locked.Count} recipe(s) whose book is unread, materials included: {shown} (fork).");
+                GatherBuddy.Log.Warning($"[CraftingListPlanner] Unread books left out {locked.Count} recipe(s) for list '{_list.Name}': {string.Join(", ", locked)}");
+            }
 
             return _plan;
         }
