@@ -37,6 +37,10 @@ public partial class AutoGatherListsManager : IDisposable
     public event Action? ActiveItemsChanged;
 
     private const string FileName         = "auto_gather_lists.json";
+    public const  string TemporaryListName = "Crafting Materials (Auto-Generated)";
+
+    private string? _sharedJson;
+    private int     _loginRetries;
     private const string FileNameFallback = "gather_window.json";
 
     private readonly FileSystem<AutoGatherList>             _fileSystem;
@@ -64,15 +68,19 @@ public partial class AutoGatherListsManager : IDisposable
     {
         _fileSystem = new FileSystem<AutoGatherList>();
         _fileSystem.Changed += OnFileSystemChanged;
+        Dalamud.ClientState.Login  += OnLogin;
+        Dalamud.ClientState.Logout += OnLogout;
     }
 
-    private AutoGatherListsManager(AutoGatherList.Config[] configs)
+    private AutoGatherListsManager(AutoGatherList.Config[] configs, string rawText)
     {
         _fileSystem = new FileSystem<AutoGatherList>();
         var change = false;
 
         foreach (var cfg in configs)
         {
+            if (cfg.Name == TemporaryListName)
+                continue;
             change |= AutoGatherList.FromConfig(cfg, out var list);
 
             var folderPath = string.IsNullOrEmpty(list.FolderPath) ? string.Empty : list.FolderPath;
@@ -102,10 +110,89 @@ public partial class AutoGatherListsManager : IDisposable
             }
         }
 
+        ApplyCharacterState();
+        var normalized = SharedJson(SharedLists());
+        if (normalized == rawText)
+            _sharedJson = normalized;
         if (change)
             Save();
 
         _fileSystem.Changed += OnFileSystemChanged;
+        Dalamud.ClientState.Login  += OnLogin;
+        Dalamud.ClientState.Logout += OnLogout;
+        SetActiveItems();
+    }
+
+    private List<AutoGatherList> SharedLists()
+    {
+        var lists = _fileSystem.Select(kvp => kvp.Key).Where(l => l.Name != TemporaryListName).ToList();
+        foreach (var list in lists)
+            if (_fileSystem.TryGetValue(list, out var leaf))
+                list.FolderPath = leaf.Parent.IsRoot ? string.Empty : leaf.Parent.FullName();
+        return lists;
+    }
+
+    // The shared file holds what the lists are; whether one is on, and which items are ticked, is kept per character.
+    private static string SharedJson(IEnumerable<AutoGatherList> lists)
+        => JsonConvert.SerializeObject(lists.Select(l =>
+        {
+            var cfg = new AutoGatherList.Config(l) { Enabled = false };
+            foreach (var id in cfg.EnabledItems.Keys.ToList())
+                cfg.EnabledItems[id] = true;
+            return cfg;
+        }), Formatting.Indented);
+
+    private void ApplyCharacterState()
+    {
+        var state = CharacterListState.Load();
+        foreach (var list in SharedLists())
+        {
+            if (state == null)
+            {
+                list.Enabled = false;
+                continue;
+            }
+
+            state.TryGetValue(CharacterListState.KeyOf(list.FolderPath, list.Name), out var entry);
+            list.Enabled = entry?.Enabled ?? false;
+            foreach (var item in list.Items.ToList())
+                list.SetEnabled(item, entry == null || !entry.Off.Contains(item.ItemId));
+        }
+    }
+
+    private void SaveCharacterState(IEnumerable<AutoGatherList> lists)
+    {
+        if (CharacterListState.Key() == null)
+            return;
+
+        var state = new Dictionary<string, CharacterListState.Entry>();
+        foreach (var list in lists)
+        {
+            var off = list.EnabledItems.Where(kv => !kv.Value).Select(kv => kv.Key.ItemId).OrderBy(id => id).ToList();
+            if (list.Enabled || off.Count > 0)
+                state[CharacterListState.KeyOf(list.FolderPath, list.Name)] = new CharacterListState.Entry { Enabled = list.Enabled, Off = off };
+        }
+
+        CharacterListState.Save(state);
+    }
+
+    private void OnLogin()
+    {
+        if (CharacterListState.Key() == null && _loginRetries++ < 10)
+        {
+            Dalamud.Framework.RunOnTick(OnLogin, TimeSpan.FromSeconds(1));
+            return;
+        }
+
+        _loginRetries = 0;
+        ApplyCharacterState();
+        SetActiveItems();
+    }
+
+    private void OnLogout(int type, int code)
+    {
+        foreach (var list in SharedLists())
+            list.Enabled = false;
         SetActiveItems();
     }
 
@@ -120,7 +207,10 @@ public partial class AutoGatherListsManager : IDisposable
     }
 
     public void Dispose()
-    { }
+    {
+        Dalamud.ClientState.Login  -= OnLogin;
+        Dalamud.ClientState.Logout -= OnLogout;
+    }
 
     // the gathering and fishing logs of the logged-in character
     private static bool IsLogged(IGatherable item)
@@ -197,15 +287,15 @@ public partial class AutoGatherListsManager : IDisposable
 
         try
         {
-            var allLists = _fileSystem.Select(kvp => kvp.Key).ToList();
-            foreach (var list in allLists)
+            var lists = SharedLists();
+            var text  = SharedJson(lists);
+            if (text != _sharedJson)
             {
-                if (_fileSystem.TryGetValue(list, out var leaf))
-                    list.FolderPath = leaf.Parent.IsRoot ? string.Empty : leaf.Parent.FullName();
+                File.WriteAllText(file.FullName, text);
+                _sharedJson = text;
             }
 
-            var text = JsonConvert.SerializeObject(allLists.Select(p => new AutoGatherList.Config(p)), Formatting.Indented);
-            File.WriteAllText(file.FullName, text);
+            SaveCharacterState(lists);
         }
         catch (Exception e)
         {
@@ -228,7 +318,7 @@ public partial class AutoGatherListsManager : IDisposable
                 var text = File.ReadAllText(file.FullName);
                 var configs = JsonConvert.DeserializeObject<AutoGatherList.Config[]>(text);
                 if (configs != null)
-                    return new AutoGatherListsManager(configs);
+                    return new AutoGatherListsManager(configs, text);
             }
             catch (Exception e)
             {

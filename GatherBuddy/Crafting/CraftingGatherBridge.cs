@@ -267,7 +267,7 @@ public static class CraftingGatherBridge
 
             _gatherList = new AutoGatherList()
             {
-                Name = "Crafting Materials (Auto-Generated)",
+                Name = AutoGatherListsManager.TemporaryListName,
                 Enabled = true,
                 UsesRetainerInventory = false
             };
