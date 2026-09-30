@@ -53,6 +53,7 @@ public static class CraftingListPlanner
         {
             var skippedCrafted = 0;
             var locked         = new List<string>();
+            var remembered     = new List<string>();
             foreach (var item in GetOriginalRecipesInDependencyOrder())
             {
                 if (item.Options.Skipping || item.Quantity <= 0)
@@ -66,9 +67,14 @@ public static class CraftingListPlanner
                 var recipe = RecipeManager.GetRecipe(item.RecipeId);
                 if (!recipe.HasValue)
                     continue;
-                if (CraftingGameInterop.BookUnread(recipe.Value, out var bookName))
+                if (CraftingGameInterop.RecipeLocked(recipe.Value, out var need))
                 {
-                    locked.Add($"{recipe.Value.ItemResult.Value.Name.ExtractText()} ({bookName})");
+                    locked.Add($"{recipe.Value.ItemResult.Value.Name.ExtractText()} (needs {need})");
+                    continue;
+                }
+                if (SkippedRecipes.IsRemembered(item.RecipeId))
+                {
+                    remembered.Add(recipe.Value.ItemResult.Value.Name.ExtractText());
                     continue;
                 }
 
@@ -79,8 +85,15 @@ public static class CraftingListPlanner
             if (locked.Count > 0)
             {
                 var shown = string.Join(", ", locked.Take(3)) + (locked.Count > 3 ? $" and {locked.Count - 3} more" : "");
-                Dalamud.Chat.PrintError($"[GatherBuddy] Left out {locked.Count} recipe(s) whose book is unread, materials included: {shown} (fork).");
-                GatherBuddy.Log.Warning($"[CraftingListPlanner] Unread books left out {locked.Count} recipe(s) for list '{_list.Name}': {string.Join(", ", locked)}");
+                Dalamud.Chat.PrintError($"[GatherBuddy] Left out {locked.Count} recipe(s) the game does not offer yet, materials included: {shown} (fork).");
+                GatherBuddy.Log.Warning($"[CraftingListPlanner] Locked recipes left out of list '{_list.Name}': {string.Join(", ", locked)}");
+            }
+            SkippedRecipes.LeftOutThisRun.Clear();
+            if (remembered.Count > 0)
+            {
+                SkippedRecipes.LeftOutThisRun.AddRange(remembered);
+                Dalamud.Chat.PrintError($"[GatherBuddy] Left out {remembered.Count} remembered recipe(s) that would not start before (fork).");
+                GatherBuddy.Log.Warning($"[CraftingListPlanner] Remembered recipes left out of list '{_list.Name}': {string.Join(", ", remembered)}");
             }
 
             return _plan;

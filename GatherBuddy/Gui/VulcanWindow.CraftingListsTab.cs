@@ -160,6 +160,20 @@ public partial class VulcanWindow
             ImGui.OpenPopup("ImportListPopup");
         }
 
+        ImGui.SameLine();
+        var skipped = SkippedRecipes.Count;
+        ImGui.BeginDisabled(skipped == 0);
+        if (ImGui.Button($"Retry skipped ({skipped}) (fork)", VulcanUiScaling.Scaled(160f, 0f)))
+        {
+            var forgotten = SkippedRecipes.Clear();
+            Dalamud.Chat.Print($"[GatherBuddy] Forgot {forgotten} skipped recipe(s); the next run tries them again (fork).");
+        }
+        ImGui.EndDisabled();
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(skipped == 0
+                ? "No recipe is remembered as one the game would not start."
+                : "Recipes the game would not start, kept out of runs until you press this:\n" + string.Join("\n", SkippedRecipes.Names()));
+
         ImGui.Spacing();
 
         var avail  = ImGui.GetContentRegionAvail();

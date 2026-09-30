@@ -26,7 +26,7 @@ public static class CraftingGameInterop
         MissingIngredientsUnableToSelect,
         MissingMaterialsUnableToQuickSynth,
         JobLevelTooLow,
-        RecipeBookNotLearned,
+        RecipeLocked,
     }
 
     // fork: the recipe note never opens a recipe above the class's level, so the queue would only stall on it
@@ -53,24 +53,67 @@ public static class CraftingGameInterop
     }
 
     // fork: a master recipe whose book is unread is not in the log either, so the recipe note never opens it
-    public static unsafe bool BookUnread(Recipe recipe, out string bookName)
+    public static unsafe bool RecipeLocked(Recipe recipe, out string need)
     {
-        bookName = "";
+        need = "";
         var bookId = recipe.SecretRecipeBook.RowId;
-        if (bookId == 0 || PlayerState.Instance()->IsSecretRecipeBookUnlocked(bookId))
-            return false;
-        bookName = recipe.SecretRecipeBook.ValueNullable?.Name.ExtractText() ?? $"book {bookId}";
-        return true;
+        if (bookId != 0 && !PlayerState.Instance()->IsSecretRecipeBookUnlocked(bookId))
+        {
+            need = "the book " + (recipe.SecretRecipeBook.ValueNullable?.Name.ExtractText() ?? $"{bookId}");
+            return true;
+        }
+        var quest = UnlockQuestFor(recipe);
+        if (quest.Id != 0 && !QuestManager.IsQuestComplete(quest.Id))
+        {
+            need = $"the quest '{quest.Name}'" + (quest.Who.Length > 0 ? $" ({quest.Who}'s deliveries)" : "");
+            return true;
+        }
+        return false;
     }
 
-    private static bool RecordLockedBook(Recipe recipe)
+    private const uint CollectablesUnlockQuest = 67631;
+
+    private static Dictionary<uint, (uint Id, string Name, string Who)>? _deliveryQuests;
+
+    // collectable metadata key 1 is a scrip collectable, 3 a custom delivery whose row is the client's supply index
+    private static (uint Id, string Name, string Who) UnlockQuestFor(Recipe recipe)
     {
-        if (!BookUnread(recipe, out var bookName))
+        switch (recipe.CollectableMetadataKey)
+        {
+            case 1: return (CollectablesUnlockQuest, "Inscrutable Tastes", "");
+            case 3:
+                _deliveryQuests ??= DeliveryQuests();
+                return _deliveryQuests.TryGetValue(recipe.CollectableMetadata.RowId, out var q) ? q : default;
+            default: return default;
+        }
+    }
+
+    private static Dictionary<uint, (uint Id, string Name, string Who)> DeliveryQuests()
+    {
+        var map   = new Dictionary<uint, (uint, string, string)>();
+        var sheet = Dalamud.GameData.GetExcelSheet<SatisfactionNpc>();
+        if (sheet == null)
+            return map;
+        foreach (var npc in sheet)
+        {
+            var quest = npc.QuestRequired.RowId;
+            if (quest == 0)
+                continue;
+            var name = npc.QuestRequired.ValueNullable?.Name.ExtractText() ?? $"quest {quest}";
+            var who  = npc.Npc.ValueNullable?.Singular.ExtractText() ?? "";
+            foreach (var p in npc.SatisfactionNpcParams)
+                map.TryAdd((uint)p.SupplyIndex, (quest, name, who));
+        }
+        return map;
+    }
+
+    private static bool RecordLocked(Recipe recipe)
+    {
+        if (!RecipeLocked(recipe, out var need))
             return false;
         var itemName = GetItemName(recipe.ItemResult.RowId);
-        _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.RecipeBookNotLearned, recipe.ItemResult.RowId, 0, 0, 0,
-            $"the book {bookName}");
-        GatherBuddy.Log.Warning($"[fork] '{itemName}' (recipe {recipe.RowId}) needs the unread book {bookName}");
+        _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.RecipeLocked, recipe.ItemResult.RowId, 0, 0, 0, need);
+        GatherBuddy.Log.Warning($"[fork] '{itemName}' (recipe {recipe.RowId}) needs {need}");
         return true;
     }
 
@@ -306,7 +349,7 @@ public static class CraftingGameInterop
         _taskManagerIdleSince = DateTime.MinValue;
         _lastPreparationFailure = null;
         GatherBuddy.Log.Debug($"[Crafting] StartCraft - entering PreparingCraft state (QuickSynth={useQuickSynthesis})");
-        if (RecordLevelShortfall(recipe) || RecordLockedBook(recipe))
+        if (RecordLevelShortfall(recipe) || RecordLocked(recipe))
             return;
         
         var tm = GatherBuddy.AutoGather?.TaskManager;

@@ -224,6 +224,7 @@ public class CraftingQueueProcessor
                             var stuckName = stuckItem != null ? stuckItem.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {stuck.RecipeId}";
                             Dalamud.Chat.PrintError($"[GatherBuddy] '{stuckName}' would not start twice, so the game is not offering this recipe; skipping it (fork).");
                             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] '{stuckName}' (recipe {stuck.RecipeId}) never started after {_startRetries} attempts; skipping it");
+                            SkippedRecipes.Remember(stuck.RecipeId, "would not start");
                             SkipRemainingRecipeInstances(stuck.RecipeId);
                             break;
                         }
@@ -792,7 +793,7 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         var recipe = RecipeManager.GetRecipe(failure.RecipeId);
         var itemName = recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {failure.RecipeId}";
-        if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.RecipeBookNotLearned)
+        if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.RecipeLocked)
         {
             Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; skipping it (fork).");
             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
@@ -952,6 +953,10 @@ public class CraftingQueueProcessor
     private void CompleteQueue()
     {
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
+        if (SkippedRecipes.Count > 0)
+            Dalamud.Chat.PrintError($"[GatherBuddy] {SkippedRecipes.Count} recipe(s) the game would not start stay out of runs: {SkippedRecipes.Summary()}. "
+                + "Retry skipped (fork) in the Crafting Lists tab tries them again.");
+        SkippedRecipes.LeftOutThisRun.Clear();
         YesAlready.Unlock();
         GatherBuddy.AutoGather.Enabled = false;
         

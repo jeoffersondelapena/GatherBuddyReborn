@@ -108,7 +108,7 @@ public sealed class ForkLog : IDisposable
         => _pending.Enqueue($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {text}");
 
     // Same key as Codex's state files, so one character's files line up across plugins.
-    private unsafe string CurrentPath()
+    public static unsafe string CharacterKey()
     {
         var key = "pre-login";
         if (Dalamud.ClientState is { IsLoggedIn: true })
@@ -117,7 +117,12 @@ public sealed class ForkLog : IDisposable
             if (cid != 0)
                 key = Convert.ToHexString(SHA256.HashData(BitConverter.GetBytes(cid)))[..16].ToLowerInvariant();
         }
+        return key;
+    }
 
+    private string CurrentPath()
+    {
+        var key = CharacterKey();
         if (key != _key)
         {
             var dir = Dalamud.PluginInterface.ConfigDirectory.FullName;
