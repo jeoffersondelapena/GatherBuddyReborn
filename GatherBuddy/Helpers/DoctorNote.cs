@@ -1,7 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
+using GatherBuddy.ForkLogic;
 
 namespace GatherBuddy.Helpers;
 
@@ -14,10 +13,7 @@ public static class DoctorNote
     private static readonly object Lock = new();
 
     public static string Brief(string? reason)
-    {
-        var line = (reason ?? "").Split('\n').Select(l => l.Trim()).FirstOrDefault(l => l.Length > 0) ?? "unknown";
-        return line.Length > 90 ? line[..87] + "..." : line;
-    }
+        => TextRules.FirstLine(reason);
 
     public static void Set(string? note)
     {
@@ -30,15 +26,9 @@ public static class DoctorNote
             var path = Path.Combine(configs.FullName, "XIVDoctor", "attention.txt");
             lock (Lock)
             {
-                var kept = File.Exists(path) ? File.ReadAllLines(path).Where(l => l.Trim().Length > 0).ToList() : new List<string>();
-                var mine = kept.FindIndex(l => l.StartsWith(Source + ":"));
-                if ((note != null) == (mine >= 0))
+                var kept = TextRules.WithNote(File.Exists(path) ? File.ReadAllLines(path) : [], Source, note);
+                if (kept == null)
                     return;
-
-                if (mine >= 0)
-                    kept.RemoveAt(mine);
-                else
-                    kept.Add($"{Source}: {note}");
 
                 if (kept.Count > 0)
                 {

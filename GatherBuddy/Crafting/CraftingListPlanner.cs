@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using Lumina.Excel.Sheets;
@@ -37,8 +38,6 @@ public static class CraftingListPlanner
         private readonly bool _consumeIntermediateAvailability;
         private readonly bool _consumeFinalAvailability;
         private readonly Dictionary<uint, CraftingListItem> _originalRecipeLookup;
-
-        private const uint FirstUnloggedRecipe = 30000;
 
         public Planner(CraftingListDefinition list, CraftingListPlannerOptions options)
         {
@@ -153,8 +152,8 @@ public static class CraftingListPlanner
             var requestedItemCount = item.Quantity * (int)recipe.AmountResult;
             var remainingItemCount = requestedItemCount;
 
-            // fork: a Skip Logged Recipes list crafts what the log lacks whatever is in stock; the game logs only ids below 30000
-            var logDecides = _list.SkipCraftedRecipes && item.RecipeId < FirstUnloggedRecipe;
+            // fork: a Skip Logged Recipes list crafts what the log lacks whatever is in stock
+            var logDecides = QueueRules.LogDecides(_list.SkipCraftedRecipes, item.RecipeId);
             if (!logDecides)
                 remainingItemCount -= _availability.ConsumePlanned(resultItemId, remainingItemCount);
 

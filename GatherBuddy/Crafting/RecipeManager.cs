@@ -1,5 +1,6 @@
 using Dalamud.Game.Inventory;
 using Dalamud.Plugin.Services;
+using GatherBuddy.ForkLogic;
 using Lumina.Excel.Sheets;
 using System;
 using System.Collections.Generic;
@@ -49,26 +50,7 @@ public static class RecipeManager
 
     // fork: the class that needs a shared material makes it when it can; the table's first recipe may be out of reach
     public static Recipe? GetRecipeForItem(uint itemId, Recipe parent)
-    {
-        var recipes = GetRecipesForItem(itemId);
-        if (recipes.Count < 2)
-            return recipes.Count == 1 ? recipes[0] : null;
-
-        Recipe? own = null, usable = null;
-        foreach (var recipe in recipes)
-        {
-            var canCraft = CraftingGameInterop.CanCraftNow(recipe);
-            if (recipe.CraftType.RowId == parent.CraftType.RowId)
-            {
-                if (canCraft)
-                    return recipe;
-                own ??= recipe;
-            }
-            if (canCraft)
-                usable ??= recipe;
-        }
-        return usable ?? own ?? recipes[0];
-    }
+        => QueueRules.PickRecipe(GetRecipesForItem(itemId), parent.CraftType.RowId, r => r.CraftType.RowId, CraftingGameInterop.CanCraftNow);
 
     public static IReadOnlyList<Recipe> GetRecipesForItem(uint itemId)
     {

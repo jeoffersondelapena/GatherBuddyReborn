@@ -36,6 +36,9 @@ jobs:
       - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.x
+      - name: Test the fork's own logic
+        # a rebase that breaks a fork rule stops here: nothing is built, published or pushed
+        run: dotnet test GatherBuddy.Tests/GatherBuddy.Tests.csproj
       - name: Dalamud dev assemblies
         run: |
           # The SDK's macOS default path wins over DALAMUD_HOME, so mirror the Mac's layout exactly.

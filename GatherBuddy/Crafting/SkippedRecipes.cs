@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text.Json;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 
 namespace GatherBuddy.Crafting;
@@ -70,7 +71,7 @@ public static class SkippedRecipes
     public static string Summary(int shown = 5) => Brief(Names(), shown);
 
     public static string Brief(IReadOnlyList<string> names, int shown = 5)
-        => string.Join(", ", names.Take(shown)) + (names.Count > shown ? $" and {names.Count - shown} more" : "");
+        => TextRules.Brief(names, shown);
 
     private static unsafe Store Current()
     {

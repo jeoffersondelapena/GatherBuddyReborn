@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using System.Linq;
+using GatherBuddy.ForkLogic;
 
 namespace GatherBuddy.Helpers;
 
@@ -8,12 +8,7 @@ public static class ForkChat
 {
     public static void List(string header, IReadOnlyList<string> items, int max = int.MaxValue, string? footer = null)
     {
-        Dalamud.Chat.PrintError($"[GatherBuddy] {header} (fork)");
-        foreach (var item in items.Take(max))
-            Dalamud.Chat.PrintError($"    - {item}");
-        if (items.Count > max)
-            Dalamud.Chat.PrintError($"    - and {items.Count - max} more");
-        if (footer != null)
-            Dalamud.Chat.PrintError($"    {footer}");
+        foreach (var line in TextRules.ListLines(header, items, max, footer))
+            Dalamud.Chat.PrintError(line);
     }
 }

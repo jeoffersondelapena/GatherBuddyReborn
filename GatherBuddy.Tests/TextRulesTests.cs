@@ -1,0 +1,80 @@
+using GatherBuddy.ForkLogic;
+using Xunit;
+
+public class TextRulesTests
+{
+    private const string Source = "GatherBuddyReborn crafting";
+
+    [Fact]
+    public void A_list_goes_to_chat_one_item_per_line()
+    {
+        Assert.Equal(
+            new[] { "[GatherBuddy] Run finished: 1 recipe(s) done, 2 could not be made: (fork)", "    - Brass Alembic (missing Brass Ingot)", "    - Iron Plate (needs armorer level 14)" },
+            TextRules.ListLines("Run finished: 1 recipe(s) done, 2 could not be made:", new[] { "Brass Alembic (missing Brass Ingot)", "Iron Plate (needs armorer level 14)" }));
+    }
+
+    [Fact]
+    public void A_long_list_is_cut_with_a_count_and_a_footer_comes_last()
+    {
+        var lines = TextRules.ListLines("Left out:", new[] { "a", "b", "c", "d" }, 2, "Retry skipped (fork) tries them again.").ToList();
+        Assert.Equal(new[] { "[GatherBuddy] Left out: (fork)", "    - a", "    - b", "    - and 2 more", "    Retry skipped (fork) tries them again." }, lines);
+        Assert.Single(TextRules.ListLines("Nothing:", Array.Empty<string>()));
+    }
+
+    [Fact]
+    public void Names_are_summed_up_after_the_first_few()
+    {
+        Assert.Equal("a, b", TextRules.Brief(new[] { "a", "b" }));
+        Assert.Equal("a, b and 3 more", TextRules.Brief(new[] { "a", "b", "c", "d", "e" }, 2));
+        Assert.Equal("", TextRules.Brief(Array.Empty<string>()));
+    }
+
+    private const string NoSolution =
+        "Exit code -1073740791: \nthread 'main' (2592) panicked at raphael-cli\\src\\commands\\solve.rs:357:34:\nFailed to solve: NoSolution\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n";
+
+    [Fact]
+    public void A_solver_that_found_no_way_is_told_apart_from_a_solver_that_failed()
+    {
+        Assert.True(TextRules.IsNoSolution(NoSolution));
+        Assert.False(TextRules.IsNoSolution("Solve timeout"));
+        Assert.False(TextRules.IsNoSolution("raphael-cli.exe not found at Z:\\plugin\\raphael-cli.exe"));
+        Assert.False(TextRules.IsNoSolution(null));
+    }
+
+    [Fact]
+    public void A_failure_is_named_by_its_first_line_kept_short()
+    {
+        Assert.Equal("Exit code -1073740791:", TextRules.FirstLine(NoSolution));
+        Assert.Equal("Solve timeout", TextRules.FirstLine("\n\n  Solve timeout  \nmore"));
+        Assert.Equal("unknown", TextRules.FirstLine(null));
+        Assert.Equal("unknown", TextRules.FirstLine(" \n "));
+
+        var cut = TextRules.FirstLine(new string('x', 200));
+        Assert.Equal(90, cut.Length);
+        Assert.EndsWith("...", cut);
+    }
+
+    [Fact]
+    public void A_note_is_added_beside_the_other_sources_notes()
+    {
+        var lines = TextRules.WithNote(new[] { "Boot: a boot wedged at 10:02", "" }, Source, "the Raphael solver failed (Solve timeout)");
+        Assert.Equal(new[] { "Boot: a boot wedged at 10:02", "GatherBuddyReborn crafting: the Raphael solver failed (Solve timeout)" }, lines);
+    }
+
+    [Fact]
+    public void The_first_failure_stands_until_it_is_cleared()
+    {
+        var first = TextRules.WithNote(Array.Empty<string>(), Source, "first failure")!;
+        Assert.Null(TextRules.WithNote(first, Source, "second failure"));
+        Assert.Equal(new[] { "GatherBuddyReborn crafting: first failure" }, first);
+    }
+
+    [Fact]
+    public void Clearing_removes_only_this_sources_line()
+    {
+        var lines = new[] { "GatherBuddyReborn solver: binary missing", "GatherBuddyReborn crafting: first failure", "Network: packet loss" };
+        Assert.Equal(new[] { "GatherBuddyReborn solver: binary missing", "Network: packet loss" }, TextRules.WithNote(lines, Source, null));
+        Assert.Null(TextRules.WithNote(new[] { "Network: packet loss" }, Source, null));
+        Assert.Empty(TextRules.WithNote(new[] { "GatherBuddyReborn crafting: x" }, Source, null)!);
+    }
+}

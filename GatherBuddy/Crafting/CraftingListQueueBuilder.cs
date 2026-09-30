@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using GatherBuddy.ForkLogic;
 using Lumina.Excel.Sheets;
 
 namespace GatherBuddy.Crafting;
@@ -107,20 +108,16 @@ public static class CraftingListQueueBuilder
     {
         var precrafts = recipes.Where(recipe => !recipe.IsOriginalRecipe).ToList();
         var finalProducts = new List<CraftingListItem>(originalRecipesList);
-        var sortedPrecrafts = new List<CraftingListItem>();
-        var processed = new HashSet<uint>();
-        // fork: a precraft may use another class's recipe for its item, so a dependency is found by what it makes
-        var makers = precrafts.ToLookup(r => RecipeManager.GetRecipe(r.RecipeId)?.ItemResult.RowId ?? 0);
-
         var precraftsByJob = precrafts
             .GroupBy(r => RecipeManager.GetRecipe(r.RecipeId)?.CraftType.RowId ?? uint.MaxValue)
             .OrderBy(g => g.Key);
 
-        foreach (var jobGroup in precraftsByJob)
-        {
-            foreach (var recipeItem in jobGroup.ToList())
-                ProcessRecipeWithDependencies(recipeItem, makers, processed, sortedPrecrafts);
-        }
+        // fork: a precraft may use another class's recipe for its item, so a dependency is found by what it makes
+        var sortedPrecrafts = QueueRules.ProducersFirst(
+            precraftsByJob.SelectMany(g => g),
+            r => r.RecipeId,
+            r => RecipeManager.GetRecipe(r.RecipeId)?.ItemResult.RowId ?? 0,
+            r => RecipeManager.GetRecipe(r.RecipeId) is { } recipe ? RecipeManager.GetIngredients(recipe).Select(i => i.itemId) : Enumerable.Empty<uint>());
 
         var result = new List<CraftingListItem>();
         var attachedFinalRecipeIds = new HashSet<uint>();
@@ -147,28 +144,5 @@ public static class CraftingListQueueBuilder
             result.Add(recipeItem);
 
         return result;
-    }
-
-    private static void ProcessRecipeWithDependencies(
-        CraftingListItem recipeItem,
-        ILookup<uint, CraftingListItem> makers,
-        HashSet<uint> processed,
-        List<CraftingListItem> result)
-    {
-        if (processed.Contains(recipeItem.RecipeId))
-            return;
-
-        var recipe = RecipeManager.GetRecipe(recipeItem.RecipeId);
-        if (!recipe.HasValue)
-            return;
-
-        foreach (var (itemId, _) in RecipeManager.GetIngredients(recipe.Value))
-        {
-            foreach (var depItem in makers[itemId])
-                ProcessRecipeWithDependencies(depItem, makers, processed, result);
-        }
-
-        processed.Add(recipeItem.RecipeId);
-        result.Add(recipeItem);
     }
 }

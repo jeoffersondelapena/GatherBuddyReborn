@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game.ClientState.Conditions;
 using GatherBuddy.Automation;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using GatherBuddy.Vulcan;
@@ -856,38 +857,24 @@ public class CraftingQueueProcessor
     }
 
     private int DeferRemainingInstances(uint recipeId)
-    {
-        var deferred = 0;
-        var end      = QueueItems.Count;
-        for (var i = _currentQueueIndex; i < end; i++)
-        {
-            var item = QueueItems[i];
-            if (item.RecipeId != recipeId || item.Options.Skipping) continue;
-            QueueItems.Add(new CraftingListItem(item.RecipeId, item.Quantity)
+        => QueueRules.AppendCopies(QueueItems, _currentQueueIndex,
+            item => item.RecipeId == recipeId && !item.Options.Skipping,
+            item => new CraftingListItem(item.RecipeId, item.Quantity)
             {
                 Options = new ListItemOptions { NQOnly = item.Options.NQOnly },
                 IngredientPreferences = item.IngredientPreferences, ConsumableOverrides = item.ConsumableOverrides,
                 IsOriginalRecipe = item.IsOriginalRecipe, CraftSettings = item.CraftSettings, QualityPolicy = item.QualityPolicy,
             });
-            deferred++;
-        }
-        return deferred;
-    }
 
     private void SkipRemainingRecipeInstances(uint recipeId, int? end = null)
     {
-        var skippedCount = 0;
-        var bound        = end ?? QueueItems.Count;
-        for (var i = _currentQueueIndex; i < bound; i++)
-        {
-            var queueItem = QueueItems[i];
-            if (queueItem.RecipeId != recipeId || queueItem.Options.Skipping)
-                continue;
-
-            queueItem.Options.Skipping = true;
-            skippedCount++;
-            GatherBuddy.Log.Debug($"[CraftingQueueProcessor] Marked queue index {i} for recipe {recipeId} as skipped after repeated missing-material preparation failure");
-        }
+        var skippedCount = QueueRules.MarkRange(QueueItems, _currentQueueIndex, end ?? QueueItems.Count,
+            queueItem => queueItem.RecipeId == recipeId && !queueItem.Options.Skipping,
+            (queueItem, i) =>
+            {
+                queueItem.Options.Skipping = true;
+                GatherBuddy.Log.Debug($"[CraftingQueueProcessor] Marked queue index {i} for recipe {recipeId} as skipped after repeated missing-material preparation failure");
+            });
 
         _missingIngredientFailures.Remove(recipeId);
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Marked {skippedCount} remaining instance(s) of recipe {recipeId} to skip");
@@ -910,8 +897,7 @@ public class CraftingQueueProcessor
         }
 
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {recipeId}) - Raphael solution failed: {failureReason ?? "unknown"}");
-        // fork: NoSolution is the solver's answer for this recipe and these stats, not a solver fault
-        if (failureReason?.Contains("NoSolution") == true)
+        if (TextRules.IsNoSolution(failureReason))
         {
             _runReasons[recipeId] = "your stats cannot finish it";
             Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' cannot be finished with your current stats; skipping it (fork).");
