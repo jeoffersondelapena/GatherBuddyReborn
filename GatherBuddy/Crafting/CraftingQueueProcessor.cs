@@ -985,7 +985,7 @@ public class CraftingQueueProcessor
         }
         else
         {
-            Dalamud.Chat.PrintError($"[GatherBuddy] Run finished: {done.Count} recipe(s) done, {failed.Count} could not be made: {SkippedRecipes.Brief(failed)} (fork).");
+            ForkChat.List($"Run finished: {done.Count} recipe(s) done, {failed.Count} could not be made:", failed, 12);
             Dalamud.ToastGui.ShowNormal($"GatherBuddy: run finished, {failed.Count} not made");
         }
     }
@@ -995,10 +995,10 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
         AnnounceRunEnd();
         if (SkippedRecipes.LockedThisRun.Count > 0)
-            Dalamud.Chat.PrintError($"[GatherBuddy] Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet: {SkippedRecipes.Brief(SkippedRecipes.LockedThisRun, 3)} (fork).");
+            ForkChat.List($"Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet:", SkippedRecipes.LockedThisRun, 10);
         if (SkippedRecipes.Count > 0)
-            Dalamud.Chat.PrintError($"[GatherBuddy] {SkippedRecipes.Count} recipe(s) the game would not start stay out of runs: {SkippedRecipes.Summary()}. "
-                + "Retry skipped (fork) in the Crafting Lists tab tries them again.");
+            ForkChat.List($"{SkippedRecipes.Count} recipe(s) the game would not start stay out of runs:", SkippedRecipes.Names(), 10,
+                "Retry skipped (fork) in the Crafting Lists tab tries them again.");
         SkippedRecipes.LockedThisRun.Clear();
         SkippedRecipes.LeftOutThisRun.Clear();
         YesAlready.Unlock();
@@ -1682,7 +1682,7 @@ public class CraftingQueueProcessor
         Pause(pauseReason);
         var keep = StillNeededFromBags();
         if (keep.Count > 0)
-            Dalamud.Chat.PrintError($"[GatherBuddy] Still needed from your bags for the rest of this run: {SkippedRecipes.Brief(keep, 8)} (fork).");
+            ForkChat.List("Still needed from your bags for the rest of this run:", keep);
     }
 
     // What the plan counted as already owned: selling it while paused leaves a later recipe short.

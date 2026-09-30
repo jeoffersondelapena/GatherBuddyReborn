@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using Lumina.Excel.Sheets;
 
@@ -86,15 +87,14 @@ public static class CraftingListPlanner
             SkippedRecipes.LockedThisRun.AddRange(locked);
             if (locked.Count > 0)
             {
-                var shown = SkippedRecipes.Brief(locked, 3);
-                Dalamud.Chat.PrintError($"[GatherBuddy] Left out {locked.Count} recipe(s) the game does not offer yet, materials included: {shown} (fork).");
+                ForkChat.List($"Left out {locked.Count} recipe(s) the game does not offer yet, materials included:", locked, 10);
                 GatherBuddy.Log.Warning($"[CraftingListPlanner] Locked recipes left out of list '{_list.Name}': {string.Join(", ", locked)}");
             }
             SkippedRecipes.LeftOutThisRun.Clear();
             if (remembered.Count > 0)
             {
                 SkippedRecipes.LeftOutThisRun.AddRange(remembered);
-                Dalamud.Chat.PrintError($"[GatherBuddy] Left out {remembered.Count} remembered recipe(s) that would not start before (fork).");
+                ForkChat.List($"Left out {remembered.Count} remembered recipe(s) that would not start before:", remembered, 10);
                 GatherBuddy.Log.Warning($"[CraftingListPlanner] Remembered recipes left out of list '{_list.Name}': {string.Join(", ", remembered)}");
             }
 
