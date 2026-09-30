@@ -7,8 +7,6 @@ namespace GatherBuddy.ForkLogic;
 
 public static class QueueRules
 {
-    public const uint FirstUnloggedRecipe = 30000;
-
     // The end is read once: a loop that re-read it walked its own copies and never ended, freezing the game.
     public static int AppendCopies<T>(List<T> queue, int from, Func<T, bool> match, Func<T, T> copy)
     {
@@ -92,8 +90,4 @@ public static class QueueRules
 
         return usable ?? own ?? recipes[0];
     }
-
-    // The game records completion only below this id, so for master and newer special recipes stock is the only sign.
-    public static bool LogDecides(bool skipLoggedRecipes, uint recipeId)
-        => skipLoggedRecipes && recipeId < FirstUnloggedRecipe;
 }

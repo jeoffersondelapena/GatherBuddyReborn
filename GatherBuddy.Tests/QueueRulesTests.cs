@@ -142,14 +142,4 @@ public class QueueRulesTests
         Assert.Equal(663u, QueueRules.PickRecipe(new[] { new Recipe(663, 3, false) }, 2, r => r.Class, _ => throw new InvalidOperationException("not asked"))?.Id);
         Assert.Null(Pick(2));
     }
-
-    [Theory]
-    [InlineData(true, 170u, true)]
-    [InlineData(true, 6344u, true)]
-    [InlineData(true, 29999u, true)]
-    [InlineData(true, 30000u, false)]
-    [InlineData(true, 30241u, false)]
-    [InlineData(false, 170u, false)]
-    public void The_log_decides_only_on_a_skip_logged_list_and_only_for_recipes_the_game_logs(bool skipLogged, uint recipe, bool expected)
-        => Assert.Equal(expected, QueueRules.LogDecides(skipLogged, recipe));
 }

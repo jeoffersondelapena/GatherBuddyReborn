@@ -15,8 +15,7 @@ What is covered:
 - `ListStateRules`: which gather lists are on and which items are unticked, per character; a character's file is only
   written from the state that was loaded for that character.
 - `QueueRules`: putting a recipe off to the end of a run (the loop that once froze the game), skipping within a bound,
-  queueing every producer of a material before its consumer, which class makes a shared material, and when the
-  crafting log rather than stock decides that a recipe is crafted.
+  queueing every producer of a material before its consumer, and which class makes a shared material.
 - `TextRules`: the chat lists, the solver's "no solution" against a real failure, and the XIV Doctor note line.
 - `SafeFile`: a file shared by two game windows is swapped in whole, never read half-written.
 
