@@ -84,8 +84,36 @@ public static class CraftingGameInterop
             case 3:
                 _deliveryQuests ??= DeliveryQuests();
                 return _deliveryQuests.TryGetValue(recipe.CollectableMetadata.RowId, out var q) ? q : default;
+            case 0:
+                _pageQuests ??= PageQuests();
+                return _pageQuests.TryGetValue(recipe.RecipeNotebookList.RowId, out var byPage) ? byPage : default;
             default: return default;
         }
+    }
+
+    private static Dictionary<uint, (uint Id, string Name, string Who)>? _pageQuests;
+
+    // The Stormblood clients' original request items lost their supply link; their log pages still name the client.
+    private static Dictionary<uint, (uint Id, string Name, string Who)> PageQuests()
+    {
+        var pages = new Dictionary<uint, (uint Id, string Name, string Who)?>();
+        var sheet = Dalamud.GameData.GetExcelSheet<Recipe>();
+        if (sheet == null)
+            return new();
+        _deliveryQuests ??= DeliveryQuests();
+        foreach (var r in sheet)
+        {
+            if (r.CollectableMetadataKey != 3 || !_deliveryQuests.TryGetValue(r.CollectableMetadata.RowId, out var q))
+                continue;
+            var page = r.RecipeNotebookList.RowId;
+            if (page == 0)
+                continue;
+            if (!pages.TryGetValue(page, out var seen))
+                pages[page] = q;
+            else if (seen is { } s && s.Id != q.Id)
+                pages[page] = null;
+        }
+        return pages.Where(kv => kv.Value != null).ToDictionary(kv => kv.Key, kv => kv.Value!.Value);
     }
 
     private static Dictionary<uint, (uint Id, string Name, string Who)> DeliveryQuests()
