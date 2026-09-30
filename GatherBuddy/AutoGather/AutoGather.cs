@@ -460,6 +460,8 @@ namespace GatherBuddy.AutoGather
             }
         else
             {
+                // fork: Skip Logged Items is decided when the lists are refreshed, which may be a login or days ago
+                _plugin.AutoGatherListsManager.SetActiveItems();
                 if (!ValidateActiveItemsPerception())
                 {
                     return;
