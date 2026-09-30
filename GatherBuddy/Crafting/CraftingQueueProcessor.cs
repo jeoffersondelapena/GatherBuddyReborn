@@ -824,7 +824,8 @@ public class CraftingQueueProcessor
     private int DeferRemainingInstances(uint recipeId)
     {
         var deferred = 0;
-        for (var i = _currentQueueIndex; i < QueueItems.Count; i++)
+        var end      = QueueItems.Count;
+        for (var i = _currentQueueIndex; i < end; i++)
         {
             var item = QueueItems[i];
             if (item.RecipeId != recipeId || item.Options.Skipping) continue;
