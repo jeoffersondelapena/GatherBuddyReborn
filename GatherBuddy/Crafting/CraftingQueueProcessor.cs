@@ -1680,5 +1680,45 @@ public class CraftingQueueProcessor
         var pauseReason = $"{message} Clear inventory, then press Resume to continue the current queue.";
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
         Pause(pauseReason);
+        var keep = StillNeededFromBags();
+        if (keep.Count > 0)
+            Dalamud.Chat.PrintError($"[GatherBuddy] Still needed from your bags for the rest of this run: {SkippedRecipes.Brief(keep, 8)} (fork).");
+    }
+
+    // What the plan counted as already owned: selling it while paused leaves a later recipe short.
+    private unsafe List<string> StillNeededFromBags()
+    {
+        var need    = new Dictionary<uint, int>();
+        var produce = new Dictionary<uint, int>();
+        for (var i = _currentQueueIndex; i < QueueItems.Count; i++)
+        {
+            var item = QueueItems[i];
+            if (item.Options.Skipping)
+                continue;
+            var recipe = RecipeManager.GetRecipe(item.RecipeId);
+            if (recipe == null)
+                continue;
+            var made = recipe.Value.ItemResult.RowId;
+            produce[made] = produce.GetValueOrDefault(made) + item.Quantity * (int)recipe.Value.AmountResult;
+            foreach (var (itemId, amount) in RecipeManager.GetIngredients(recipe.Value))
+                need[itemId] = need.GetValueOrDefault(itemId) + amount * item.Quantity;
+        }
+
+        var inventory = InventoryManager.Instance();
+        var sheet     = Dalamud.GameData.GetExcelSheet<Item>();
+        var keep      = new List<string>();
+        foreach (var (itemId, needed) in need)
+        {
+            var fromBags = needed - produce.GetValueOrDefault(itemId);
+            if (fromBags <= 0 || itemId < 20 || inventory == null)
+                continue;
+            var have = inventory->GetInventoryItemCount(itemId, false, false, false) + inventory->GetInventoryItemCount(itemId, true, false, false);
+            if (have <= 0)
+                continue;
+            var name = sheet?.GetRowOrDefault(itemId)?.Name.ExtractText() ?? $"item {itemId}";
+            keep.Add($"{name} x{Math.Min(fromBags, have)}");
+        }
+        keep.Sort(StringComparer.OrdinalIgnoreCase);
+        return keep;
     }
 }
