@@ -82,9 +82,11 @@ public static class CraftingListPlanner
             }
             if (skippedCrafted > 0)
                 GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Logged Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
+            SkippedRecipes.LockedThisRun.Clear();
+            SkippedRecipes.LockedThisRun.AddRange(locked);
             if (locked.Count > 0)
             {
-                var shown = string.Join(", ", locked.Take(3)) + (locked.Count > 3 ? $" and {locked.Count - 3} more" : "");
+                var shown = SkippedRecipes.Brief(locked, 3);
                 Dalamud.Chat.PrintError($"[GatherBuddy] Left out {locked.Count} recipe(s) the game does not offer yet, materials included: {shown} (fork).");
                 GatherBuddy.Log.Warning($"[CraftingListPlanner] Locked recipes left out of list '{_list.Name}': {string.Join(", ", locked)}");
             }

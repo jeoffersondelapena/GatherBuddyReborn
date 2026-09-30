@@ -213,9 +213,33 @@ public sealed partial class VendorBuyListWindow : Window
         ImGui.Spacing();
 
         ImGui.BeginChild("##vendorBuyListSelectorScroll", new Vector2(-1, 0), false);
-        foreach (var list in manager.Lists.OrderBy(list => list.CreatedAt))
-            DrawListSidebarEntry(manager, list, activeList.Id == list.Id, canModifyLists);
+        DrawListSidebarFolder(manager, activeList, canModifyLists, "");
         ImGui.EndChild();
+    }
+
+    // fork: a list may carry a folder path like the crafting lists; unfiled lists stay at the top
+    private void DrawListSidebarFolder(VendorBuyListManager manager, VendorBuyListDefinition activeList, bool canModifyLists, string folder)
+    {
+        var prefix = folder.Length == 0 ? "" : folder + "/";
+        foreach (var list in manager.Lists.Where(l => string.Equals(l.FolderPath ?? "", folder, StringComparison.OrdinalIgnoreCase))
+                     .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase))
+            DrawListSidebarEntry(manager, list, activeList.Id == list.Id, canModifyLists);
+
+        var children = manager.Lists
+            .Select(l => l.FolderPath ?? "")
+            .Where(p => p.Length > prefix.Length && p.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            .Select(p => p[prefix.Length..].Split('/')[0])
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase);
+        foreach (var child in children)
+        {
+            var path  = prefix + child;
+            var flags = (activeList.FolderPath ?? "").StartsWith(path, StringComparison.OrdinalIgnoreCase) ? ImGuiTreeNodeFlags.DefaultOpen : ImGuiTreeNodeFlags.None;
+            if (!ImGui.TreeNodeEx($"{child}##vendorFolder_{path}", flags))
+                continue;
+            DrawListSidebarFolder(manager, activeList, canModifyLists, path);
+            ImGui.TreePop();
+        }
     }
 
     private void DrawListSidebarEntry(VendorBuyListManager manager, VendorBuyListDefinition list, bool isSelected, bool canModifyLists)

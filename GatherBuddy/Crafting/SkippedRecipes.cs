@@ -23,6 +23,7 @@ public static class SkippedRecipes
     private static Store           _store = new();
 
     public static List<string> LeftOutThisRun { get; } = new();
+    public static List<string> LockedThisRun  { get; } = new();
 
     public static int Count
     {
@@ -66,11 +67,10 @@ public static class SkippedRecipes
         return recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {recipeId}";
     }
 
-    public static string Summary(int shown = 5)
-    {
-        var names = Names();
-        return string.Join(", ", names.Take(shown)) + (names.Count > shown ? $" and {names.Count - shown} more" : "");
-    }
+    public static string Summary(int shown = 5) => Brief(Names(), shown);
+
+    public static string Brief(IReadOnlyList<string> names, int shown = 5)
+        => string.Join(", ", names.Take(shown)) + (names.Count > shown ? $" and {names.Count - shown} more" : "");
 
     private static unsafe Store Current()
     {

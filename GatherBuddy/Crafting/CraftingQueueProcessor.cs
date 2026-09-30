@@ -953,9 +953,12 @@ public class CraftingQueueProcessor
     private void CompleteQueue()
     {
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
+        if (SkippedRecipes.LockedThisRun.Count > 0)
+            Dalamud.Chat.PrintError($"[GatherBuddy] Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet: {SkippedRecipes.Brief(SkippedRecipes.LockedThisRun, 3)} (fork).");
         if (SkippedRecipes.Count > 0)
             Dalamud.Chat.PrintError($"[GatherBuddy] {SkippedRecipes.Count} recipe(s) the game would not start stay out of runs: {SkippedRecipes.Summary()}. "
                 + "Retry skipped (fork) in the Crafting Lists tab tries them again.");
+        SkippedRecipes.LockedThisRun.Clear();
         SkippedRecipes.LeftOutThisRun.Clear();
         YesAlready.Unlock();
         GatherBuddy.AutoGather.Enabled = false;
