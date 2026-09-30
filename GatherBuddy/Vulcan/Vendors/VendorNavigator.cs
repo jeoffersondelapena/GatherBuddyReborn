@@ -442,6 +442,7 @@ public class VendorNavigator
         && currentDistrict == targetDistrict;
 
     private const float  LiveNpcInteractionDistance         = 5.0f;
+    private const float  VendorTargetDistance               = 10.0f;
     private const float  CachedInteractionDistance          = 5.0f;
     private const float  AetheryteSourceInteractionDistance = 15.0f;
     private const float  AetheryteSourceHorizontalInteractionDistance = 11.0f;
@@ -1338,8 +1339,13 @@ public class VendorNavigator
         return bestObject;
     }
 
+    // fork: no target until close; the interaction targets the vendor itself, so nothing needs it earlier
     private unsafe void TryTargetLiveNpc(IGameObject liveNpc)
     {
+        var player = Dalamud.Objects.LocalPlayer;
+        if (player == null || Vector3.Distance(player.Position, liveNpc.Position) > VendorTargetDistance)
+            return;
+
         var targetSystem = TargetSystem.Instance();
         if (targetSystem == null)
             return;
