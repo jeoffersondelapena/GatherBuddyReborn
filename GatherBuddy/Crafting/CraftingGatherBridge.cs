@@ -233,7 +233,8 @@ public static class CraftingGatherBridge
         {
             var recipe = RecipeManager.GetRecipe(item.RecipeId);
             var name   = recipe?.ItemResult.Value.Name.ExtractText() ?? $"recipe {item.RecipeId}";
-            return $"{name} x{item.Quantity}{(item.IsOriginalRecipe ? "" : " (precraft)")}{(item.Options.Skipping ? " (skipped)" : "")}";
+            var job    = recipe == null ? "?" : Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(8u + recipe.Value.CraftType.RowId)?.Abbreviation.ExtractText() ?? "?";
+            return $"{name} x{item.Quantity} {job}{(item.IsOriginalRecipe ? "" : " (precraft)")}{(item.Options.Skipping ? " (skipped)" : "")}";
         }
 
         static string Items(IReadOnlyDictionary<uint, int> items)

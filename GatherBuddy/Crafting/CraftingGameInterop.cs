@@ -49,6 +49,12 @@ public static class CraftingGameInterop
     public static bool CannotStart(Recipe recipe)
         => LevelShort(recipe, out _, out _) || RecipeLocked(recipe, out _);
 
+    public static bool CanCraftNow(Recipe recipe)
+    {
+        var have = JobLevelFor(8u + recipe.CraftType.RowId);
+        return have > 0 && have >= (recipe.RecipeLevelTable.ValueNullable?.ClassJobLevel ?? 0) && !RecipeLocked(recipe, out _);
+    }
+
     private static bool RecordLevelShortfall(Recipe recipe)
     {
         if (!LevelShort(recipe, out var need, out var have)) return false;

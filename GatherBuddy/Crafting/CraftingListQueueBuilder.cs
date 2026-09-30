@@ -109,6 +109,8 @@ public static class CraftingListQueueBuilder
         var finalProducts = new List<CraftingListItem>(originalRecipesList);
         var sortedPrecrafts = new List<CraftingListItem>();
         var processed = new HashSet<uint>();
+        // fork: a precraft may use another class's recipe for its item, so a dependency is found by what it makes
+        var makers = precrafts.ToLookup(r => RecipeManager.GetRecipe(r.RecipeId)?.ItemResult.RowId ?? 0);
 
         var precraftsByJob = precrafts
             .GroupBy(r => RecipeManager.GetRecipe(r.RecipeId)?.CraftType.RowId ?? uint.MaxValue)
@@ -117,7 +119,7 @@ public static class CraftingListQueueBuilder
         foreach (var jobGroup in precraftsByJob)
         {
             foreach (var recipeItem in jobGroup.ToList())
-                ProcessRecipeWithDependencies(recipeItem, precrafts, processed, sortedPrecrafts);
+                ProcessRecipeWithDependencies(recipeItem, makers, processed, sortedPrecrafts);
         }
 
         var result = new List<CraftingListItem>();
@@ -149,7 +151,7 @@ public static class CraftingListQueueBuilder
 
     private static void ProcessRecipeWithDependencies(
         CraftingListItem recipeItem,
-        List<CraftingListItem> allRecipes,
+        ILookup<uint, CraftingListItem> makers,
         HashSet<uint> processed,
         List<CraftingListItem> result)
     {
@@ -162,13 +164,8 @@ public static class CraftingListQueueBuilder
 
         foreach (var (itemId, _) in RecipeManager.GetIngredients(recipe.Value))
         {
-            var depRecipe = RecipeManager.GetRecipeForItem(itemId);
-            if (!depRecipe.HasValue)
-                continue;
-
-            var depItem = allRecipes.FirstOrDefault(r => r.RecipeId == depRecipe.Value.RowId && !r.IsOriginalRecipe);
-            if (depItem != null)
-                ProcessRecipeWithDependencies(depItem, allRecipes, processed, result);
+            foreach (var depItem in makers[itemId])
+                ProcessRecipeWithDependencies(depItem, makers, processed, result);
         }
 
         processed.Add(recipeItem.RecipeId);

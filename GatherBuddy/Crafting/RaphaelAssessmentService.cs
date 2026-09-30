@@ -243,7 +243,7 @@ public static class RaphaelAssessmentService
 
         foreach (var (itemId, _) in RecipeManager.GetIngredients(recipe.Value))
         {
-            var subRecipe = ResolveSubRecipe(itemId, list);
+            var subRecipe = ResolveSubRecipe(itemId, list, recipe.Value);
             if (!subRecipe.HasValue)
                 continue;
 
@@ -252,7 +252,7 @@ public static class RaphaelAssessmentService
         }
     }
 
-    private static Recipe? ResolveSubRecipe(uint itemId, CraftingListDefinition list)
+    private static Recipe? ResolveSubRecipe(uint itemId, CraftingListDefinition list, Recipe parent)
     {
         if (list.PrecraftRecipeOverrides.TryGetValue(itemId, out var overrideRecipeId))
         {
@@ -261,7 +261,7 @@ public static class RaphaelAssessmentService
                 return overrideRecipe;
         }
 
-        return RecipeManager.GetRecipeForItem(itemId);
+        return RecipeManager.GetRecipeForItem(itemId, parent);
     }
     
     private static bool TryQueueWarmupForListContext(

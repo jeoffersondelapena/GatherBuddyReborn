@@ -47,6 +47,29 @@ public static class RecipeManager
         return recipes.Count > 0 ? recipes[0] : (Recipe?)null;
     }
 
+    // fork: the class that needs a shared material makes it when it can; the table's first recipe may be out of reach
+    public static Recipe? GetRecipeForItem(uint itemId, Recipe parent)
+    {
+        var recipes = GetRecipesForItem(itemId);
+        if (recipes.Count < 2)
+            return recipes.Count == 1 ? recipes[0] : null;
+
+        Recipe? own = null, usable = null;
+        foreach (var recipe in recipes)
+        {
+            var canCraft = CraftingGameInterop.CanCraftNow(recipe);
+            if (recipe.CraftType.RowId == parent.CraftType.RowId)
+            {
+                if (canCraft)
+                    return recipe;
+                own ??= recipe;
+            }
+            if (canCraft)
+                usable ??= recipe;
+        }
+        return usable ?? own ?? recipes[0];
+    }
+
     public static IReadOnlyList<Recipe> GetRecipesForItem(uint itemId)
     {
         var recipesByItemId = _recipesByItemId.Value;
@@ -102,7 +125,7 @@ public static class RecipeManager
         foreach (var (itemId, amount) in ingredients)
         {
             var actualAmount = amount * multiplier;
-            var subRecipe = GetRecipeForItem(itemId);
+            var subRecipe = GetRecipeForItem(itemId, recipe);
             if (subRecipe.HasValue)
             {
                 var quantityToCraft = System.Math.Ceiling((double)actualAmount / subRecipe.Value.AmountResult);

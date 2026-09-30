@@ -481,7 +481,7 @@ public class CraftingTreeWindow : Window
                 continue;
 
             var totalNeeded = ingredientPerCraft * craftCount;
-            var subRecipe = ResolveSubRecipe(list, ingredientItemId);
+            var subRecipe = ResolveSubRecipe(list, ingredientItemId, recipe);
             if (subRecipe.HasValue)
             {
                 var subRecipeYield = (int)subRecipe.Value.AmountResult;
@@ -525,7 +525,7 @@ public class CraftingTreeWindow : Window
         }
     }
 
-    private static Recipe? ResolveSubRecipe(CraftingListDefinition list, uint itemId)
+    private static Recipe? ResolveSubRecipe(CraftingListDefinition list, uint itemId, Recipe parent)
     {
         if (list.PrecraftRecipeOverrides.TryGetValue(itemId, out var overrideId))
         {
@@ -533,7 +533,7 @@ public class CraftingTreeWindow : Window
             if (overrideRecipe.HasValue)
                 return overrideRecipe;
         }
-        return RecipeManager.GetRecipeForItem(itemId);
+        return RecipeManager.GetRecipeForItem(itemId, parent);
     }
 
     private static string ResolveCrafterName(Recipe recipe)

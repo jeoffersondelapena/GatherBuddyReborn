@@ -511,7 +511,7 @@ public class CraftingListEditor
             if (itemId > 0)
                 _watchedInventoryItemIds.Add(itemId);
 
-            var subRecipe = RecipeManager.GetRecipeForItem(itemId);
+            var subRecipe = RecipeManager.GetRecipeForItem(itemId, recipe);
             if (subRecipe.HasValue)
                 CollectWatchedInventoryItems(subRecipe.Value, false, visitedRecipes);
         }
@@ -1313,7 +1313,7 @@ public class CraftingListEditor
             {
                 var activeRecipeId = _list.PrecraftRecipeOverrides.TryGetValue(resultItemId, out var overrideRecipeId)
                     ? overrideRecipeId
-                    : altRecipes[0].RowId;
+                    : row.Recipe.RowId;
                 foreach (var alt in altRecipes)
                 {
                     var altJob = GetCraftingJobName(alt.CraftType.RowId);
