@@ -874,6 +874,10 @@ public class CraftingQueueProcessor
         }
 
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {recipeId}) - Raphael solution failed: {failureReason ?? "unknown"}");
+        var brief = DoctorNote.Brief(failureReason);
+        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' skipped: the Raphael solver failed ({brief}) (fork).");
+        DoctorNote.Set($"the Raphael solver failed mid-run ({brief}), so recipes that need it are skipped; usually a plugin/solver mismatch. "
+            + "This clears on the next successful solve; after a fix, reload GatherBuddy so the failed recipes retry");
         _currentQueueIndex++;
 
         if (_currentQueueIndex >= QueueItems.Count)

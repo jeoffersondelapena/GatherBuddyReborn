@@ -11,6 +11,7 @@ using GatherBuddy.Plugin;
 using Lumina.Excel.Sheets;
 using Newtonsoft.Json;
 using GatherBuddy.Vulcan;
+using GatherBuddy.Helpers;
 
 namespace GatherBuddy.Crafting;
 
@@ -715,6 +716,7 @@ public class RaphaelSolveCoordinator
         cacheEntry.ActionIds = actionIds;
             _cachedSolutions[key] = cacheEntry;
             GatherBuddy.Log.Information($"[RaphaelSolveCoordinator] SUCCESS: Raphael solved recipe {request.RecipeId} with {actionIds.Count} actions");
+            DoctorNote.Set(null);
             Save();
         }
         catch (OperationCanceledException) when (_inProgressTasks.TryGetValue(key, out var solveTask) && solveTask.UserCancelled)
