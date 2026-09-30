@@ -38,6 +38,8 @@ public static class CraftingListPlanner
         private readonly bool _consumeFinalAvailability;
         private readonly Dictionary<uint, CraftingListItem> _originalRecipeLookup;
 
+        private const uint FirstUnloggedRecipe = 30000;
+
         public Planner(CraftingListDefinition list, CraftingListPlannerOptions options)
         {
             _list = list;
@@ -151,9 +153,12 @@ public static class CraftingListPlanner
             var requestedItemCount = item.Quantity * (int)recipe.AmountResult;
             var remainingItemCount = requestedItemCount;
 
-            remainingItemCount -= _availability.ConsumePlanned(resultItemId, remainingItemCount);
+            // fork: a Skip Logged Recipes list crafts what the log lacks whatever is in stock; the game logs only ids below 30000
+            var logDecides = _list.SkipCraftedRecipes && item.RecipeId < FirstUnloggedRecipe;
+            if (!logDecides)
+                remainingItemCount -= _availability.ConsumePlanned(resultItemId, remainingItemCount);
 
-            if (_list.SkipIfEnough && _list.SkipFinalIfEnough && _consumeFinalAvailability)
+            if (!logDecides && _list.SkipIfEnough && _list.SkipFinalIfEnough && _consumeFinalAvailability)
             {
                 var consumedInventory = _availability.ConsumeInventory(resultItemId, remainingItemCount);
                 remainingItemCount -= consumedInventory;
