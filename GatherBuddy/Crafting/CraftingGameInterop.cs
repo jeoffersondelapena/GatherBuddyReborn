@@ -38,12 +38,21 @@ public static class CraftingGameInterop
         return ps->ClassJobLevels[job.Value.ExpArrayIndex];
     }
 
+    private static bool LevelShort(Recipe recipe, out int need, out int have)
+    {
+        need = recipe.RecipeLevelTable.ValueNullable?.ClassJobLevel ?? 0;
+        have = JobLevelFor(8u + recipe.CraftType.RowId);
+        return need != 0 && have != 0 && have < need;
+    }
+
+    // fork: the solver has no answer for a recipe the game will not open, so such a recipe must not wait on it
+    public static bool CannotStart(Recipe recipe)
+        => LevelShort(recipe, out _, out _) || RecipeLocked(recipe, out _);
+
     private static bool RecordLevelShortfall(Recipe recipe)
     {
-        var need = recipe.RecipeLevelTable.ValueNullable?.ClassJobLevel ?? 0;
+        if (!LevelShort(recipe, out var need, out var have)) return false;
         var classJob = 8u + recipe.CraftType.RowId;
-        var have = JobLevelFor(classJob);
-        if (need == 0 || have == 0 || have >= need) return false;
         var jobName = Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}";
         var itemName = GetItemName(recipe.ItemResult.RowId);
         _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.JobLevelTooLow, recipe.ItemResult.RowId, need, have, 0,

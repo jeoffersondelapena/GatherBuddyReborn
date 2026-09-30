@@ -388,7 +388,7 @@ public class CraftingQueueProcessor
             if (currentRecipe != null)
             {
                 var executionContext = CraftingContextResolver.ResolveExecutionContext(currentItem, currentRecipe.Value, _listConsumables);
-                if (_raphaelCoordinator == null || !CraftingContextResolver.UsesRaphaelSolver(executionContext))
+                if (_raphaelCoordinator == null || !CraftingContextResolver.UsesRaphaelSolver(executionContext) || CraftingGameInterop.CannotStart(currentRecipe.Value))
                 {
                     _currentState = QueueState.ReadyForCraft;
                     StateChanged?.Invoke(_currentState);
@@ -502,7 +502,7 @@ public class CraftingQueueProcessor
 
     private bool EnsureRaphaelSolutionReadyForCurrentCraft(CraftingListItem recipeItem, Recipe recipe, CraftingExecutionContext executionContext)
     {
-        if (_raphaelCoordinator == null || !CraftingContextResolver.UsesRaphaelSolver(executionContext))
+        if (_raphaelCoordinator == null || !CraftingContextResolver.UsesRaphaelSolver(executionContext) || CraftingGameInterop.CannotStart(recipe))
             return true;
 
         var isNQOnly = !recipe.CanHq && !recipe.IsExpert && !recipe.ItemResult.Value.AlwaysCollectable && recipe.RequiredQuality == 0;
@@ -910,10 +910,19 @@ public class CraftingQueueProcessor
         }
 
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {recipeId}) - Raphael solution failed: {failureReason ?? "unknown"}");
-        var brief = DoctorNote.Brief(failureReason);
-        _runReasons[recipeId] = "no Raphael solution";
-        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' has no Raphael solution ({brief}); skipping it (fork).");
-        DoctorNote.Set($"the Raphael solver failed in a crafting run ({brief}); recipes that need it are skipped until it solves one again");
+        // fork: NoSolution is the solver's answer for this recipe and these stats, not a solver fault
+        if (failureReason?.Contains("NoSolution") == true)
+        {
+            _runReasons[recipeId] = "your stats cannot finish it";
+            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' cannot be finished with your current stats; skipping it (fork).");
+        }
+        else
+        {
+            var brief = DoctorNote.Brief(failureReason);
+            _runReasons[recipeId] = "no Raphael solution";
+            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' has no Raphael solution ({brief}); skipping it (fork).");
+            DoctorNote.Set($"the Raphael solver failed in a crafting run ({brief}); recipes that need it are skipped until it solves one again");
+        }
         _currentQueueIndex++;
 
         if (_currentQueueIndex >= QueueItems.Count)
