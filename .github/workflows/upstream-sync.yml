@@ -45,6 +45,13 @@ jobs:
           echo "DALAMUD_HOME=$DEV" >> "$GITHUB_ENV"
       - name: Build
         run: dotnet build GatherBuddy/GatherBuddy.csproj -c Release -nodeReuse:false -p:Version=${{ steps.rebase.outputs.version }}
+      - name: Raphael solver from the upstream release
+        # upstream builds raphael-cli.exe from raphael-rs on a Windows runner and ships it beside the DLL; a Mac runner takes theirs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download --repo FFXIV-CombatReborn/GatherBuddyReborn --pattern GatherbuddyReborn.zip -D "$RUNNER_TEMP/upstream"
+          unzip -o -j "$RUNNER_TEMP/upstream/GatherbuddyReborn.zip" raphael-cli.exe -d GatherBuddy/bin/Release
       - name: Describe the build
         run: |
           cd GatherBuddy/bin/Release
