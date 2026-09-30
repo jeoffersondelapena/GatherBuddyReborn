@@ -111,6 +111,7 @@ public partial class AutoGatherListsManager
         }
         
         list.Enabled = !list.Enabled;
+        PausedByRun.Remove(list);
         Save();
         if (list.Items.Count > 0)
             SetActiveItems();

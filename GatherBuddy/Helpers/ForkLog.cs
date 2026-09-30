@@ -107,17 +107,24 @@ public sealed class ForkLog : IDisposable
     private void Enqueue(string level, string text)
         => _pending.Enqueue($"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} [{level}] {text}");
 
+    public const string NoCharacter = "pre-login";
+
+    private static Tuple<ulong, string>? _keyFor;
+
     // Same key as Codex's state files, so one character's files line up across plugins.
     public static unsafe string CharacterKey()
     {
-        var key = "pre-login";
-        if (Dalamud.ClientState is { IsLoggedIn: true })
-        {
-            var cid = PlayerState.Instance()->ContentId;
-            if (cid != 0)
-                key = Convert.ToHexString(SHA256.HashData(BitConverter.GetBytes(cid)))[..16].ToLowerInvariant();
-        }
-        return key;
+        if (Dalamud.ClientState is not { IsLoggedIn: true })
+            return NoCharacter;
+
+        var cid = PlayerState.Instance()->ContentId;
+        if (cid == 0)
+            return NoCharacter;
+
+        var cached = _keyFor;
+        if (cached == null || cached.Item1 != cid)
+            _keyFor = cached = Tuple.Create(cid, Convert.ToHexString(SHA256.HashData(BitConverter.GetBytes(cid)))[..16].ToLowerInvariant());
+        return cached.Item2;
     }
 
     private string CurrentPath()

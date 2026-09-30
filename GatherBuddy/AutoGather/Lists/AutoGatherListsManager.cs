@@ -1,4 +1,6 @@
+using Dalamud.Plugin.Services;
 using GatherBuddy.Classes;
+using GatherBuddy.ForkLogic;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using ElliLib.Filesystem;
 using GatherBuddy.Interfaces;
@@ -39,8 +41,14 @@ public partial class AutoGatherListsManager : IDisposable
     private const string FileName         = "auto_gather_lists.json";
     public const  string TemporaryListName = "Crafting Materials (Auto-Generated)";
 
+    private const string NoState = "<none>";
+
     private string? _sharedJson;
-    private int     _loginRetries;
+    private string? _stateFor = NoState;
+    private bool    _stateBroken;
+
+    // lists a crafting run switched off for its own gathering; they stay on in the character's file
+    public HashSet<AutoGatherList> PausedByRun { get; } = [];
     private const string FileNameFallback = "gather_window.json";
 
     private readonly FileSystem<AutoGatherList>             _fileSystem;
@@ -68,8 +76,7 @@ public partial class AutoGatherListsManager : IDisposable
     {
         _fileSystem = new FileSystem<AutoGatherList>();
         _fileSystem.Changed += OnFileSystemChanged;
-        Dalamud.ClientState.Login  += OnLogin;
-        Dalamud.ClientState.Logout += OnLogout;
+        Dalamud.Framework.Update += OnUpdate;
     }
 
     private AutoGatherListsManager(AutoGatherList.Config[] configs, string rawText)
@@ -110,16 +117,15 @@ public partial class AutoGatherListsManager : IDisposable
             }
         }
 
-        ApplyCharacterState();
+        ApplyCharacterState(CharacterListState.Key());
         var normalized = SharedJson(SharedLists());
-        if (normalized == rawText)
+        if (normalized == rawText || ListStateRules.SameJson(normalized, rawText))
             _sharedJson = normalized;
         if (change)
             Save();
 
         _fileSystem.Changed += OnFileSystemChanged;
-        Dalamud.ClientState.Login  += OnLogin;
-        Dalamud.ClientState.Logout += OnLogout;
+        Dalamud.Framework.Update += OnUpdate;
         SetActiveItems();
     }
 
@@ -142,58 +148,52 @@ public partial class AutoGatherListsManager : IDisposable
             return cfg;
         }), Formatting.Indented);
 
-    private void ApplyCharacterState()
+    private void ApplyCharacterState(string? key)
     {
-        var state = CharacterListState.Load();
+        var state = key == null ? null : CharacterListState.Load(key);
         foreach (var list in SharedLists())
         {
-            if (state == null)
-            {
-                list.Enabled = false;
-                continue;
-            }
-
-            state.TryGetValue(CharacterListState.KeyOf(list.FolderPath, list.Name), out var entry);
-            list.Enabled = entry?.Enabled ?? false;
+            var entry = ListStateRules.For(state, CharacterListState.KeyOf(list));
+            list.Enabled = entry.Enabled;
             foreach (var item in list.Items.ToList())
-                list.SetEnabled(item, entry == null || !entry.Off.Contains(item.ItemId));
+                list.SetEnabled(item, !entry.Off.Contains(item.ItemId));
         }
+
+        PausedByRun.Clear();
+        _stateFor    = key;
+        _stateBroken = false;
     }
 
     private void SaveCharacterState(IEnumerable<AutoGatherList> lists)
     {
-        if (CharacterListState.Key() == null)
+        var key = CharacterListState.Key();
+        if (_stateBroken || !ListStateRules.MayWrite(_stateFor, key))
             return;
 
-        var state = new Dictionary<string, CharacterListState.Entry>();
-        foreach (var list in lists)
-        {
-            var off = list.EnabledItems.Where(kv => !kv.Value).Select(kv => kv.Key.ItemId).OrderBy(id => id).ToList();
-            if (list.Enabled || off.Count > 0)
-                state[CharacterListState.KeyOf(list.FolderPath, list.Name)] = new CharacterListState.Entry { Enabled = list.Enabled, Off = off };
-        }
-
-        CharacterListState.Save(state);
+        CharacterListState.Save(key!, ListStateRules.Capture(lists.Select(l => new ListStateRules.ListView(
+            CharacterListState.KeyOf(l),
+            l.Enabled || PausedByRun.Contains(l),
+            l.EnabledItems.Where(kv => !kv.Value).Select(kv => kv.Key.ItemId).ToList()))));
     }
 
-    private void OnLogin()
+    // checked every frame: a missed or early login event must not leave one character's lists under another's name
+    private void OnUpdate(IFramework framework)
     {
-        if (CharacterListState.Key() == null && _loginRetries++ < 10)
-        {
-            Dalamud.Framework.RunOnTick(OnLogin, TimeSpan.FromSeconds(1));
+        var key = CharacterListState.Key();
+        if (key == _stateFor)
             return;
+
+        try
+        {
+            ApplyCharacterState(key);
+            SetActiveItems();
         }
-
-        _loginRetries = 0;
-        ApplyCharacterState();
-        SetActiveItems();
-    }
-
-    private void OnLogout(int type, int code)
-    {
-        foreach (var list in SharedLists())
-            list.Enabled = false;
-        SetActiveItems();
+        catch (Exception e)
+        {
+            _stateFor    = key;
+            _stateBroken = true;
+            GatherBuddy.Log.Error($"[CharacterListState] list state not applied, this character's file is left alone until the next login:\n{e}");
+        }
     }
 
     private void OnFileSystemChanged(FileSystemChangeType type, FileSystem<AutoGatherList>.IPath changedObject, FileSystem<AutoGatherList>.IPath? previousParent, FileSystem<AutoGatherList>.IPath? newParent)
@@ -208,8 +208,7 @@ public partial class AutoGatherListsManager : IDisposable
 
     public void Dispose()
     {
-        Dalamud.ClientState.Login  -= OnLogin;
-        Dalamud.ClientState.Logout -= OnLogout;
+        Dalamud.Framework.Update -= OnUpdate;
     }
 
     // the gathering and fishing logs of the logged-in character
@@ -291,7 +290,7 @@ public partial class AutoGatherListsManager : IDisposable
             var text  = SharedJson(lists);
             if (text != _sharedJson)
             {
-                File.WriteAllText(file.FullName, text);
+                SafeFile.Write(file.FullName, text);
                 _sharedJson = text;
             }
 
@@ -315,7 +314,7 @@ public partial class AutoGatherListsManager : IDisposable
         {
             try
             {
-                var text = File.ReadAllText(file.FullName);
+                var text = SafeFile.Read(file.FullName);
                 var configs = JsonConvert.DeserializeObject<AutoGatherList.Config[]>(text);
                 if (configs != null)
                     return new AutoGatherListsManager(configs, text);

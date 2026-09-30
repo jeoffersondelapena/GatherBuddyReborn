@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
-using Newtonsoft.Json;
 
 namespace GatherBuddy.AutoGather.Lists;
 
@@ -10,59 +10,52 @@ namespace GatherBuddy.AutoGather.Lists;
 // list file, and each window's run must not change what the other character has switched on.
 public static class CharacterListState
 {
-    public sealed class Entry
-    {
-        public bool       Enabled { get; set; }
-        public List<uint> Off     { get; set; } = new();
-    }
-
     private static (string Key, string Text)? _lastWritten;
 
     public static string? Key()
     {
         var key = ForkLog.CharacterKey();
-        return key == "pre-login" ? null : key;
+        return key == ForkLog.NoCharacter ? null : key;
     }
 
-    public static string KeyOf(string folderPath, string name)
-        => $"{folderPath}/{name}";
+    public static string KeyOf(AutoGatherList list)
+        => ListStateRules.KeyOf(list.FolderPath, list.Name);
 
     private static string PathFor(string key)
         => Path.Combine(Dalamud.PluginInterface.ConfigDirectory.FullName, $"gather-state-{key}.json");
 
-    /// <summary>Null when no character is logged in; empty on a character's first use.</summary>
-    public static Dictionary<string, Entry>? Load()
+    public static Dictionary<string, ListStateRules.Entry> Load(string key)
     {
-        var key = Key();
-        if (key == null)
-            return null;
-
+        var path = PathFor(key);
         try
         {
-            var path = PathFor(key);
             if (File.Exists(path))
-                return JsonConvert.DeserializeObject<Dictionary<string, Entry>>(File.ReadAllText(path)) ?? new();
+                return ListStateRules.Deserialize(SafeFile.Read(path, attempts: 1));
         }
         catch (Exception e)
         {
-            GatherBuddy.Log.Warning($"[CharacterListState] state file unreadable, starting with every list off: {e.Message}");
+            GatherBuddy.Log.Warning($"[CharacterListState] {path} unreadable, kept as .unreadable and starting with every list off: {e.Message}");
+            try
+            {
+                File.Copy(path, path + ".unreadable", true);
+            }
+            catch (Exception)
+            {
+            }
         }
 
         return new();
     }
 
-    public static void Save(Dictionary<string, Entry> state)
+    public static void Save(string key, Dictionary<string, ListStateRules.Entry> state)
     {
-        var key = Key();
-        if (key == null)
-            return;
-
         try
         {
-            var text = JsonConvert.SerializeObject(state, Formatting.Indented);
+            var text = ListStateRules.Serialize(state);
             if (_lastWritten is { } last && last.Key == key && last.Text == text)
                 return;
-            File.WriteAllText(PathFor(key), text);
+
+            SafeFile.Write(PathFor(key), text);
             _lastWritten = (key, text);
         }
         catch (Exception e)

@@ -352,6 +352,7 @@ public partial class GatherBuddy : IDalamudPlugin
         ContextMenu?.Dispose();
         UptimeManager?.Dispose();
         AutoGather?.Dispose();
+        AutoGatherListsManager?.Dispose();
         CollectableManager?.Dispose();
         VendorBuyListManager?.Dispose();
         VendorPurchaseManager?.Dispose();

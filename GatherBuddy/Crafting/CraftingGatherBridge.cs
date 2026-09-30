@@ -260,6 +260,7 @@ public static class CraftingGatherBridge
                     {
                         existingList.Enabled = false;
                         _disabledGatherLists.Add(existingList);
+                        _plugin.AutoGatherListsManager.PausedByRun.Add(existingList);
                         GatherBuddy.Log.Debug($"[CraftingGatherBridge] Disabled gather list '{existingList.Name}' before starting craft gather");
                     }
                     _plugin.AutoGatherListsManager.Save();
@@ -450,6 +451,7 @@ public static class CraftingGatherBridge
         foreach (var list in _disabledGatherLists)
         {
             list.Enabled = true;
+            _plugin.AutoGatherListsManager.PausedByRun.Remove(list);
             GatherBuddy.Log.Debug($"[CraftingGatherBridge] Re-enabled gather list '{list.Name}'");
         }
         _plugin.AutoGatherListsManager.SetActiveItems();
