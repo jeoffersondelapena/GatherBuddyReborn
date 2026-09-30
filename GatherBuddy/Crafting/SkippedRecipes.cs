@@ -8,7 +8,7 @@ using GatherBuddy.Helpers;
 
 namespace GatherBuddy.Crafting;
 
-// Fork only. Recipes the game would not open for this character, kept per character until a retry or a game patch.
+// Fork only. Recipes the game would not open for this character, kept per character until the Retry button.
 public static class SkippedRecipes
 {
     private sealed class Store
@@ -86,7 +86,7 @@ public static class SkippedRecipes
             if (File.Exists(_path))
             {
                 var loaded = JsonSerializer.Deserialize<Store>(File.ReadAllText(_path));
-                if (loaded != null && loaded.Game == _store.Game)
+                if (loaded != null)
                     _store = loaded;
             }
         }
