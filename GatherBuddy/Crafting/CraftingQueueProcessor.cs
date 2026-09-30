@@ -50,6 +50,8 @@ public class CraftingQueueProcessor
     private int _currentProcessedRecipeCount = 0;
     private int _currentProcessedRecipeTotal = 0;
     private DateTime _craftHangSince = DateTime.MinValue;
+    private int _startRetries;
+    private int _startRetriesIndex = -1;
     private bool _lastCraftWasQuickSynth = false;
     private Dictionary<string, RaphaelSolveRequest> _enqueuedRaphaelRequests = new();
     private uint _jobSwitchRequestedFor = 0u;
@@ -210,6 +212,21 @@ public class CraftingQueueProcessor
                         }
                         GatherBuddy.Log.Warning("[CraftingQueueProcessor] Craft hang detected: game idle but craft never started, auto-recovering to WaitingForJobSwitch");
                         _craftHangSince = DateTime.MinValue;
+                        if (_startRetriesIndex != _currentQueueIndex)
+                        {
+                            _startRetriesIndex = _currentQueueIndex;
+                            _startRetries      = 0;
+                        }
+                        if (++_startRetries >= 2 && _currentQueueIndex < QueueItems.Count)
+                        {
+                            var stuck     = QueueItems[_currentQueueIndex];
+                            var stuckItem = RecipeManager.GetRecipe(stuck.RecipeId);
+                            var stuckName = stuckItem != null ? stuckItem.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {stuck.RecipeId}";
+                            Dalamud.Chat.PrintError($"[GatherBuddy] '{stuckName}' would not start twice, so the game is not offering this recipe; skipping it (fork).");
+                            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] '{stuckName}' (recipe {stuck.RecipeId}) never started after {_startRetries} attempts; skipping it");
+                            SkipRemainingRecipeInstances(stuck.RecipeId);
+                            break;
+                        }
                         _currentState = QueueState.WaitingForJobSwitch;
                         StateChanged?.Invoke(_currentState);
                     }
@@ -775,6 +792,13 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         var recipe = RecipeManager.GetRecipe(failure.RecipeId);
         var itemName = recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {failure.RecipeId}";
+        if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.RecipeBookNotLearned)
+        {
+            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; skipping it (fork).");
+            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
+            SkipRemainingRecipeInstances(failure.RecipeId);
+            return true;
+        }
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.JobLevelTooLow)
         {
             var end = QueueItems.Count;

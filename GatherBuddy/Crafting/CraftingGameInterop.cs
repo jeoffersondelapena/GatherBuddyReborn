@@ -26,6 +26,7 @@ public static class CraftingGameInterop
         MissingIngredientsUnableToSelect,
         MissingMaterialsUnableToQuickSynth,
         JobLevelTooLow,
+        RecipeBookNotLearned,
     }
 
     // fork: the recipe note never opens a recipe above the class's level, so the queue would only stall on it
@@ -48,6 +49,20 @@ public static class CraftingGameInterop
         _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.JobLevelTooLow, recipe.ItemResult.RowId, need, have, 0,
             $"{jobName} level {need} (yours is {have})");
         GatherBuddy.Log.Warning($"[fork] '{itemName}' (recipe {recipe.RowId}) needs {jobName} level {need}, have {have}");
+        return true;
+    }
+
+    // fork: a master recipe whose book is unread is not in the log either, so the recipe note never opens it
+    private static unsafe bool RecordLockedBook(Recipe recipe)
+    {
+        var bookId = recipe.SecretRecipeBook.RowId;
+        if (bookId == 0 || PlayerState.Instance()->IsSecretRecipeBookUnlocked(bookId))
+            return false;
+        var bookName = recipe.SecretRecipeBook.ValueNullable?.Name.ExtractText() ?? $"book {bookId}";
+        var itemName = GetItemName(recipe.ItemResult.RowId);
+        _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.RecipeBookNotLearned, recipe.ItemResult.RowId, 0, 0, 0,
+            $"the book {bookName}");
+        GatherBuddy.Log.Warning($"[fork] '{itemName}' (recipe {recipe.RowId}) needs the unread book {bookName}");
         return true;
     }
 
@@ -283,7 +298,7 @@ public static class CraftingGameInterop
         _taskManagerIdleSince = DateTime.MinValue;
         _lastPreparationFailure = null;
         GatherBuddy.Log.Debug($"[Crafting] StartCraft - entering PreparingCraft state (QuickSynth={useQuickSynthesis})");
-        if (RecordLevelShortfall(recipe))
+        if (RecordLevelShortfall(recipe) || RecordLockedBook(recipe))
             return;
         
         var tm = GatherBuddy.AutoGather?.TaskManager;
