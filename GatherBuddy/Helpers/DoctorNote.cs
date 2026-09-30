@@ -30,10 +30,14 @@ public static class DoctorNote
             var path = Path.Combine(configs.FullName, "XIVDoctor", "attention.txt");
             lock (Lock)
             {
-                var kept = File.Exists(path)
-                    ? File.ReadAllLines(path).Where(l => l.Trim().Length > 0 && !l.StartsWith(Source + ":")).ToList()
-                    : new List<string>();
-                if (note != null)
+                var kept = File.Exists(path) ? File.ReadAllLines(path).Where(l => l.Trim().Length > 0).ToList() : new List<string>();
+                var mine = kept.FindIndex(l => l.StartsWith(Source + ":"));
+                if ((note != null) == (mine >= 0))
+                    return;
+
+                if (mine >= 0)
+                    kept.RemoveAt(mine);
+                else
                     kept.Add($"{Source}: {note}");
 
                 if (kept.Count > 0)
