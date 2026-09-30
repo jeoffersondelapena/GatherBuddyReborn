@@ -55,6 +55,7 @@ public class CraftingQueueProcessor
     private uint _jobSwitchRequestedFor = 0u;
     private Dictionary<uint, int> _missingIngredientFailures = new();
     private readonly HashSet<uint> _deferredForLevel = new();
+    private readonly HashSet<uint> _deferredForMaterials = new();
     private string _pauseReason = string.Empty;
 
     private List<CraftingListItem> QueueItems => _executionPlan?.Queue ?? EmptyQueue;
@@ -100,6 +101,7 @@ public class CraftingQueueProcessor
         _jobSwitchRequestedFor = 0u;
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
+        _deferredForMaterials.Clear();
         _pauseReason = string.Empty;
         _retainerRestock = executionPlan.RetainerRestock;
         _retainerExecutor = null;
@@ -777,19 +779,7 @@ public class CraftingQueueProcessor
         {
             if (_deferredForLevel.Add(failure.RecipeId))
             {
-                var deferred = 0;
-                for (var i = _currentQueueIndex; i < QueueItems.Count; i++)
-                {
-                    var item = QueueItems[i];
-                    if (item.RecipeId != failure.RecipeId || item.Options.Skipping) continue;
-                    QueueItems.Add(new CraftingListItem(item.RecipeId, item.Quantity)
-                    {
-                        Options = new ListItemOptions { NQOnly = item.Options.NQOnly },
-                        IngredientPreferences = item.IngredientPreferences, ConsumableOverrides = item.ConsumableOverrides,
-                        IsOriginalRecipe = item.IsOriginalRecipe, CraftSettings = item.CraftSettings, QualityPolicy = item.QualityPolicy,
-                    });
-                    deferred++;
-                }
+                var deferred = DeferRemainingInstances(failure.RecipeId);
                 Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; trying it again at the end of the run (fork).");
                 GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
             }
@@ -816,9 +806,37 @@ public class CraftingQueueProcessor
             StateChanged?.Invoke(_currentState);
             return true;
         }
+        if (_deferredForMaterials.Add(failure.RecipeId))
+        {
+            var deferred = DeferRemainingInstances(failure.RecipeId);
+            _missingIngredientFailures.Remove(failure.RecipeId);
+            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is missing materials; trying it again at the end of the run (fork).");
+            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
+            SkipRemainingRecipeInstances(failure.RecipeId);
+            return true;
+        }
+        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is still missing materials; skipping it (fork).");
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Missing materials caused {failureContext} to fail again for '{itemName}' (recipe {failure.RecipeId}): {failure.Details}. Skipping this and remaining instances of the recipe.");
         SkipRemainingRecipeInstances(failure.RecipeId);
         return true;
+    }
+
+    private int DeferRemainingInstances(uint recipeId)
+    {
+        var deferred = 0;
+        for (var i = _currentQueueIndex; i < QueueItems.Count; i++)
+        {
+            var item = QueueItems[i];
+            if (item.RecipeId != recipeId || item.Options.Skipping) continue;
+            QueueItems.Add(new CraftingListItem(item.RecipeId, item.Quantity)
+            {
+                Options = new ListItemOptions { NQOnly = item.Options.NQOnly },
+                IngredientPreferences = item.IngredientPreferences, ConsumableOverrides = item.ConsumableOverrides,
+                IsOriginalRecipe = item.IsOriginalRecipe, CraftSettings = item.CraftSettings, QualityPolicy = item.QualityPolicy,
+            });
+            deferred++;
+        }
+        return deferred;
     }
 
     private void SkipRemainingRecipeInstances(uint recipeId)
@@ -1552,6 +1570,7 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
+        _deferredForMaterials.Clear();
         _enqueuedRaphaelRequests.Clear();
         _jobSwitchRequestedFor = 0u;
         _retainerRestock = false;
