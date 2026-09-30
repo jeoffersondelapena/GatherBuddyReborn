@@ -777,6 +777,7 @@ public class CraftingQueueProcessor
         var itemName = recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {failure.RecipeId}";
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.JobLevelTooLow)
         {
+            var end = QueueItems.Count;
             if (_deferredForLevel.Add(failure.RecipeId))
             {
                 var deferred = DeferRemainingInstances(failure.RecipeId);
@@ -788,7 +789,7 @@ public class CraftingQueueProcessor
                 Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' still needs {failure.Details}; skipping it (fork).");
                 GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
             }
-            SkipRemainingRecipeInstances(failure.RecipeId);
+            SkipRemainingRecipeInstances(failure.RecipeId, end);
             return true;
         }
         var priorFailures = _missingIngredientFailures.GetValueOrDefault(failure.RecipeId);
@@ -806,13 +807,14 @@ public class CraftingQueueProcessor
             StateChanged?.Invoke(_currentState);
             return true;
         }
+        var endBeforeDeferral = QueueItems.Count;
         if (_deferredForMaterials.Add(failure.RecipeId))
         {
             var deferred = DeferRemainingInstances(failure.RecipeId);
             _missingIngredientFailures.Remove(failure.RecipeId);
             Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is missing materials; trying it again at the end of the run (fork).");
             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
-            SkipRemainingRecipeInstances(failure.RecipeId);
+            SkipRemainingRecipeInstances(failure.RecipeId, endBeforeDeferral);
             return true;
         }
         Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is still missing materials; skipping it (fork).");
@@ -840,10 +842,11 @@ public class CraftingQueueProcessor
         return deferred;
     }
 
-    private void SkipRemainingRecipeInstances(uint recipeId)
+    private void SkipRemainingRecipeInstances(uint recipeId, int? end = null)
     {
         var skippedCount = 0;
-        for (var i = _currentQueueIndex; i < QueueItems.Count; i++)
+        var bound        = end ?? QueueItems.Count;
+        for (var i = _currentQueueIndex; i < bound; i++)
         {
             var queueItem = QueueItems[i];
             if (queueItem.RecipeId != recipeId || queueItem.Options.Skipping)
