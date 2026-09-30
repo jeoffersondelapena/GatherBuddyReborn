@@ -17,6 +17,7 @@ using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using GatherBuddy.Automation;
 using GatherBuddy.AutoGather.Helpers;
+using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using GatherBuddy.SeFunctions;
 using GatherBuddy.Utility;
@@ -2036,7 +2037,7 @@ public class VendorNavigator
         if (actionManager == null)
             return false;
 
-        var mountId = GatherBuddy.Config.AutoGatherConfig.AutoGatherMountId;
+        var mountId = CharacterSettings.MountId;
         var success = false;
         if (IsMountUnlocked(mountId) && actionManager->GetActionStatus(ActionType.Mount, mountId) == 0)
         {

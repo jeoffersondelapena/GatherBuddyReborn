@@ -175,30 +175,25 @@ namespace GatherBuddy.AutoGather
         {
             ImGui.PushItemWidth(200);
             var ps = PlayerState.Instance();
-            var preview = Dalamud.GameData.GetExcelSheet<Mount>().First(x => x.RowId == GatherBuddy.Config.AutoGatherConfig.AutoGatherMountId)
+            // fork: the mount is kept per character; the shared setting is what a character without a choice uses
+            var current = CharacterSettings.MountId;
+            var preview = Dalamud.GameData.GetExcelSheet<Mount>().First(x => x.RowId == current)
                 .Singular.ToString().ToProperCase();
             if (string.IsNullOrEmpty(preview))
                 preview = "Mount Roulette";
-            if (ImGui.BeginCombo("Select Mount", preview))
+            if (ImGui.BeginCombo("Select Mount (per character, fork)", preview))
             {
-                if (ImGui.Selectable("Mount Roulette", GatherBuddy.Config.AutoGatherConfig.AutoGatherMountId == 0))
-                {
-                    GatherBuddy.Config.AutoGatherConfig.AutoGatherMountId = 0;
-                    GatherBuddy.Config.Save();
-                }
+                if (ImGui.Selectable("Mount Roulette", current == 0))
+                    CharacterSettings.MountId = 0;
 
                 foreach (var mount in Dalamud.GameData.GetExcelSheet<Mount>().OrderBy(x => x.Singular.ToString().ToProperCase()))
                 {
                     if (ps->IsMountUnlocked(mount.RowId))
                     {
-                        var selected = ImGui.Selectable(mount.Singular.ToString().ToProperCase(),
-                            GatherBuddy.Config.AutoGatherConfig.AutoGatherMountId == mount.RowId);
+                        var selected = ImGui.Selectable(mount.Singular.ToString().ToProperCase(), current == mount.RowId);
 
                         if (selected)
-                        {
-                            GatherBuddy.Config.AutoGatherConfig.AutoGatherMountId = mount.RowId;
-                            GatherBuddy.Config.Save();
-                        }
+                            CharacterSettings.MountId = mount.RowId;
                     }
                 }
 
