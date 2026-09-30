@@ -950,9 +950,31 @@ public class CraftingQueueProcessor
         }
     }
 
+    private void AnnounceRunEnd()
+    {
+        var done   = QueueItems.Where(i => !i.Options.Skipping).Select(i => i.RecipeId).Distinct().ToList();
+        var failed = QueueItems.Select(i => i.RecipeId).Distinct().Where(id => !done.Contains(id)).Select(SkippedRecipes.NameOf).ToList();
+        if (QueueItems.Count == 0)
+        {
+            Dalamud.Chat.Print("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
+            Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished, nothing left to craft");
+        }
+        else if (failed.Count == 0)
+        {
+            Dalamud.Chat.Print($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
+            Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished");
+        }
+        else
+        {
+            Dalamud.Chat.PrintError($"[GatherBuddy] Run finished: {done.Count} recipe(s) done, {failed.Count} could not be made: {SkippedRecipes.Brief(failed)} (fork).");
+            Dalamud.ToastGui.ShowNormal($"GatherBuddy: run finished, {failed.Count} not made");
+        }
+    }
+
     private void CompleteQueue()
     {
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
+        AnnounceRunEnd();
         if (SkippedRecipes.LockedThisRun.Count > 0)
             Dalamud.Chat.PrintError($"[GatherBuddy] Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet: {SkippedRecipes.Brief(SkippedRecipes.LockedThisRun, 3)} (fork).");
         if (SkippedRecipes.Count > 0)
