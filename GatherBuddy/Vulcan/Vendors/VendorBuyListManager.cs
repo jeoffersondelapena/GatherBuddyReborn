@@ -63,6 +63,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     private DateTime _lastShopCloseBlockerLogTime = DateTime.MinValue;
     private VendorExecutionGroup? _currentExecutionVendor;
     private readonly HashSet<Guid> _skippedEntryIds = new();
+    private readonly Dictionary<Guid, string> _skipNotes = new();
     private readonly HashSet<Guid> _partiallyFulfilledEntryIds = new();
     private VendorPurchaseConstraints? _purchaseConstraints;
     private bool _runHitScripReserveLimit;
@@ -401,6 +402,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             return StartResult.AutomationUnavailable;
         }
         _skippedEntryIds.Clear();
+        _skipNotes.Clear();
         _partiallyFulfilledEntryIds.Clear();
         _purchaseConstraints = purchaseConstraints;
         _runHitScripReserveLimit = false;
@@ -557,6 +559,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         _runningListId = null;
         _currentExecutionVendor = null;
         _skippedEntryIds.Clear();
+        _skipNotes.Clear();
         _partiallyFulfilledEntryIds.Clear();
         _purchaseConstraints = null;
         _runHitScripReserveLimit = false;
@@ -570,6 +573,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (!_skippedEntryIds.Add(entry.Id))
             return;
 
+        _skipNotes[entry.Id] = $"{entry.ItemName} ({message.Split(". ")[0].TrimEnd('.')})";
         GatherBuddy.Log.Debug($"[VendorBuyListManager] Skipping {entry.ItemName} for the current vendor-list run: {message}");
         if (announceFailure)
             Communicator.PrintError($"[GatherBuddyReborn] {message}");
@@ -583,6 +587,32 @@ public sealed partial class VendorBuyListManager : IDisposable
         GatherBuddy.Log.Debug($"[VendorBuyListManager] Deferring the remaining target for {entry.ItemName} until a future vendor-list run after a partial purchase: {message}");
     }
 
+    private static unsafe bool BagsFull()
+    {
+        var inventory = FFXIVClientStructs.FFXIV.Client.Game.InventoryManager.Instance();
+        return inventory != null && inventory->GetEmptySlotsInBag() == 0;
+    }
+
+    // fork: with no free slot every later entry would only time out in turn, and what is already bought must not be sold to make room
+    private void StopForFullInventory()
+    {
+        var list = GatherBuddy.Config.VendorBuyLists.FirstOrDefault(l => l.Id == _runningListId);
+        var keep = (list?.Entries ?? new List<VendorBuyListEntry>())
+            .Select(e => (e.ItemName, Have: GetCurrentInventoryAndArmoryCount(e.ItemId), e.TargetQuantity))
+            .Where(e => e.Have > 0)
+            .Select(e => $"{e.ItemName} x{Math.Min((uint)e.Have, e.TargetQuantity)}")
+            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        LastRunHitScripReserveLimit = _runHitScripReserveLimit;
+        ResetExecutionState();
+        if (keep.Count > 0)
+            ForkChat.List("Buy run stopped: your inventory is full. Already bought for this list, keep these:", keep, footer: "Run the list again after making room; it only buys what is still missing.");
+        else
+            Dalamud.Chat.PrintError("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room (fork).");
+        Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run stopped, inventory full");
+        BeginShopCloseTransition("Stopped: your inventory is full.");
+    }
+
     private void FailCurrentRun(string message)
     {
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
@@ -594,6 +624,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     {
         var skippedCount = _skippedEntryIds.Count;
         var partiallyFulfilledCount = _partiallyFulfilledEntryIds.Count;
+        var notBought = _skipNotes.Values.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
         if (skippedCount == 0 && partiallyFulfilledCount == 0)
@@ -601,8 +632,12 @@ public sealed partial class VendorBuyListManager : IDisposable
             _statusText = $"Vendor list '{list.Name}' complete.";
             GatherBuddy.Log.Information($"[VendorBuyListManager] Vendor list '{list.Name}' complete.");
             Communicator.Print($"[GatherBuddyReborn] Vendor list '{list.Name}' complete.");
+            Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run finished");
             return;
         }
+        if (notBought.Count > 0)
+            ForkChat.List($"Buy run finished, {notBought.Count} item(s) not bought:", notBought, 12);
+        Dalamud.ToastGui.ShowNormal($"GatherBuddy: buy run finished, {skippedCount + partiallyFulfilledCount} not fully bought");
         var resultParts = new List<string>();
         if (partiallyFulfilledCount > 0)
             resultParts.Add($"{partiallyFulfilledCount} partially fulfilled entr{(partiallyFulfilledCount == 1 ? "y" : "ies")}");
@@ -1299,6 +1334,11 @@ public sealed partial class VendorBuyListManager : IDisposable
                 BeginShopCloseTransition("Leaving vendor interaction.");
                 break;
             case VendorPurchaseManager.CompletionState.Failed:
+                if (BagsFull())
+                {
+                    StopForFullInventory();
+                    break;
+                }
                 if (_activeEntryId is { } activeEntryId && TryFindEntry(activeEntryId, out _, out var failedEntry) && failedEntry != null)
                     SkipEntryForCurrentRun(failedEntry, $"{result.Message} Skipping it for the current run.", false);
                 _activeEntryId = null;
