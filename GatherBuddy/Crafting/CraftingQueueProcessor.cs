@@ -58,6 +58,7 @@ public class CraftingQueueProcessor
     private Dictionary<uint, int> _missingIngredientFailures = new();
     private readonly HashSet<uint> _deferredForLevel = new();
     private readonly HashSet<uint> _deferredForMaterials = new();
+    private readonly Dictionary<uint, string> _runReasons = new();
     private string _pauseReason = string.Empty;
 
     private List<CraftingListItem> QueueItems => _executionPlan?.Queue ?? EmptyQueue;
@@ -104,6 +105,7 @@ public class CraftingQueueProcessor
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
         _deferredForMaterials.Clear();
+        _runReasons.Clear();
         _pauseReason = string.Empty;
         _retainerRestock = executionPlan.RetainerRestock;
         _retainerExecutor = null;
@@ -225,6 +227,7 @@ public class CraftingQueueProcessor
                             Dalamud.Chat.PrintError($"[GatherBuddy] '{stuckName}' would not start twice, so the game is not offering this recipe; skipping it (fork).");
                             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] '{stuckName}' (recipe {stuck.RecipeId}) never started after {_startRetries} attempts; skipping it");
                             SkippedRecipes.Remember(stuck.RecipeId, "would not start");
+                            _runReasons[stuck.RecipeId] = "the game would not start it";
                             SkipRemainingRecipeInstances(stuck.RecipeId);
                             break;
                         }
@@ -795,6 +798,7 @@ public class CraftingQueueProcessor
         var itemName = recipe != null ? recipe.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {failure.RecipeId}";
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.RecipeLocked)
         {
+            _runReasons[failure.RecipeId] = $"needs {failure.Details}";
             Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; skipping it (fork).");
             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
             SkipRemainingRecipeInstances(failure.RecipeId);
@@ -802,6 +806,7 @@ public class CraftingQueueProcessor
         }
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.JobLevelTooLow)
         {
+            _runReasons[failure.RecipeId] = $"needs {failure.Details.Split(" (")[0]}";
             var end = QueueItems.Count;
             if (_deferredForLevel.Add(failure.RecipeId))
             {
@@ -837,12 +842,14 @@ public class CraftingQueueProcessor
         {
             var deferred = DeferRemainingInstances(failure.RecipeId);
             _missingIngredientFailures.Remove(failure.RecipeId);
-            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is missing materials; trying it again at the end of the run (fork).");
+            _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
+            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is missing {Missing(failure)}; trying it again at the end of the run (fork).");
             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
             SkipRemainingRecipeInstances(failure.RecipeId, endBeforeDeferral);
             return true;
         }
-        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is still missing materials; skipping it (fork).");
+        _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
+        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is still missing {Missing(failure)}; skipping it (fork).");
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Missing materials caused {failureContext} to fail again for '{itemName}' (recipe {failure.RecipeId}): {failure.Details}. Skipping this and remaining instances of the recipe.");
         SkipRemainingRecipeInstances(failure.RecipeId);
         return true;
@@ -904,6 +911,7 @@ public class CraftingQueueProcessor
 
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {recipeId}) - Raphael solution failed: {failureReason ?? "unknown"}");
         var brief = DoctorNote.Brief(failureReason);
+        _runReasons[recipeId] = "no Raphael solution";
         Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' has no Raphael solution ({brief}); skipping it (fork).");
         DoctorNote.Set($"the Raphael solver failed in a crafting run ({brief}); recipes that need it are skipped until it solves one again");
         _currentQueueIndex++;
@@ -950,10 +958,21 @@ public class CraftingQueueProcessor
         }
     }
 
+    private static string MissingName(CraftingGameInterop.CraftPreparationFailure failure)
+        => failure.ItemId == 0
+            ? "materials"
+            : Dalamud.GameData.GetExcelSheet<Item>()?.GetRowOrDefault(failure.ItemId)?.Name.ExtractText() ?? $"item {failure.ItemId}";
+
+    private static string Missing(CraftingGameInterop.CraftPreparationFailure failure)
+        => failure.ItemId == 0
+            ? "materials"
+            : $"{MissingName(failure)} (needs {failure.Needed}, you have {failure.AvailableNQ + failure.AvailableHQ})";
+
     private void AnnounceRunEnd()
     {
         var done   = QueueItems.Where(i => !i.Options.Skipping).Select(i => i.RecipeId).Distinct().ToList();
-        var failed = QueueItems.Select(i => i.RecipeId).Distinct().Where(id => !done.Contains(id)).Select(SkippedRecipes.NameOf).ToList();
+        var failed = QueueItems.Select(i => i.RecipeId).Distinct().Where(id => !done.Contains(id))
+            .Select(id => _runReasons.TryGetValue(id, out var why) ? $"{SkippedRecipes.NameOf(id)} ({why})" : SkippedRecipes.NameOf(id)).ToList();
         if (QueueItems.Count == 0)
         {
             Dalamud.Chat.Print("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
@@ -1632,6 +1651,7 @@ public class CraftingQueueProcessor
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
         _deferredForMaterials.Clear();
+        _runReasons.Clear();
         _enqueuedRaphaelRequests.Clear();
         _jobSwitchRequestedFor = 0u;
         _retainerRestock = false;
