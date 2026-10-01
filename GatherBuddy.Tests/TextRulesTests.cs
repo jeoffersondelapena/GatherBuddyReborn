@@ -77,4 +77,24 @@ public class TextRulesTests
         Assert.Null(TextRules.WithNote(new[] { "Network: packet loss" }, Source, null));
         Assert.Empty(TextRules.WithNote(new[] { "GatherBuddyReborn crafting: x" }, Source, null)!);
     }
+
+    [Fact]
+    public void A_run_is_named_by_its_list_or_lists()
+    {
+        Assert.Null(TextRules.RunLabel(Array.Empty<string>()));
+        Assert.Equal("ARM Lv 1-15", TextRules.RunLabel(new[] { "ARM Lv 1-15" }));
+        Assert.Equal("MIN Lv 1-15 + BTN Lv 1-15", TextRules.RunLabel(new[] { "MIN Lv 1-15", "BTN Lv 1-15" }));
+        Assert.Equal("MIN Lv 1-15 + 2 more", TextRules.RunLabel(new[] { "MIN Lv 1-15", "BTN Lv 1-15", "FSH Lv 1-15" }));
+    }
+
+    [Fact]
+    public void A_chat_line_carries_the_run_label_after_the_plugin_tag()
+    {
+        Assert.Equal("[GatherBuddy] [ARM Lv 1-15] Run finished: all 3 recipe(s) done (fork).",
+            TextRules.WithRunLabel("[GatherBuddy] Run finished: all 3 recipe(s) done (fork).", "ARM Lv 1-15"));
+        Assert.Equal("[GatherBuddyReborn] [Buy] Vendor stopped.", TextRules.WithRunLabel("[GatherBuddyReborn] Vendor stopped.", "Buy"));
+        Assert.Equal("[MIN Lv 1-15] No position data for fishing spot X.", TextRules.WithRunLabel("No position data for fishing spot X.", "MIN Lv 1-15"));
+        Assert.Equal("[GatherBuddyReborn] Vendor list 'Buy' complete.", TextRules.WithRunLabel("[GatherBuddyReborn] Vendor list 'Buy' complete.", "Buy"));
+        Assert.Equal("plain", TextRules.WithRunLabel("plain", null));
+    }
 }

@@ -59,6 +59,8 @@ public static class CraftingGatherBridge
     public static uint RecipeToCraft => _recipeIdToCraft;
     public static bool WaitingForGatherComplete => _waitingForGatherComplete;
     public static bool IsQueueMode => _isQueueMode;
+    public static string? RunningListName => _isQueueMode ? _activeExecutionPlan?.ListName : null;
+    internal static AutoGatherListsManager? ListsManager => _plugin?.AutoGatherListsManager;
 
     // fork: a gathering part that stops short pauses the run there, so Resume gathers the rest instead of crafting short
     public static bool PauseRunForGatheringStop(string? reason)

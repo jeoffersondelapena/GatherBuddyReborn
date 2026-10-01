@@ -1,11 +1,34 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace GatherBuddy.ForkLogic;
 
 public static class TextRules
 {
+    private static readonly Regex ChatTag = new(@"^\[GatherBuddy(Reborn)?\]\s*");
+
+    public static string? RunLabel(IReadOnlyList<string> lists)
+        => lists.Count switch
+        {
+            0 => null,
+            1 => lists[0],
+            2 => $"{lists[0]} + {lists[1]}",
+            _ => $"{lists[0]} + {lists.Count - 1} more",
+        };
+
+    // the label goes after the plugin's own tag; a line that already names the list is left alone
+    public static string WithRunLabel(string message, string? label)
+    {
+        if (string.IsNullOrEmpty(label) || message.Contains(label, StringComparison.Ordinal))
+            return message;
+
+        var tag = ChatTag.Match(message);
+        return tag.Success ? $"{tag.Value.TrimEnd()} [{label}] {message[tag.Length..]}" : $"[{label}] {message}";
+    }
+
     public static IEnumerable<string> ListLines(string header, IReadOnlyList<string> items, int max = int.MaxValue, string? footer = null)
     {
         yield return $"[GatherBuddy] {header} (fork)";

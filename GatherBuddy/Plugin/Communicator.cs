@@ -10,6 +10,8 @@ using GatherBuddy.Alarms;
 using GatherBuddy.Classes;
 using GatherBuddy.Config;
 using GatherBuddy.Enums;
+using GatherBuddy.ForkLogic;
+using GatherBuddy.Helpers;
 using GatherBuddy.Interfaces;
 using GatherBuddy.Structs;
 using GatherBuddy.Time;
@@ -68,7 +70,7 @@ public static class Communicator
     {
         var entry = new XivChatEntry()
         {
-            Message = message,
+            Message = Labelled(message),
             Name    = SeString.Empty,
             Type    = GatherBuddy.Config.ChatTypeMessage,
         };
@@ -79,11 +81,26 @@ public static class Communicator
     {
         var entry = new XivChatEntry()
         {
-            Message = message,
+            Message = Labelled(message),
             Name    = SeString.Empty,
             Type    = GatherBuddy.Config.ChatTypeError,
         };
         Dalamud.Chat.Print(entry);
+    }
+
+    // fork: a line printed during a run names the run's list
+    private static SeString Labelled(SeString message)
+    {
+        var label = RunLabel.Current;
+        if (label == null || message.TextValue.Contains(label, StringComparison.Ordinal))
+            return message;
+
+        var payloads = message.Payloads.ToList();
+        if (payloads.Count > 0 && payloads[0] is TextPayload { Text: { } first })
+            payloads[0] = new TextPayload(TextRules.WithRunLabel(first, label));
+        else
+            payloads.Insert(0, new TextPayload($"[{label}] "));
+        return new SeString(payloads);
     }
 
     public static void Print(string message)

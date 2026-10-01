@@ -8,7 +8,7 @@ public static class ForkChat
 {
     public static void List(string header, IReadOnlyList<string> items, int max = int.MaxValue, string? footer = null)
     {
-        foreach (var line in TextRules.ListLines(header, items, max, footer))
+        foreach (var line in TextRules.ListLines(TextRules.WithRunLabel(header, RunLabel.Current), items, max, footer))
             Dalamud.Chat.PrintError(line);
     }
 }

@@ -97,6 +97,9 @@ public sealed partial class VendorBuyListManager : IDisposable
     public Guid? ActiveEntryId
         => _activeEntryId;
 
+    public string? RunningListName
+        => _isRunning && _runningListId is { } id ? GetList(id)?.Name : null;
+
     public Guid? RunningListId
         => _runningListId;
 
@@ -616,7 +619,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (keep.Count > 0)
             ForkChat.List("Buy run stopped: your inventory is full. Already bought for this list, keep these:", keep, footer: "Run the list again after making room; it only buys what is still missing.");
         else
-            Dalamud.Chat.PrintError("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room (fork).");
+            Communicator.PrintError("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room (fork).");
         Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run stopped, inventory full");
         BeginShopCloseTransition("Stopped: your inventory is full.");
     }

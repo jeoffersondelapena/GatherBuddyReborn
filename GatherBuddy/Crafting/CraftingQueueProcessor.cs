@@ -225,7 +225,7 @@ public class CraftingQueueProcessor
                             var stuck     = QueueItems[_currentQueueIndex];
                             var stuckItem = RecipeManager.GetRecipe(stuck.RecipeId);
                             var stuckName = stuckItem != null ? stuckItem.Value.ItemResult.Value.Name.ExtractText() : $"Recipe {stuck.RecipeId}";
-                            Dalamud.Chat.PrintError($"[GatherBuddy] '{stuckName}' would not start twice, so the game is not offering this recipe; skipping it (fork).");
+                            Communicator.PrintError($"[GatherBuddy] '{stuckName}' would not start twice, so the game is not offering this recipe; skipping it (fork).");
                             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] '{stuckName}' (recipe {stuck.RecipeId}) never started after {_startRetries} attempts; skipping it");
                             SkippedRecipes.Remember(stuck.RecipeId, "would not start");
                             _runReasons[stuck.RecipeId] = "the game would not start it";
@@ -800,7 +800,7 @@ public class CraftingQueueProcessor
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.RecipeLocked)
         {
             _runReasons[failure.RecipeId] = $"needs {failure.Details}";
-            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; skipping it (fork).");
+            Communicator.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; skipping it (fork).");
             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
             SkipRemainingRecipeInstances(failure.RecipeId);
             return true;
@@ -812,12 +812,12 @@ public class CraftingQueueProcessor
             if (_deferredForLevel.Add(failure.RecipeId))
             {
                 var deferred = DeferRemainingInstances(failure.RecipeId);
-                Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; trying it again at the end of the run (fork).");
+                Communicator.PrintError($"[GatherBuddy] '{itemName}' needs {failure.Details}; trying it again at the end of the run (fork).");
                 GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
             }
             else
             {
-                Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' still needs {failure.Details}; skipping it (fork).");
+                Communicator.PrintError($"[GatherBuddy] '{itemName}' still needs {failure.Details}; skipping it (fork).");
                 GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Skipping '{itemName}' (recipe {failure.RecipeId}): {failure.Details}");
             }
             SkipRemainingRecipeInstances(failure.RecipeId, end);
@@ -844,13 +844,13 @@ public class CraftingQueueProcessor
             var deferred = DeferRemainingInstances(failure.RecipeId);
             _missingIngredientFailures.Remove(failure.RecipeId);
             _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
-            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is missing {Missing(failure)}; trying it again at the end of the run (fork).");
+            Communicator.PrintError($"[GatherBuddy] '{itemName}' is missing {Missing(failure)}; trying it again at the end of the run (fork).");
             GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
             SkipRemainingRecipeInstances(failure.RecipeId, endBeforeDeferral);
             return true;
         }
         _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
-        Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' is still missing {Missing(failure)}; skipping it (fork).");
+        Communicator.PrintError($"[GatherBuddy] '{itemName}' is still missing {Missing(failure)}; skipping it (fork).");
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Missing materials caused {failureContext} to fail again for '{itemName}' (recipe {failure.RecipeId}): {failure.Details}. Skipping this and remaining instances of the recipe.");
         SkipRemainingRecipeInstances(failure.RecipeId);
         return true;
@@ -900,13 +900,13 @@ public class CraftingQueueProcessor
         if (TextRules.IsNoSolution(failureReason))
         {
             _runReasons[recipeId] = "your stats cannot finish it";
-            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' cannot be finished with your current stats; skipping it (fork).");
+            Communicator.PrintError($"[GatherBuddy] '{itemName}' cannot be finished with your current stats; skipping it (fork).");
         }
         else
         {
             var brief = DoctorNote.Brief(failureReason);
             _runReasons[recipeId] = "no Raphael solution";
-            Dalamud.Chat.PrintError($"[GatherBuddy] '{itemName}' has no Raphael solution ({brief}); skipping it (fork).");
+            Communicator.PrintError($"[GatherBuddy] '{itemName}' has no Raphael solution ({brief}); skipping it (fork).");
             DoctorNote.Set($"the Raphael solver failed in a crafting run ({brief}); recipes that need it are skipped until it solves one again");
         }
         _currentQueueIndex++;
@@ -970,12 +970,12 @@ public class CraftingQueueProcessor
             .Select(id => _runReasons.TryGetValue(id, out var why) ? $"{SkippedRecipes.NameOf(id)} ({why})" : SkippedRecipes.NameOf(id)).ToList();
         if (QueueItems.Count == 0)
         {
-            Dalamud.Chat.Print("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
+            Communicator.Print("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished, nothing left to craft");
         }
         else if (failed.Count == 0)
         {
-            Dalamud.Chat.Print($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
+            Communicator.Print($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished");
         }
         else
@@ -1052,7 +1052,7 @@ public class CraftingQueueProcessor
 
             var jobName = GetJobName(jobId);
             GatherBuddy.Log.Error($"[CraftingQueueProcessor] No gearset found for {jobName} (Job ID: {jobId})");
-            Dalamud.Chat.PrintError($"[GatherBuddy] Cannot continue crafting: No gearset found for {jobName}. Please create a gearset for this job.");
+            Communicator.PrintError($"[GatherBuddy] Cannot continue crafting: No gearset found for {jobName}. Please create a gearset for this job.");
             CompleteQueue();
         }
         catch (Exception ex)
@@ -1679,7 +1679,7 @@ public class CraftingQueueProcessor
     {
         var why = string.IsNullOrWhiteSpace(reason) ? "it could not go on" : reason.TrimEnd('.');
         Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have (fork).");
-        Dalamud.Chat.PrintError($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
+        Communicator.PrintError($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
           + "the rest, or press Craft What I Have (fork) in the Craft Status window to craft with what is here (fork).");
         ForkTrace.Info($"crafting run paused in its gathering part: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
         if (missing.Count > 0)
