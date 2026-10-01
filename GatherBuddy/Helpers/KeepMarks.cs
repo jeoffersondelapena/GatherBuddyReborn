@@ -20,6 +20,12 @@ public static unsafe class KeepMarks
     public static int Count
         => _needed.Keys.Union(_made.Keys).Count();
 
+    public static int NeededCount
+        => _needed.Count;
+
+    public static int MadeCount
+        => _made.Count;
+
     public static bool TryGet(ulong itemId, out KeepRules.Mark? needed, out KeepRules.Mark? made)
     {
         var id = KeepRules.BaseItemId(itemId);
@@ -71,11 +77,16 @@ public static unsafe class KeepMarks
             Communicator.PrintRun(KeepRules.EndSummary(made, r.Verb), r.Label);
     }
 
-    public static void Clear()
+    public static void ClearNeeded()
     {
-        ForkTrace.Info($"keep marks: {Count} cleared by the player");
+        ForkTrace.Info($"keep marks: {_needed.Count} orange cleared by the player");
         _needed = new Dictionary<uint, KeepRules.Mark>();
-        _made   = new Dictionary<uint, KeepRules.Mark>();
+    }
+
+    public static void ClearMade()
+    {
+        ForkTrace.Info($"keep marks: {_made.Count} green cleared by the player");
+        _made = new Dictionary<uint, KeepRules.Mark>();
     }
 
     public static void Prune()

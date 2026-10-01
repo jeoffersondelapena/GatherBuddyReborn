@@ -1672,7 +1672,7 @@ public partial class Interface
                 }),
             new("Reset settings to policy fork",                  ForkSettingsPage.DrawResetSettings),
             new("Reset generated lists fork",                     ForkSettingsPage.DrawResetLists),
-            new("Clear Keep Marks fork",                          KeepMarkButton.Draw),
+            new("Clear Orange Marks Clear Green Marks Keep fork",  KeepMarkButton.DrawBoth),
             new("Skip Logged Items Skip Logged Recipes Craft What I Have Retry skipped fork", ForkSettingsPage.DrawElsewhere),
         ]),
     ];

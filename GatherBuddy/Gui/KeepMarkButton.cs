@@ -1,4 +1,5 @@
 using System.Numerics;
+using Dalamud.Bindings.ImGui;
 using ElliLib;
 using GatherBuddy.Helpers;
 
@@ -6,13 +7,36 @@ namespace GatherBuddy.Gui;
 
 internal static class KeepMarkButton
 {
-    public static void Draw()
+    private const string Orange = "Orange: items a crafting run paused for full bags still needs from your bags.\n"
+      + "They also clear by themselves when the run goes on (Resume, Craft What I Have or Stop).";
+
+    private const string Green = "Green: items a run crafted, gathered or bought.\n"
+      + "They stay until you clear them; a run that is still going marks what it made when it ends.";
+
+    public static void DrawBoth()
     {
-        var tooltip = KeepMarks.Count == 0
-            ? "Nothing in your bags is marked Keep."
-            : $"Remove the Keep marks from the {KeepMarks.Count} marked item(s): orange (what a paused run still needs, which also clears when the run goes on)\n"
-          + "and green (what a run crafted, gathered or bought, which stays until you press this).";
-        if (ImGuiUtil.DrawDisabledButton("Clear Keep Marks (fork)", Vector2.Zero, tooltip, KeepMarks.Count == 0))
-            KeepMarks.Clear();
+        var room = ImGui.GetContentRegionAvail().X;
+        DrawOrange();
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+        var green   = ImGui.CalcTextSize("Clear Green Marks (fork)").X + ImGui.GetStyle().FramePadding.X * 2;
+        if (room - ImGui.GetItemRectSize().X - spacing >= green)
+            ImGui.SameLine();
+        DrawGreen();
+    }
+
+    public static void DrawOrange()
+    {
+        var count = KeepMarks.NeededCount;
+        if (ImGuiUtil.DrawDisabledButton("Clear Orange Marks (fork)", Vector2.Zero,
+                $"{Orange}\n\n{(count == 0 ? "Nothing is marked orange." : $"{count} item(s) marked orange.")}", count == 0))
+            KeepMarks.ClearNeeded();
+    }
+
+    public static void DrawGreen()
+    {
+        var count = KeepMarks.MadeCount;
+        if (ImGuiUtil.DrawDisabledButton("Clear Green Marks (fork)", Vector2.Zero,
+                $"{Green}\n\n{(count == 0 ? "Nothing is marked green." : $"{count} item(s) marked green.")}", count == 0))
+            KeepMarks.ClearMade();
     }
 }

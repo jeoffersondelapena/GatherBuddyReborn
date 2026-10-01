@@ -323,7 +323,7 @@ public sealed partial class VendorBuyListWindow : Window
         }
 
         ImGui.SameLine();
-        KeepMarkButton.Draw();
+        KeepMarkButton.DrawGreen();
 
         if (entries.Count > 0)
         {

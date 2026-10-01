@@ -97,5 +97,5 @@ public static class KeepRules
           + (made > 0 ? $"; {made} item(s) it has made so far, in green" : "") + ". Hover one to see how many (fork).";
 
     public static string EndSummary(int made, string verb)
-        => $"[GatherBuddy] Marked in green in your bags: {made} item(s) this run {verb}. Clear Keep Marks (fork) removes the marks (fork).";
+        => $"[GatherBuddy] Marked in green in your bags: {made} item(s) this run {verb}. Clear Green Marks (fork) removes them (fork).";
 }

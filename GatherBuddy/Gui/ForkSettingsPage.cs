@@ -61,8 +61,8 @@ internal static class ForkSettingsPage
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
         ImGui.BulletText("Skip Logged Items (fork): on each gathering list, in the Auto-Gather tab.");
         ImGui.BulletText("Skip Logged Recipes (fork): on each crafting list, in Vulcan's list editor.");
-        ImGui.BulletText("Craft What I Have (fork) and Clear Keep Marks (fork): in the Craft Status window.");
-        ImGui.BulletText("Clear Keep Marks (fork): in the buy-list window.");
+        ImGui.BulletText("Craft What I Have (fork), Clear Orange Marks (fork) and Clear Green Marks (fork): in the Craft Status window.");
+        ImGui.BulletText("Clear Green Marks (fork): in the buy-list window.");
         ImGui.BulletText("Retry skipped (fork): in Vulcan's Crafting Lists tab.");
     }
 }

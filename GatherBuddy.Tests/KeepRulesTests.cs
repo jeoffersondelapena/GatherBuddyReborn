@@ -82,5 +82,6 @@ public class KeepRulesTests
         Assert.DoesNotContain("green", KeepRules.PauseSummary(9, 0));
         Assert.Contains("2 item(s) it has made so far, in green", KeepRules.PauseSummary(9, 2));
         Assert.StartsWith("[GatherBuddy] Marked in green in your bags: 12 item(s) this run crafted.", KeepRules.EndSummary(12, "crafted"));
+        Assert.Contains("Clear Green Marks (fork)", KeepRules.EndSummary(12, "crafted"));
     }
 }
