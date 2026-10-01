@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using GatherBuddy.ForkLogic;
+using GatherBuddy.Helpers;
 using Newtonsoft.Json;
 
 namespace GatherBuddy.Crafting;
@@ -139,9 +141,7 @@ public class CraftingListManager
                 : folderPath);
         }
 
-        return folders
-            .OrderBy(GetFolderDisplayName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        return FolderOrder.Sort(folders, GetFolderDisplayName, ClassFolderOrder.Ranks).ToList();
     }
 
     public IReadOnlyList<string> GetAllFolderPaths()
