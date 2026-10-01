@@ -29,6 +29,6 @@ public static class GatherLevelRules
 
     public static string Short(IReadOnlyList<OutOfReach> items)
         => items.Count == 1
-            ? $"{items[0].Item} needs {items[0].Job} {LevelNeeded(items[0].NodeLevel)}"
+            ? $"{items[0].Item} needs {items[0].Job} {LevelNeeded(items[0].NodeLevel)} (yours is {items[0].JobLevel})"
             : $"{items.Count} items need a higher level";
 }

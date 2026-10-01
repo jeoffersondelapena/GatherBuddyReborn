@@ -2471,7 +2471,16 @@ namespace GatherBuddy.AutoGather
             };
             if (level < Actions.Collect.MinLevel)
             {
-                Communicator.PrintError("You've put a collectable on the gathering list, but your level is not high enough to gather it.");
+                var job = gatheringType switch
+                {
+                    GatheringType.Miner    => "Miner",
+                    GatheringType.Botanist => "Botanist",
+                    GatheringType.Fisher   => "Fisher",
+                    _                      => "Miner or Botanist",
+                };
+                var yours = gatheringType == GatheringType.Multiple ? "your higher one is" : "yours is";
+                Communicator.PrintError($"You've put a collectable on the gathering list, but collectables need {job} level {Actions.Collect.MinLevel} "
+                  + $"and {yours} {level} (fork).");
                 return false;
             }
 

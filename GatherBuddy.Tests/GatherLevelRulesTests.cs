@@ -36,7 +36,7 @@ public class GatherLevelRulesTests
     [Fact]
     public void The_window_gets_a_short_form()
     {
-        Assert.Equal("Silex needs Miner 26", GatherLevelRules.Short(new[] { new OutOfReach("Silex", "Miner", 22, 30) }));
+        Assert.Equal("Silex needs Miner 26 (yours is 22)", GatherLevelRules.Short(new[] { new OutOfReach("Silex", "Miner", 22, 30) }));
         Assert.Equal("2 items need a higher level",
             GatherLevelRules.Short(new[] { new OutOfReach("Silex", "Miner", 22, 30), new OutOfReach("Ash Log", "Botanist", 22, 35) }));
     }

@@ -807,7 +807,7 @@ public class CraftingQueueProcessor
         }
         if (failure.Reason == CraftingGameInterop.CraftPreparationFailureReason.JobLevelTooLow)
         {
-            _runReasons[failure.RecipeId] = $"needs {failure.Details.Split(" (")[0]}";
+            _runReasons[failure.RecipeId] = $"needs {failure.Details.Split(" (")[0]}, yours is {failure.AvailableNQ}";
             var end = QueueItems.Count;
             if (_deferredForLevel.Add(failure.RecipeId))
             {
