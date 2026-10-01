@@ -740,6 +740,7 @@ public class CraftingQueueProcessor
         if (_currentState != QueueState.Crafting)
             return;
 
+        RunWork.NoteCrafted();
         _craftHangSince = DateTime.MinValue;
 
         if (recipe != null)

@@ -49,8 +49,16 @@ public static unsafe class AfterRunRepair
         => Steps.Count > 0;
 
     public static bool Wanted(bool partOfCraftingRun)
-        => RepairRules.AfterRun(GatherBuddy.Config.VulcanRepairConfig.RepairAfterRun, partOfCraftingRun,
-            Dalamud.Conditions[ConditionFlag.BoundByDuty]);
+    {
+        var enabled = GatherBuddy.Config.VulcanRepairConfig.RepairAfterRun;
+        var inDuty  = Dalamud.Conditions[ConditionFlag.BoundByDuty];
+        if (RepairRules.AfterRun(enabled, partOfCraftingRun, inDuty, RunWork.Any))
+            return true;
+
+        if (RepairRules.AfterRun(enabled, partOfCraftingRun, inDuty, true))
+            ForkTrace.Info("after-run repair skipped: the run gathered nothing and crafted nothing");
+        return false;
+    }
 
     public static void Start(string reason, bool homeWithoutTrip)
     {
