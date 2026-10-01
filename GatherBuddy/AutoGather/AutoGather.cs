@@ -478,7 +478,7 @@ namespace GatherBuddy.AutoGather
                 {
                     RunChat.Begin(TextRules.KindLabel(TextRules.Gathering, RunLabel.GatherLists()));
                     _keepRun = KeepMarks.BeginRun(RunLabel.GatherLists(), "gathered",
-                        _plugin.AutoGatherListsManager.ActiveItems.Select(i => i.Item.ItemId));
+                        _plugin.AutoGatherListsManager.ActiveItems.Select(i => (i.Item.ItemId, (int)Math.Min(i.Quantity, int.MaxValue))));
                 }
                 WentHome = true; //Prevents going home right after enabling auto-gather
                 if (AutoHook.Enabled)

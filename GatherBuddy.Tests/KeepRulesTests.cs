@@ -44,14 +44,14 @@ public class KeepRulesTests
         var again = new Run(4, "LTW Lv 1-15", "crafted");
         var marks = KeepRules.Merge(KeepRules.Merge(None, new[] { (5319u, 2) }, Ltw), new[] { (5319u, 3) }, again);
         Assert.Equal(5, marks[5319].Count);
-        Assert.Equal("[Keep] 5 crafted by LTW Lv 1-15 (fork)", KeepRules.MadeLine(marks[5319]));
+        Assert.Equal("[Keep] 5 for Crafting: LTW Lv 1-15 (fork)", KeepRules.MadeLine(marks[5319]));
     }
 
     [Fact]
     public void The_tooltip_names_each_run_and_drops_a_generated_list_tag()
     {
         var made = KeepRules.Merge(KeepRules.Merge(None, new[] { (5319u, 3) }, Gsm), new[] { (5319u, 6) }, Bought);
-        Assert.Equal("[Keep] 3 crafted by GSM Lv 1-15, 6 bought by GSM Lv 1-15 +vendor (fork)", KeepRules.MadeLine(made[5319]));
+        Assert.Equal("[Keep] 3 for Crafting: GSM Lv 1-15, 6 for Buy list: GSM Lv 1-15 +vendor (fork)", KeepRules.MadeLine(made[5319]));
         var needed = KeepRules.Merge(None, new[] { (5319u, 11) }, Ltw);
         Assert.Equal("[Keep] 11 still needed by LTW Lv 1-15 (fork)", KeepRules.NeededLine(needed[5319]));
     }
@@ -68,11 +68,11 @@ public class KeepRulesTests
     }
 
     [Fact]
-    public void What_a_run_made_is_what_it_added_to_the_bags()
+    public void What_a_list_counts_is_what_you_hold_up_to_its_target()
     {
-        var before = new Dictionary<uint, int> { [5319] = 2, [5320] = 5, [5321] = 0 };
-        var now    = new Dictionary<uint, int> { [5319] = 5, [5320] = 3, [5321] = 1 };
-        Assert.Equal(new Dictionary<uint, int> { [5319] = 3, [5321] = 1 }, KeepRules.Made(before, now));
+        var targets = new Dictionary<uint, int> { [5319] = 5, [5320] = 2, [5321] = 1 };
+        var held    = new Dictionary<uint, int> { [5319] = 3, [5320] = 9 };
+        Assert.Equal(new Dictionary<uint, int> { [5319] = 3, [5320] = 2 }, KeepRules.Counted(targets, held));
     }
 
     [Fact]
@@ -106,8 +106,8 @@ public class KeepRulesTests
     {
         Assert.Contains("9 item(s) this run still needs, in orange", KeepRules.PauseSummary(9, 0));
         Assert.DoesNotContain("green", KeepRules.PauseSummary(9, 0));
-        Assert.Contains("2 item(s) it has made so far, in green", KeepRules.PauseSummary(9, 2));
-        Assert.StartsWith("[GatherBuddy] Marked in green in your bags: 12 item(s) this run crafted.", KeepRules.EndSummary(12, "crafted"));
-        Assert.Contains("Clear Green Marks (fork)", KeepRules.EndSummary(12, "crafted"));
+        Assert.Contains("2 item(s) its list counts toward its targets, in green", KeepRules.PauseSummary(9, 2));
+        Assert.StartsWith("[GatherBuddy] Marked in green in your bags: 12 item(s) this list counts toward its targets.", KeepRules.EndSummary(12));
+        Assert.Contains("Clear Green Marks (fork)", KeepRules.EndSummary(12));
     }
 }

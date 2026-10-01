@@ -234,8 +234,7 @@ public static class CraftingGatherBridge
         _isQueueMode = true;
         _ephemeralListId = ephemeralListId;
         _activeExecutionPlan = executionPlan;
-        _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted",
-            executionPlan.QueueView.Where(i => i.IsOriginalRecipe).Select(i => RecipeManager.GetRecipe(i.RecipeId)?.ItemResult.RowId ?? 0));
+        _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted", CraftingTargets(executionPlan));
         ResetCollectablesInterruptionState();
         _lastCollectablesHardFailLog = DateTime.MinValue;
         _queueProcessor = new CraftingQueueProcessor();
@@ -252,6 +251,17 @@ public static class CraftingGatherBridge
         GatherBuddy.CraftingStatusWindow?.SetQueueProcessor(_queueProcessor);
     }
     
+    // the list's own recipes, even ones the run skips because enough is already held, less any left out for being in the crafting log
+    private static IEnumerable<(uint ItemId, int Target)> CraftingTargets(CraftingExecutionPlan plan)
+    {
+        var list  = GatherBuddy.CraftingListManager.GetListByID(plan.ListId);
+        var items = list?.Recipes.Where(i => !i.Options.Skipping && !(list.SkipCraftedRecipes && QuestManager.IsRecipeComplete(i.RecipeId))).ToList()
+         ?? plan.OriginalRecipesView.ToList();
+        foreach (var item in items)
+            if (RecipeManager.GetRecipe(item.RecipeId) is { } recipe)
+                yield return (recipe.ItemResult.RowId, item.Quantity * (int)recipe.AmountResult);
+    }
+
     private static string DescribePlan(CraftingExecutionPlan plan)
     {
         static string Line(CraftingListItem item)

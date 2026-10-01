@@ -63,11 +63,15 @@ public static unsafe class KeepMarks
             NoteMade(run);
     }
 
-    public static KeepRules.Run BeginRun(string? label, string verb, IEnumerable<uint> targets)
+    public static KeepRules.Run BeginRun(string? label, string verb, IEnumerable<(uint ItemId, int Target)> targets)
     {
         var run = new KeepRules.Run(++_nextRun, string.IsNullOrWhiteSpace(label) ? "this run" : label, verb);
-        Open[run] = Held(targets.Select(t => KeepRules.BaseItemId(t)).Where(t => t != 0));
-        ForkTrace.Info($"keep marks: run {run.Id} ({run.Label}, {verb}) watches {Open[run].Count} item(s)");
+        Open[run] = targets.Select(t => (Id: KeepRules.BaseItemId(t.ItemId), t.Target))
+            .Where(t => t.Id != 0 && t.Target > 0)
+            .GroupBy(t => t.Id)
+            .ToDictionary(g => g.Key, g => g.Sum(t => t.Target));
+        var counted = NoteMade(run);
+        ForkTrace.Info($"keep marks: run {run.Id} ({run.Label}, {verb}) counts {Open[run].Count} item(s) toward their targets, {counted.Count} already held");
         return run;
     }
 
@@ -99,13 +103,13 @@ public static unsafe class KeepMarks
             return;
 
         _needed = KeepRules.WithoutRun(_needed, r);
-        var now  = Held(before.Keys);
-        var made = Merge(r, KeepRules.Made(before, now));
-        var none = before.Keys.Where(id => !made.ContainsKey(id)).ToList();
-        ForkTrace.Info($"keep marks: run {r.Id} ended, {made.Count} of {before.Count} item(s) {r.Verb}"
-          + (none.Count == 0 ? "" : $"; no gain: {string.Join(", ", none.Select(id => $"{ForkTrace.Named(id)} {before[id]}->{now[id]}"))}"));
-        if (made.Count > 0)
-            Communicator.PrintRun(KeepRules.EndSummary(made.Count, r.Verb), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label), Communicator.Tone.Good);
+        var held    = Held(before.Keys);
+        var counted = Merge(r, KeepRules.Counted(before, held));
+        var none    = before.Keys.Where(id => !counted.ContainsKey(id)).ToList();
+        ForkTrace.Info($"keep marks: run {r.Id} ended, {counted.Count} of {before.Count} item(s) held toward their targets"
+          + (none.Count == 0 ? "" : $"; none held: {string.Join(", ", none.Select(id => $"{ForkTrace.Named(id)} (target {before[id]})"))}"));
+        if (counted.Count > 0)
+            Communicator.PrintRun(KeepRules.EndSummary(counted.Count), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label), Communicator.Tone.Good);
     }
 
     public static void ClearNeeded()
@@ -114,13 +118,10 @@ public static unsafe class KeepMarks
         _needed = new Dictionary<uint, KeepRules.Mark>();
     }
 
-    // a run still going counts from the clear on, so what it made before stays cleared
     public static void ClearMade()
     {
         ForkTrace.Info($"keep marks: {_made.Count} green cleared by the player");
         _made = new Dictionary<uint, KeepRules.Mark>();
-        foreach (var run in Open.Keys.ToList())
-            Open[run] = Held(Open[run].Keys);
         Save();
     }
 
@@ -215,7 +216,7 @@ public static unsafe class KeepMarks
     }
 
     private static Dictionary<uint, int> NoteMade(KeepRules.Run run)
-        => Merge(run, KeepRules.Made(Open[run], Held(Open[run].Keys)));
+        => Merge(run, KeepRules.Counted(Open[run], Held(Open[run].Keys)));
 
     private static Dictionary<uint, int> Merge(KeepRules.Run run, Dictionary<uint, int> made)
     {

@@ -10,9 +10,9 @@ internal static class KeepMarkButton
     private const string Orange = "Orange: items a paused crafting run still needs from your bags.\n"
       + "They also clear by themselves when the run goes on (Resume, Craft What I Have or Stop).";
 
-    private const string Green = "Green: what a run was for: a crafting run's own recipes (not its materials or in-between crafts),\n"
-      + "a gathering run's items, a buy run's purchases.\n"
-      + "They appear as a run makes them and stay until you clear them.";
+    private const string Green = "Green: what a run's list counts toward its targets, including what you already had:\n"
+      + "a crafting list's own recipes (not their materials or in-between crafts), a gathering list's items, a buy list's items.\n"
+      + "A run that is still going counts them again whenever they change; once it has ended, a clear stays.";
 
     public static void DrawBoth()
     {

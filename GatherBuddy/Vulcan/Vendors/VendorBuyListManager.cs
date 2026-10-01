@@ -433,7 +433,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         {
             _isRunning = true;
             _runningListId = activeList.Id;
-            _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Select(e => e.ItemId));
+            _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Where(e => e.Enabled).Select(e => (e.ItemId, (int)Math.Min(e.TargetQuantity, int.MaxValue))));
             Divide(activeList.Name);
             _statusText = $"Leaving the previous vendor interaction for '{activeList.Name}'.";
             return StartResult.WaitingForPreviousInteraction;
@@ -476,7 +476,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
         _isRunning = true;
         _runningListId = activeList.Id;
-        _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Select(e => e.ItemId));
+        _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Where(e => e.Enabled).Select(e => (e.ItemId, (int)Math.Min(e.TargetQuantity, int.MaxValue))));
         Divide(activeList.Name);
         _waitingForCancelledPurchase = false;
         _statusText = $"Starting vendor list '{activeList.Name}'...";

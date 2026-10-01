@@ -79,15 +79,17 @@ public static class KeepRules
         return left;
     }
 
-    public static Dictionary<uint, int> Made(IReadOnlyDictionary<uint, int> before, IReadOnlyDictionary<uint, int> now)
-        => now.Where(kv => kv.Value > before.GetValueOrDefault(kv.Key))
-            .ToDictionary(kv => kv.Key, kv => kv.Value - before.GetValueOrDefault(kv.Key));
+    // what you hold counts toward a list's target whether the run got it or you already had it
+    public static Dictionary<uint, int> Counted(IReadOnlyDictionary<uint, int> targets, IReadOnlyDictionary<uint, int> held)
+        => targets.Select(kv => (kv.Key, Count: System.Math.Min(kv.Value, held.GetValueOrDefault(kv.Key))))
+            .Where(x => x.Count > 0)
+            .ToDictionary(x => x.Key, x => x.Count);
 
     public static string NeededLine(Mark mark)
         => $"[Keep] {string.Join(", ", ByLabel(mark).Select(g => $"{g.Count} still needed by {g.Label}"))} (fork)";
 
     public static string MadeLine(Mark mark)
-        => $"[Keep] {string.Join(", ", ByLabel(mark).Select(g => $"{g.Count} {g.Verb} by {g.Label}"))} (fork)";
+        => $"[Keep] {string.Join(", ", ByLabel(mark).Select(g => $"{g.Count} for {TextRules.KindLabel(TextRules.KindOfVerb(g.Verb), g.Label)}"))} (fork)";
 
     private static IEnumerable<(string Label, string Verb, int Count)> ByLabel(Mark mark)
         => mark.ByRun.GroupBy(kv => (Label: TextRules.ShownLabel(kv.Key.Label), kv.Key.Verb))
@@ -117,8 +119,8 @@ public static class KeepRules
 
     public static string PauseSummary(int needed, int made)
         => $"[GatherBuddy] Marked in your bags: {needed} item(s) this run still needs, in orange, cleared when the run goes on"
-          + (made > 0 ? $"; {made} item(s) it has made so far, in green" : "") + ". Hover one to see how many (fork).";
+          + (made > 0 ? $"; {made} item(s) its list counts toward its targets, in green" : "") + ". Hover one to see how many (fork).";
 
-    public static string EndSummary(int made, string verb)
-        => $"[GatherBuddy] Marked in green in your bags: {made} item(s) this run {verb}. Clear Green Marks (fork) removes them (fork).";
+    public static string EndSummary(int made)
+        => $"[GatherBuddy] Marked in green in your bags: {made} item(s) this list counts toward its targets. Clear Green Marks (fork) removes them (fork).";
 }
