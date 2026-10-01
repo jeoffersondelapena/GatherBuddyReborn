@@ -1,7 +1,6 @@
 using Dalamud.Plugin.Services;
 using GatherBuddy.Classes;
 using GatherBuddy.ForkLogic;
-using GatherBuddy.Helpers;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using ElliLib.Filesystem;
 using GatherBuddy.Interfaces;
@@ -26,7 +25,7 @@ public class ManualOrderSortMode : ISortMode<AutoGatherList>
 
     public IEnumerable<FileSystem<AutoGatherList>.IPath> GetChildren(FileSystem<AutoGatherList>.Folder folder)
     {
-        var folders = FolderOrder.Sort(folder.GetSubFolders(), f => f.Name, ClassFolderOrder.Ranks).Cast<FileSystem<AutoGatherList>.IPath>();
+        var folders = folder.GetSubFolders().Cast<FileSystem<AutoGatherList>.IPath>();
         var leaves = folder.GetLeaves()
             .OrderBy(l => l.Value.Order)
             .ThenBy(l => l.Name, StringComparer.OrdinalIgnoreCase)

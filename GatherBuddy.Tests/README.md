@@ -18,7 +18,6 @@ What is covered:
   queueing every producer of a material before its consumer, and which class makes a shared material.
 - `CharacterSettingsRules`: a character's own mount beside the shared setting.
 - `RepairRules`: which gear categories a mender visit after a run covers, when a run counts as over, and which mender.
-- `FolderOrder`: class folders in the list views follow the character window, other folders the alphabet.
 - `TextRules`: the chat lists, the solver's "no solution" against a real failure, and the XIV Doctor note line.
 - `SafeFile`: a file shared by two game windows is swapped in whole, never read half-written.
 
