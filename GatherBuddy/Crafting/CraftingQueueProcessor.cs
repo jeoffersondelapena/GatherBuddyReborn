@@ -970,12 +970,12 @@ public class CraftingQueueProcessor
             .Select(id => _runReasons.TryGetValue(id, out var why) ? $"{SkippedRecipes.NameOf(id)} ({why})" : SkippedRecipes.NameOf(id)).ToList();
         if (QueueItems.Count == 0)
         {
-            Communicator.Print("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
+            Communicator.PrintRunEnd("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished, nothing left to craft");
         }
         else if (failed.Count == 0)
         {
-            Communicator.Print($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
+            Communicator.PrintRunEnd($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished");
         }
         else

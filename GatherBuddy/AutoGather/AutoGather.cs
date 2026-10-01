@@ -725,7 +725,10 @@ namespace GatherBuddy.AutoGather
                 else
                 {
                     if (!CraftingGatherBridge.IsQueueMode)
+                    {
+                        Communicator.PrintError("[GatherBuddy] Gathering stopped: your bags are full (fork).");
                         MarkListItemsToKeep();
+                    }
                     AbortAutoGather("Inventory is full");
                 }
 
@@ -970,8 +973,8 @@ namespace GatherBuddy.AutoGather
                 if (!_activeItemList.HasItemsToGather)
                 {
                     var (reason, status) = OutOfReachReason();
-                    if (reason != null && !CraftingGatherBridge.IsQueueMode)
-                        Communicator.PrintError($"[GatherBuddy] Gathering stopped: {reason} (fork).");
+                    if (!CraftingGatherBridge.IsQueueMode)
+                        AnnounceGatheringEnd(reason);
                     AbortAutoGather(status, reason);
                     return;
                 }
@@ -2314,6 +2317,17 @@ namespace GatherBuddy.AutoGather
                     : new GatherLevelRules.OutOfReach(i.Item.Name[GatherBuddy.Language], "Miner", DiscipleOfLand.MinerLevel, i.Node.Level))
                 .ToList();
             return (GatherLevelRules.Reason(list), GatherLevelRules.Short(list));
+        }
+
+        private void AnnounceGatheringEnd(string? outOfReach)
+        {
+            var left = _activeItemList.StillNeeded;
+            if (outOfReach != null)
+                Communicator.PrintError($"[GatherBuddy] Gathering stopped: {outOfReach} (fork).");
+            else if (left > 0)
+                Communicator.PrintError($"[GatherBuddy] Gathering stopped: {left} item(s) on your lists have no node GatherBuddy can use right now (fork).");
+            else
+                Communicator.PrintRunEnd($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).");
         }
 
         // a crafting run marks what its recipes still need instead

@@ -63,6 +63,9 @@ namespace GatherBuddy.AutoGather.Lists
         public IReadOnlyList<(IGatherable Item, GatheringNode Node)> OutOfReach
             => _outOfReach;
 
+        public int StillNeeded
+            => _listsManager.ActiveItems.Count(NeedsGathering);
+
         public bool IsInitialized
             => _lastUpdateTime != TimeStamp.MinValue;
 

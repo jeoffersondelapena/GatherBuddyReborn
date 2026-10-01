@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using GatherBuddy.AutoGather.Collectables;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 
@@ -680,11 +681,12 @@ public sealed partial class VendorBuyListManager : IDisposable
             _statusText = $"Vendor list '{list.Name}' complete.";
             GatherBuddy.Log.Information($"[VendorBuyListManager] Vendor list '{list.Name}' complete.");
             Communicator.Print($"[GatherBuddyReborn] Vendor list '{list.Name}' complete.");
+            Communicator.PrintRunEnd($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).", list.Name);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run finished");
             return;
         }
         if (notBought.Count > 0)
-            ForkChat.List($"Buy run finished, {notBought.Count} item(s) not bought:", notBought, 12);
+            ForkChat.List(TextRules.WithRunLabel($"Run finished: {notBought.Count} item(s) not fully bought:", list.Name), notBought, 12);
         Dalamud.ToastGui.ShowNormal($"GatherBuddy: buy run finished, {skippedCount + partiallyFulfilledCount} not fully bought");
         var resultParts = new List<string>();
         if (partiallyFulfilledCount > 0)
