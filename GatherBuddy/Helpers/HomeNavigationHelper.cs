@@ -9,7 +9,7 @@ public static class HomeNavigationHelper
     public static bool ShouldReturnHomeAfterCollectables()
         => GatherBuddy.Config.AutoGatherConfig.GoHomeWhenIdle;
 
-    public static bool TryStartReturnHome(out string? error)
+    public static bool TryStartReturnHome(out string? error, string reason = "after collectables")
     {
         error = null;
         if (Dalamud.Conditions[ConditionFlag.BoundByDuty])
@@ -33,7 +33,7 @@ public static class HomeNavigationHelper
         if (command.Contains("/li ", StringComparison.OrdinalIgnoreCase))
             command = command.Replace("/li ", string.Empty, StringComparison.OrdinalIgnoreCase);
 
-        ForkTrace.Info($"go home (after collectables): Lifestream '{command}' from territory {Dalamud.ClientState.TerritoryType}");
+        ForkTrace.Info($"go home ({reason}): Lifestream '{command}' from territory {Dalamud.ClientState.TerritoryType}");
         Lifestream.ExecuteCommand(command);
         return true;
     }

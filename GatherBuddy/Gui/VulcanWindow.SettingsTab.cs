@@ -247,6 +247,29 @@ public partial class VulcanWindow
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Use NPC repair if available and you have enough gil, otherwise use self-repair");
+
+        var afterRun = config.RepairAfterRun;
+        if (ImGui.Checkbox("Repair All Gear After a Run (fork)", ref afterRun))
+        {
+            config.RepairAfterRun = afterRun;
+            GatherBuddy.Config.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("When a crafting run or a gathering run is over, visit a mender (the preferred one below, else one in the "
+              + "current zone, else the first one known), repair every gear category including the armoury chest and bags; the run ends there.");
+
+        if (config.RepairAfterRun)
+        {
+            var afterRunThreshold = config.AfterRunThreshold;
+            ImGui.SetNextItemWidth(VulcanUiScaling.Scaled(150f));
+            if (ImGui.SliderInt("After-Run Threshold (%)", ref afterRunThreshold, 1, 100))
+            {
+                config.AfterRunThreshold = afterRunThreshold;
+                GatherBuddy.Config.Save();
+            }
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Visit the mender when any piece of gear is below this condition; 100 means anything not fully repaired");
+        }
         
         if (config.PrioritizeNPCRepair)
         {

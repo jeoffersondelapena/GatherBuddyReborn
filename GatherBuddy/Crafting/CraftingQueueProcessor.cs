@@ -1012,6 +1012,8 @@ public class CraftingQueueProcessor
         _currentState = QueueState.Complete;
         StateChanged?.Invoke(_currentState);
         QueueCompleted?.Invoke();
+        if (_currentQueueIndex >= QueueItems.Count && AfterRunRepair.Wanted(false))
+            AfterRunRepair.Start("crafting run done", false);
     }
 
     private string GetJobName(uint jobId)

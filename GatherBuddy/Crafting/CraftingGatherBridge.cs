@@ -58,6 +58,7 @@ public static class CraftingGatherBridge
     
     public static uint RecipeToCraft => _recipeIdToCraft;
     public static bool WaitingForGatherComplete => _waitingForGatherComplete;
+    public static bool IsQueueMode => _isQueueMode;
     
     public static AutoGatherList? GetTemporaryGatherList() => _gatherList;
     public static CraftingExecutionPlan? GetActiveExecutionPlan()

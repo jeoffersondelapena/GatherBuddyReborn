@@ -2355,7 +2355,9 @@ namespace GatherBuddy.AutoGather
             if (GatherBuddy.Config.AutoGatherConfig.HonkMode)
                 Task.Run(() => _soundHelper.StartHonkSoundTask(3));
             CloseGatheringAddons();
-            if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
+            if (AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
+                AfterRunRepair.Start("gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
+            else if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
                 EnqueueActionWithDelay(() => { GoHome("done"); });
             TaskManager.Enqueue(() =>
             {

@@ -469,4 +469,7 @@ public class VulcanRepairConfig
     public RepairNPCData? PreferredRepairNPC { get; set; } = null;
 
     public uint PreferredRepairNPCDataId { get; set; } = 0;
+
+    public bool RepairAfterRun { get; set; } = false;
+    public int AfterRunThreshold { get; set; } = 100;
 }
