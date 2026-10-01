@@ -43,6 +43,7 @@ public static unsafe class AfterRunRepair
     private static string?        _stepName;
     private static DateTime       _nextAt;
     private static RepairNPCData? _mender;
+    private static string?        _waitingOn;
 
     public static bool Busy
         => Steps.Count > 0;
@@ -81,7 +82,7 @@ public static unsafe class AfterRunRepair
         }
         else if ((DateTime.Now - _stepSince).TotalSeconds > seconds)
         {
-            Stop($"'{name}' took longer than {seconds} s");
+            Stop(name == WaitStep && _waitingOn != null ? $"{_waitingOn} after {seconds} s" : $"'{name}' took longer than {seconds} s");
             return;
         }
 
@@ -107,7 +108,7 @@ public static unsafe class AfterRunRepair
         if (why != null)
         {
             ForkTrace.Info($"after-run repair ({_reason}): stopped, {why}");
-            Communicator.PrintError(TextRules.WithRunLabel($"After-run repair stopped: {why}.", _label));
+            Communicator.PrintError(TextRules.WithRunLabel($"[GatherBuddy] After-run repair stopped: {why} (fork).", _label));
         }
 
         Steps.Clear();
@@ -125,20 +126,18 @@ public static unsafe class AfterRunRepair
     private static TaskResult WaitUntilFree()
     {
         var c = Dalamud.Conditions;
-        var busy = GatherBuddy.AutoGather.Enabled
-         || CraftingGatherBridge.IsQueueMode
-         || GatherBuddy.CollectableManager.IsRunning
-         || c[ConditionFlag.Crafting]
-         || c[ConditionFlag.ExecutingCraftingAction]
-         || c[ConditionFlag.PreparingToCraft]
-         || c[ConditionFlag.Gathering]
-         || c[ConditionFlag.BetweenAreas]
-         || c[ConditionFlag.BetweenAreas51]
-         || c[ConditionFlag.OccupiedInQuestEvent]
-         || c[ConditionFlag.Casting]
-         || Dalamud.Objects.LocalPlayer == null
-         || (Lifestream.Enabled && Lifestream.IsBusy());
-        if (busy)
+        _waitingOn = GatherBuddy.AutoGather.Enabled ? "auto-gather was still on"
+            : CraftingGatherBridge.IsQueueMode ? "the crafting run had not ended"
+            : GatherBuddy.CollectableManager.IsRunning ? "a collectables turn-in was still going"
+            : c[ConditionFlag.Crafting] || c[ConditionFlag.ExecutingCraftingAction] || c[ConditionFlag.PreparingToCraft] ? "the crafting log was still open"
+            : c[ConditionFlag.Gathering] ? "a gathering node was still open"
+            : c[ConditionFlag.BetweenAreas] || c[ConditionFlag.BetweenAreas51] ? "the zone change had not finished"
+            : c[ConditionFlag.OccupiedInQuestEvent] ? "a dialogue was still open"
+            : c[ConditionFlag.Casting] ? "a cast was still going"
+            : Dalamud.Objects.LocalPlayer == null ? "the character was not loaded"
+            : Lifestream.Enabled && Lifestream.IsBusy() ? "Lifestream was still busy"
+            : null;
+        if (_waitingOn != null)
             return TaskResult.Retry;
 
         if (DateTime.Now < _nextAt)
@@ -172,7 +171,7 @@ public static unsafe class AfterRunRepair
         _mender = choice is { } chosen ? known.First(n => n.DataId == chosen.Id) : null;
         if (_mender == null)
         {
-            Communicator.PrintError(TextRules.WithRunLabel("After-run repair: no mender is known; pick one under Preferred Repair NPC in Vulcan's settings.", _label));
+            Communicator.PrintError(TextRules.WithRunLabel("[GatherBuddy] After-run repair: no mender is known; pick one under Preferred Repair NPC in Vulcan's settings (fork).", _label));
             ForkTrace.Info($"after-run repair ({_reason}): no mender known ({known.Count} listed)");
             if (_homeWithoutTrip)
                 Steps.Enqueue(("go home", 120, GoHome));
@@ -267,10 +266,10 @@ public static unsafe class AfterRunRepair
         ForkTrace.Info($"after-run repair ({_reason}): done at {where}, {spent} gil; still below {threshold}%: "
           + (still.Count == 0 ? "none" : string.Join(", ", still)));
         if (still.Count == 0)
-            Communicator.Print(TextRules.WithRunLabel($"Repaired all gear after the run at {where} ({spent:N0} gil).", _label));
+            Communicator.PrintRunEnd($"[GatherBuddy] Repaired all gear after the run at {where} ({spent:N0} gil) (fork).", _label);
         else
-            Communicator.PrintError(TextRules.WithRunLabel($"Repaired gear after the run at {where} ({spent:N0} gil), but "
-              + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}%.", _label));
+            Communicator.PrintError(TextRules.WithRunLabel($"[GatherBuddy] Repaired gear after the run at {where} ({spent:N0} gil), but "
+              + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}% (fork).", _label));
         return TaskResult.Done;
     }
 

@@ -1002,7 +1002,8 @@ public class CraftingQueueProcessor
         var craftState = CraftingGameInterop.CurrentState;
         bool needExitCraft = craftState == CraftingGameInterop.CraftState.IdleBetween ||
                             craftState == CraftingGameInterop.CraftState.WaitFinish ||
-                            craftState == CraftingGameInterop.CraftState.QuickSynthesis;
+                            craftState == CraftingGameInterop.CraftState.QuickSynthesis ||
+                            Dalamud.Conditions[ConditionFlag.Crafting];
         if (needExitCraft)
         {
             GatherBuddy.Log.Debug($"[CraftingQueueProcessor] Queueing TaskExitCraft to close crafting log");

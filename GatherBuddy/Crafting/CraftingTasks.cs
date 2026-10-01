@@ -35,7 +35,10 @@ public static class CraftingTasks
             case CraftingGameInterop.CraftState.WaitAction:
                 return TaskResult.Retry;
             case CraftingGameInterop.CraftState.IdleNormal:
-                return TaskResult.Done;
+                // fork: a failed preparation forces IdleNormal while the game still has the crafting log open
+                if (!Dalamud.Conditions[ConditionFlag.Crafting] && !Dalamud.Conditions[ConditionFlag.PreparingToCraft])
+                    return TaskResult.Done;
+                goto case CraftingGameInterop.CraftState.IdleBetween;
             case CraftingGameInterop.CraftState.IdleBetween:
                 var addon = (AtkUnitBase*)Dalamud.GameGui.GetAddonByName("RecipeNote").Address;
                 if (addon != null && addon->IsVisible)
