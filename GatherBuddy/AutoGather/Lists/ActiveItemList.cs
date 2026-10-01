@@ -7,6 +7,7 @@ using GatherBuddy.AutoGather.Helpers;
 using GatherBuddy.Classes;
 using GatherBuddy.Config;
 using GatherBuddy.Enums;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Interfaces;
 using GatherBuddy.Plugin;
@@ -316,9 +317,9 @@ namespace GatherBuddy.AutoGather.Lists
         /// </summary>
         private void UpdateItemsToGather()
         {
-            // Items are unlocked in tiers of 5 levels, so we round up to the nearest 5.
-            var minerLevel = (DiscipleOfLand.MinerLevel + 5) / 5 * 5;
-            var botanistLevel = (DiscipleOfLand.BotanistLevel + 5) / 5 * 5;
+            // fork: upstream's (level + 5) / 5 * 5 sent a level 25 gatherer to level 30 nodes the game does not show it
+            var minerLevel = GatherLevelRules.Reach(DiscipleOfLand.MinerLevel);
+            var botanistLevel = GatherLevelRules.Reach(DiscipleOfLand.BotanistLevel);
             var adjustedServerTime = _lastUpdateTime;
             var territoryId = _lastTerritoryId;
             var weatherId = _lastWeatherId;

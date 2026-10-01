@@ -5,16 +5,16 @@ using System.Linq;
 
 namespace GatherBuddy.ForkLogic;
 
-// mirrors ActiveItemList's filter: a gatherer reaches nodes up to its level rounded up to the next 5
+// the game shows and opens a node only for a gatherer at most 4 levels below it (consolegameswiki "Gathering"); ActiveItemList filters with Reach
 public static class GatherLevelRules
 {
     public readonly record struct OutOfReach(string Item, string Job, int JobLevel, int NodeLevel);
 
     public static int Reach(int level)
-        => (level + 5) / 5 * 5;
+        => level + 4;
 
     public static int LevelNeeded(int nodeLevel)
-        => Math.Max(1, (nodeLevel + 4) / 5 * 5 - 5);
+        => Math.Max(1, nodeLevel - 4);
 
     public static string Reason(IReadOnlyList<OutOfReach> items, int shown = 3)
     {
