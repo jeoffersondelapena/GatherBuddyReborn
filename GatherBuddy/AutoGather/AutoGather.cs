@@ -723,6 +723,8 @@ namespace GatherBuddy.AutoGather
                 }
                 else
                 {
+                    if (!CraftingGatherBridge.IsQueueMode)
+                        MarkListItemsToKeep();
                     AbortAutoGather("Inventory is full");
                 }
 
@@ -2294,6 +2296,12 @@ namespace GatherBuddy.AutoGather
             TaskManager.Enqueue(() => !GenericHelpers.TryGetAddonByName("SelectYesno", out _), "Wait for SelectYesno to close");
             TaskManager.Enqueue(() => GenericHelpers.IsScreenReady());
         }
+
+        // a crafting run marks what its recipes still need instead
+        private void MarkListItemsToKeep()
+            => KeepMarks.Add(_plugin.AutoGatherListsManager.ActiveItems
+                .Select(i => (i.Item.ItemId, Count: (int)Math.Min(i.Item.GetInventoryCount(), i.Quantity)))
+                .ToList(), RunLabel.Current);
 
         private void AbortAutoGather(string? status = null)
         {

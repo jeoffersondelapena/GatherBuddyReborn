@@ -186,6 +186,9 @@ public class CraftingStatusWindow : Window
             {
                 CraftingGatherBridge.StopQueue();
             }
+
+            ImGui.SameLine();
+            KeepMarkButton.Draw();
             
             ImGui.Spacing();
             ImGui.Separator();

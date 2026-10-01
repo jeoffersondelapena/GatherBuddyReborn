@@ -152,6 +152,8 @@ public partial class Interface
                 "Apply the agreed settings again (repair, materia, every helper, honk off, fishing data, gearset names). Nothing else changes.",
                 !PolicySettings.SnapshotExists))
             PolicySettings.Apply();
+        ImGui.SameLine();
+        KeepMarkButton.Draw();
 
         if (GatherBuddy.AutoGather.ArtisanExporter.ArtisanAssemblyEnabled)
         {

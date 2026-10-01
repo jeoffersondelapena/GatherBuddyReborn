@@ -1012,6 +1012,8 @@ public class CraftingQueueProcessor
         _currentState = QueueState.Complete;
         StateChanged?.Invoke(_currentState);
         QueueCompleted?.Invoke();
+        if (_currentQueueIndex >= QueueItems.Count)
+            KeepMarks.ClearRun(RunLabel.Current);
         if (_currentQueueIndex >= QueueItems.Count && AfterRunRepair.Wanted(false))
             AfterRunRepair.Start("crafting run done", false);
     }
@@ -1687,9 +1689,7 @@ public class CraftingQueueProcessor
         var inventory = InventoryManager.Instance();
         if (inventory == null || inventory->GetEmptySlotsInBag() > 0)
             return;
-        var keep = StillNeededFromBags();
-        if (keep.Count > 0)
-            ForkChat.List("Keep these in your bags for the rest of this run:", keep);
+        MarkStillNeeded();
     }
 
     public void CraftWithWhatIsGathered()
@@ -1708,13 +1708,14 @@ public class CraftingQueueProcessor
         var pauseReason = $"{message} Clear inventory, then press Resume to continue the current queue.";
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
         Pause(pauseReason);
-        var keep = StillNeededFromBags();
-        if (keep.Count > 0)
-            ForkChat.List("Still needed from your bags for the rest of this run:", keep);
+        MarkStillNeeded();
     }
 
+    private void MarkStillNeeded()
+        => KeepMarks.Add(StillNeededFromBags(), RunLabel.Current);
+
     // What the plan counted as already owned: selling it while paused leaves a later recipe short.
-    private unsafe List<string> StillNeededFromBags()
+    private unsafe List<(uint ItemId, int Count)> StillNeededFromBags()
     {
         var need    = new Dictionary<uint, int>();
         var produce = new Dictionary<uint, int>();
@@ -1733,20 +1734,16 @@ public class CraftingQueueProcessor
         }
 
         var inventory = InventoryManager.Instance();
-        var sheet     = Dalamud.GameData.GetExcelSheet<Item>();
-        var keep      = new List<string>();
+        var keep      = new List<(uint ItemId, int Count)>();
         foreach (var (itemId, needed) in need)
         {
             var fromBags = needed - produce.GetValueOrDefault(itemId);
             if (fromBags <= 0 || itemId < 20 || inventory == null)
                 continue;
             var have = inventory->GetInventoryItemCount(itemId, false, false, false) + inventory->GetInventoryItemCount(itemId, true, false, false);
-            if (have <= 0)
-                continue;
-            var name = sheet?.GetRowOrDefault(itemId)?.Name.ExtractText() ?? $"item {itemId}";
-            keep.Add($"{name} x{Math.Min(fromBags, have)}");
+            if (have > 0)
+                keep.Add((itemId, Math.Min(fromBags, have)));
         }
-        keep.Sort(StringComparer.OrdinalIgnoreCase);
         return keep;
     }
 }

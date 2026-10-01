@@ -322,6 +322,9 @@ public sealed partial class VendorBuyListWindow : Window
                 manager.Clear();
         }
 
+        ImGui.SameLine();
+        KeepMarkButton.Draw();
+
         if (entries.Count > 0)
         {
             ImGui.Spacing();

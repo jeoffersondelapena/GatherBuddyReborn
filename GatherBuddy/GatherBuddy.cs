@@ -84,6 +84,7 @@ public partial class GatherBuddy : IDalamudPlugin
     public static Gui.VendorBuyListWindow? VendorBuyListWindow { get; private set; }
     public static Gui.CollectablesWindow? CollectablesWindow { get; private set; }
     internal static Gui.NativeItemTooltipBridge? NativeItemTooltipBridge { get; private set; }
+    internal static Gui.KeepMarkTooltip? KeepMarkTooltip { get; private set; }
     public static ControllerSupportManager?      ControllerSupport      { get; private set; }
     public static MarketboardService?             MarketboardService     { get; private set; }
     public static Vulcan.Vendors.VendorNavigator  VendorNavigator        { get; private set; } = null!;
@@ -191,6 +192,7 @@ public partial class GatherBuddy : IDalamudPlugin
             _collectablesWindow = new Gui.CollectablesWindow();
             CollectablesWindow = _collectablesWindow;
             NativeItemTooltipBridge = new Gui.NativeItemTooltipBridge();
+            KeepMarkTooltip = new Gui.KeepMarkTooltip();
             WindowSystem.AddWindow(Interface);
             WindowSystem.AddWindow(new GatherWindow(this));
             WindowSystem.AddWindow(new FishTimerWindow(FishRecorder));
@@ -246,6 +248,7 @@ public partial class GatherBuddy : IDalamudPlugin
         NativeItemTooltipBridge?.BeginImGuiFrame();
         try
         {
+            Gui.KeepMarkFrames.Draw();
             WindowSystem.Draw();
         }
         finally
@@ -361,6 +364,8 @@ public partial class GatherBuddy : IDalamudPlugin
         Ipc?.Dispose();
         NativeItemTooltipBridge?.Dispose();
         NativeItemTooltipBridge = null;
+        KeepMarkTooltip?.Dispose();
+        KeepMarkTooltip = null;
         //Wotsit?.Dispose();
         Interface?.Dispose();
         WindowSystem?.RemoveAllWindows();

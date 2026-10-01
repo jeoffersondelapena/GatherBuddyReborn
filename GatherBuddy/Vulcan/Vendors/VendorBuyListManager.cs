@@ -608,18 +608,14 @@ public sealed partial class VendorBuyListManager : IDisposable
     {
         var list = GatherBuddy.Config.VendorBuyLists.FirstOrDefault(l => l.Id == _runningListId);
         var keep = (list?.Entries ?? new List<VendorBuyListEntry>())
-            .Select(e => (e.ItemName, Have: GetCurrentInventoryAndArmoryCount(e.ItemId), e.TargetQuantity))
-            .Where(e => e.Have > 0)
-            .Select(e => $"{e.ItemName} x{Math.Min((uint)e.Have, e.TargetQuantity)}")
-            .OrderBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .Select(e => (e.ItemId, Count: (int)Math.Min((uint)Math.Max(0, GetCurrentInventoryAndArmoryCount(e.ItemId)), e.TargetQuantity)))
             .ToList();
+        Communicator.PrintError("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room; "
+          + "it only buys what is still missing (fork).");
+        KeepMarks.Add(keep, list?.Name);
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
         QueueHomeTrip();
-        if (keep.Count > 0)
-            ForkChat.List("Buy run stopped: your inventory is full. Already bought for this list, keep these:", keep, footer: "Run the list again after making room; it only buys what is still missing.");
-        else
-            Communicator.PrintError("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room (fork).");
         Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run stopped, inventory full");
         BeginShopCloseTransition("Stopped: your inventory is full.");
     }
