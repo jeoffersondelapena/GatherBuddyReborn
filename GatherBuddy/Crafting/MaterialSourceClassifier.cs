@@ -52,6 +52,13 @@ public static class MaterialSourceClassifier
         if (GatherBuddy.GameData.Fishes.ContainsKey(itemId))
             return MaterialSource.Fish;
 
+        // fork: the order a run gets an item in (gather, craft, buy for gil), then what is left to the player
+        if (_craftableItems?.Contains(itemId) == true)
+            return MaterialSource.Craftable;
+
+        if (_gilVendorItems?.Contains(itemId) == true)
+            return MaterialSource.GilVendor;
+
         if (_scripItems?.Contains(itemId) == true)
             return MaterialSource.Scrip;
         if (MobDropInfoCache.IsKnownDropItem(itemId))
@@ -60,16 +67,16 @@ public static class MaterialSourceClassifier
         if (!MobDropInfoCache.IsInitialized && _fallbackDropItems?.Contains(itemId) == true)
             return MaterialSource.Drop;
 
-        if (_craftableItems?.Contains(itemId) == true)
-            return MaterialSource.Craftable;
-
-        if (_gilVendorItems?.Contains(itemId) == true)
-            return MaterialSource.GilVendor;
-
         if (_specialCurrencyItems?.Contains(itemId) == true)
             return MaterialSource.SpecialCurrency;
 
         return MaterialSource.Other;
+    }
+
+    public static bool IsSoldForGil(uint itemId)
+    {
+        EnsureInitialized();
+        return _gilVendorItems?.Contains(itemId) == true;
     }
 
     private static void EnsureInitialized()
