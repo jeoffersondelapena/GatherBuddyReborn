@@ -148,7 +148,8 @@ public sealed partial class VendorBuyListWindow : Window
         DrawHeader();
 
         var avail = ImGui.GetContentRegionAvail();
-        var leftWidth = Math.Clamp(avail.X * 0.22f, VulcanUiScaling.Scaled(190f), VulcanUiScaling.Scaled(220f));
+        // fork: wide enough for the generated list names three folders deep
+        var leftWidth = Math.Min(VulcanUiScaling.Scaled(360f), avail.X * 0.4f);
 
         using (VulcanUiStyle.PushPanel())
         {

@@ -177,7 +177,8 @@ public partial class VulcanWindow
         ImGui.Spacing();
 
         var avail  = ImGui.GetContentRegionAvail();
-        var leftW  = VulcanUiScaling.Scaled(220f);
+        // fork: wide enough for the generated list names three folders deep
+        var leftW  = Math.Min(VulcanUiScaling.Scaled(290f), avail.X * 0.4f);
         var rightW = avail.X - leftW - ImGui.GetStyle().ItemSpacing.X;
 
         using (ImRaii.PushColor(ImGuiCol.ChildBg, new Vector4(0.08f, 0.08f, 0.10f, 1.00f)))
