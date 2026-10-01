@@ -132,8 +132,8 @@ public class TextRulesTests
     public void A_run_is_framed_by_dividers_naming_its_kind_and_list_and_they_take_no_second_label()
     {
         var label = TextRules.KindLabel(TextRules.Crafting, "GSM Lv 1-15 +vendor")!;
-        Assert.Equal("[GatherBuddy] ======== Crafting: GSM Lv 1-15 +vendor started (fork) ========", TextRules.DividerStart(label));
-        Assert.Equal("[GatherBuddy] ======== Crafting: GSM Lv 1-15 +vendor ended (fork) ========", TextRules.DividerEnd(label));
+        Assert.Equal("[GatherBuddy] ======== Crafting: GSM Lv 1-15 +vendor Started (fork) ========", TextRules.DividerStart(label));
+        Assert.Equal("[GatherBuddy] ======== Crafting: GSM Lv 1-15 +vendor Ended (fork) ========", TextRules.DividerEnd(label));
         Assert.Equal(TextRules.DividerEnd(label), TextRules.WithRunLabel(TextRules.DividerEnd(label), label));
     }
 }
