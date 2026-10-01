@@ -1672,15 +1672,35 @@ public class CraftingQueueProcessor
         return inventoryManager != null && inventoryManager->GetEmptySlotsInBag() == 0;
     }
 
-    public void PauseGatheringForFullBags()
+    public bool PausedInGathering
+        => _paused && _pausedDuringGather && _currentState == QueueState.WaitingForGather;
+
+    public unsafe void PauseGatheringStoppedShort(string? reason, IReadOnlyList<string> missing)
     {
-        Pause("Gathering stopped: your inventory is full. Make room, then press Resume; it gathers what is still missing, then crafts.");
-        Dalamud.Chat.PrintError("[GatherBuddy] Gathering for this crafting run stopped: your inventory is full. "
-          + "Make room, then press Resume; it gathers what is still missing, then crafts (fork).");
-        ForkTrace.Info("crafting run paused in its gathering part: inventory full");
+        var why = string.IsNullOrWhiteSpace(reason) ? "it could not go on" : reason.TrimEnd('.');
+        Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have.");
+        Dalamud.Chat.PrintError($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
+          + "the rest, or press Craft What I Have in the Craft Status window to craft with what is here (fork).");
+        ForkTrace.Info($"crafting run paused in its gathering part: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
+        if (missing.Count > 0)
+            ForkChat.List("Still missing:", missing, 12);
+        var inventory = InventoryManager.Instance();
+        if (inventory == null || inventory->GetEmptySlotsInBag() > 0)
+            return;
         var keep = StillNeededFromBags();
         if (keep.Count > 0)
             ForkChat.List("Keep these in your bags for the rest of this run:", keep);
+    }
+
+    public void CraftWithWhatIsGathered()
+    {
+        if (!PausedInGathering)
+            return;
+
+        ForkTrace.Info("crafting run: gathering skipped by the player, crafting with what is here");
+        _pausedDuringGather = false;
+        CraftingGatherBridge.DeleteTemporaryGatherList();
+        Resume();
     }
 
     private void PauseForInventoryFull(string message)

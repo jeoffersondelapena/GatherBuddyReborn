@@ -721,18 +721,6 @@ namespace GatherBuddy.AutoGather
                     else
                         GatherBuddy.CollectableManager?.Start(Collectables.CollectableRunSource.AutoGather);
                 }
-                else if (CraftingGatherBridge.IsQueueMode)
-                {
-                    AutoStatus = "Inventory is full";
-                    CloseGatheringAddons();
-                    if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
-                        EnqueueActionWithDelay(() => { GoHome("inventory full"); });
-                    TaskManager.Enqueue(() =>
-                    {
-                        if (!CraftingGatherBridge.PauseRunForFullBags())
-                            AbortAutoGather("Inventory is full");
-                    });
-                }
                 else
                 {
                     AbortAutoGather("Inventory is full");
@@ -2367,13 +2355,15 @@ namespace GatherBuddy.AutoGather
             if (GatherBuddy.Config.AutoGatherConfig.HonkMode)
                 Task.Run(() => _soundHelper.StartHonkSoundTask(3));
             CloseGatheringAddons();
+            var stoppedShort = CraftingGatherBridge.IsQueueMode && !CraftingGatherBridge.IsGatheringComplete();
             if (AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
                 AfterRunRepair.Start("gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
             else if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
-                EnqueueActionWithDelay(() => { GoHome("done"); });
+                EnqueueActionWithDelay(() => { GoHome(stoppedShort ? "gathering stopped short" : "done"); });
             TaskManager.Enqueue(() =>
             {
-                Enabled    = false;
+                if (!stoppedShort || !CraftingGatherBridge.PauseRunForGatheringStop(status))
+                    Enabled = false;
                 AutoStatus = status ?? AutoStatus;
             });
         }

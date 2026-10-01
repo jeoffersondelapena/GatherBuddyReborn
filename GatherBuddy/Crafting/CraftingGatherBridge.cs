@@ -60,13 +60,18 @@ public static class CraftingGatherBridge
     public static bool WaitingForGatherComplete => _waitingForGatherComplete;
     public static bool IsQueueMode => _isQueueMode;
 
-    // fork: full bags pause the run inside its gathering part, so Resume gathers the rest instead of crafting short
-    public static bool PauseRunForFullBags()
+    // fork: a gathering part that stops short pauses the run there, so Resume gathers the rest instead of crafting short
+    public static bool PauseRunForGatheringStop(string? reason)
     {
         if (!_isQueueMode || _queueProcessor is not { CurrentState: CraftingQueueProcessor.QueueState.WaitingForGather } || _gatherList == null)
             return false;
 
-        _queueProcessor.PauseGatheringForFullBags();
+        var missing = _gatherList.Items
+            .Select(item => (Item: item, Need: (int)(_gatherList.Quantities.TryGetValue(item, out var q) ? q : 0), Have: GetInventoryCount(item.ItemId)))
+            .Where(m => m.Have < m.Need)
+            .Select(m => $"{m.Item.Name[GatherBuddy.Language]} x{m.Need - m.Have}")
+            .ToList();
+        _queueProcessor.PauseGatheringStoppedShort(reason, missing);
         return true;
     }
     
