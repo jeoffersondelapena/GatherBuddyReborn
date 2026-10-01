@@ -6,6 +6,7 @@ using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using GatherBuddy.AutoGather.Helpers;
 using GatherBuddy.Classes;
+using GatherBuddy.Helpers;
 using GatherBuddy.Interfaces;
 
 namespace GatherBuddy.Plugin;
@@ -24,6 +25,8 @@ public class ContextMenu : IDisposable
     private readonly MenuItem _menuItemCrafting;
     private readonly MenuItem _menuItemVulcanRecipe;
     private readonly MenuItem _menuItemVendorBuyList;
+    private readonly MenuItem _menuItemClearOrange;
+    private readonly MenuItem _menuItemClearGreen;
 
     public ContextMenu(GatherBuddy plugin, IContextMenu menu, Executor executor)
     {
@@ -83,6 +86,28 @@ public class ContextMenu : IDisposable
             Name        = "Add to Vendor Buy List",
             OnClicked   = OnClickVendorBuyList,
             IsSubmenu   = true,
+            PrefixColor = 42,
+        };
+
+        _menuItemClearOrange = new MenuItem
+        {
+            IsEnabled   = true,
+            IsReturn    = false,
+            PrefixChar  = 'G',
+            Name        = "Clear Orange Marks (fork)",
+            OnClicked   = _ => KeepMarks.ClearNeeded(),
+            IsSubmenu   = false,
+            PrefixColor = 42,
+        };
+
+        _menuItemClearGreen = new MenuItem
+        {
+            IsEnabled   = true,
+            IsReturn    = false,
+            PrefixChar  = 'G',
+            Name        = "Clear Green Marks (fork)",
+            OnClicked   = _ => KeepMarks.ClearMade(),
+            IsSubmenu   = false,
             PrefixColor = 42,
         };
 
@@ -327,6 +352,16 @@ public class ContextMenu : IDisposable
         {
             _menuItemVendorBuyList.IsEnabled = true;
             args.AddMenuItem(_menuItemVendorBuyList);
+        }
+
+        // fork: a marked item offers to clear the marks of its own color
+        if (args.MenuType is ContextMenuType.Inventory && contextItemId.HasValue
+         && KeepMarks.TryGet(contextItemId.Value, out var needed, out var made))
+        {
+            if (needed != null)
+                args.AddMenuItem(_menuItemClearOrange);
+            if (made != null)
+                args.AddMenuItem(_menuItemClearGreen);
         }
     }
 

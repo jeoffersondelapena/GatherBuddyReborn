@@ -63,6 +63,7 @@ internal static class ForkSettingsPage
         ImGui.BulletText("Skip Logged Recipes (fork): on each crafting list, in Vulcan's list editor.");
         ImGui.BulletText("Craft What I Have (fork), Clear Orange Marks (fork) and Clear Green Marks (fork): in the Craft Status window.");
         ImGui.BulletText("Clear Green Marks (fork): in the buy-list window.");
+        ImGui.BulletText("Clear Orange Marks (fork) and Clear Green Marks (fork): in the right-click menu of an item marked that color.");
         ImGui.BulletText("Retry skipped (fork): in Vulcan's Crafting Lists tab.");
     }
 }
