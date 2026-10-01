@@ -1401,7 +1401,7 @@ public class CraftingQueueProcessor
 
         _currentState = QueueState.WaitingForGather;
         StateChanged?.Invoke(_currentState);
-        CraftingGatherBridge.CreateGatherListForMissingIngredients(MaterialTargets);
+        CraftingGatherBridge.BeginGathering(MaterialTargets);
     }
     private void RebuildQueueAndMaterialsFromCurrentInventory()
     {
@@ -1541,6 +1541,7 @@ public class CraftingQueueProcessor
         
         if (_currentState == QueueState.WaitingForGather)
         {
+            CraftingGatherBridge.PauseBuying();
             var gatherList = CraftingGatherBridge.GetTemporaryGatherList();
             if (gatherList != null)
             {
@@ -1584,6 +1585,9 @@ public class CraftingQueueProcessor
             return;
         }
         
+        if (_currentState == QueueState.WaitingForGather && CraftingGatherBridge.ResumeBuying())
+            return;
+
         if (_pausedDuringGather && _currentState == QueueState.WaitingForGather)
         {
             var gatherList = CraftingGatherBridge.GetTemporaryGatherList();

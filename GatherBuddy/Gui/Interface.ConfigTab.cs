@@ -1663,6 +1663,7 @@ public partial class Interface
         ]),
         new("", "Fork",
         [
+            new("Buy From Vendors Before Gathering vendor crafting run fork", ForkSettingsPage.DrawBuyBeforeGathering),
             new("Repair All Gear After a Run After-Run Threshold mender fork",
                 layout =>
                 {

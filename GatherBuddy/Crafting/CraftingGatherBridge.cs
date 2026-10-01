@@ -37,7 +37,12 @@ public static class CraftingGatherBridge
     private static DateTime _lastCollectablesHardFailLog = DateTime.MinValue;
     private static bool _waitingForCollectablesHomeReturn = false;
     private static bool _collectablesHomeReturnStarted = false;
-    
+    private static Dictionary<uint, int>? _afterBuying;
+    private static bool _buyStarted;
+    private static bool _buyingPaused;
+    private static DateTime _buyStartBy;
+    private static readonly List<string> _noVendor = new();
+
     public static bool PreserveListOnDisable { get; set; } = false;
 
     public static void Initialize(global::GatherBuddy.GatherBuddy plugin)
@@ -178,6 +183,9 @@ public static class CraftingGatherBridge
         {
             UpdateCollectablesHomeReturnBeforeResume();
             TryStartCollectablesInterruption();
+            UpdateBuying();
+            if (_queueProcessor == null)
+                return;
             _queueProcessor.Update();
             
             if (_queueProcessor.CurrentState == CraftingQueueProcessor.QueueState.Complete && !_queueProcessor.HasPendingTasks())
@@ -189,6 +197,7 @@ public static class CraftingGatherBridge
                 _activeExecutionPlan = null;
                 _isQueueMode = false;
                 _keepRun = null;
+                ClearBuying();
 
                 if (_ephemeralListId.HasValue)
                 {
@@ -246,7 +255,7 @@ public static class CraftingGatherBridge
         var hasRetainerWork = executionPlan.RetainerRestock && AllaganTools.Enabled
             && (executionPlan.Materials.Count > 0 || executionPlan.RetainerConsumedCraftables.Count > 0);
         if (!hasRetainerWork)
-            CreateGatherListForMissingIngredients(executionPlan.Materials);
+            BeginGathering(executionPlan.Materials);
 
         GatherBuddy.CraftingStatusWindow?.SetQueueProcessor(_queueProcessor);
     }
@@ -279,6 +288,155 @@ public static class CraftingGatherBridge
           + $" | to source {Items(plan.MaterialsView)} | precrafts {Items(plan.PrecraftsView)}"
           + $" | from retainers {Items(plan.RetainerConsumedCraftablesView)}"
           + $" | skipIfEnough={plan.SkipIfEnough} skipFinalIfEnough={plan.SkipFinalIfEnough} retainerRestock={plan.RetainerRestock}";
+    }
+
+    public static bool IsBuying
+        => _afterBuying != null && !_buyingPaused;
+
+    // fork: a crafting run first buys what it can neither gather nor fish but a gil vendor sells, then gathers the rest
+    public static void BeginGathering(Dictionary<uint, int> materials)
+    {
+        if (!_isQueueMode || !GatherBuddy.Config.VulcanBuyBeforeGathering || GatherBuddy.VendorBuyListManager == null)
+        {
+            CreateGatherListForMissingIngredients(materials);
+            return;
+        }
+
+        _afterBuying  = materials;
+        _buyingPaused = false;
+        StartBuying();
+    }
+
+    private static void StartBuying()
+    {
+        _buyStarted = false;
+        _buyStartBy = DateTime.Now.AddMinutes(1);
+        _noVendor.Clear();
+        TryStartBuying();
+    }
+
+    private static void TryStartBuying()
+    {
+        var targets = PurchaseRules.BeforeGathering(_afterBuying!,
+            id => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
+             || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id),
+            MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
+        if (targets.Count == 0)
+        {
+            FinishBuying();
+            return;
+        }
+
+        if (!VendorAutomationRequirements.IsAvailable)
+        {
+            Communicator.PrintRun(PurchaseRules.CouldNotBuy(VendorAutomationRequirements.UnavailableStatusText));
+            FinishBuying();
+            return;
+        }
+
+        var requests = targets.Select(t => new VendorBuyListManager.VendorTargetRequest(t.ItemId, t.Target)).ToList();
+        var result   = GatherBuddy.VendorBuyListManager!.StartForRun(_activeExecutionPlan?.ListName ?? "crafting run", requests, out var noVendor);
+        if (result is VendorBuyListManager.StartResult.Started or VendorBuyListManager.StartResult.WaitingForPreviousInteraction)
+        {
+            _buyStarted = true;
+            _noVendor.AddRange(noVendor.Select(id => $"{ForkTrace.ItemName(id)} (no vendor GatherBuddy can walk to)"));
+            var buying = targets.Where(t => !noVendor.Contains(t.ItemId)).Select(t => $"{ForkTrace.ItemName(t.ItemId)} x{t.Missing}").ToList();
+            ForkTrace.Info($"buy before gathering: {string.Join(", ", buying)}{(noVendor.Count == 0 ? "" : $"; no vendor for {string.Join(", ", noVendor.Select(ForkTrace.Named))}")}");
+            ForkChat.List(PurchaseRules.BuyingHeader, buying, tone: Communicator.Tone.Info);
+            return;
+        }
+
+        var waiting = result is VendorBuyListManager.StartResult.AlreadyRunning or VendorBuyListManager.StartResult.VendorDataLoading
+            or VendorBuyListManager.StartResult.LocationDataLoading;
+        if (waiting && DateTime.Now < _buyStartBy)
+            return;
+
+        ForkTrace.Info($"buy before gathering: could not start ({result})");
+        Communicator.PrintRun(PurchaseRules.CouldNotBuy(result switch
+        {
+            VendorBuyListManager.StartResult.Empty            => "no vendor GatherBuddy can walk to sells what is missing",
+            VendorBuyListManager.StartResult.AlreadyRunning   => "another vendor run was still going after a minute",
+            VendorBuyListManager.StartResult.NoPendingEntries => "nothing was missing after all",
+            _                                                 => "the vendor data did not load within a minute",
+        }));
+        FinishBuying();
+    }
+
+    private static void UpdateBuying()
+    {
+        if (_afterBuying == null || _buyingPaused || _queueProcessor is not { Paused: false } || GatherBuddy.VendorBuyListManager is not { } manager)
+            return;
+
+        if (!_buyStarted)
+        {
+            TryStartBuying();
+            return;
+        }
+
+        if (manager.RunPurchase == VendorBuyListManager.RunPurchaseOutcome.Running || manager.IsBusy)
+            return;
+
+        var (outcome, detail, notBought) = manager.TakeRunPurchase();
+        notBought.AddRange(_noVendor);
+        ForkTrace.Info($"buy before gathering: {outcome}{(detail.Length > 0 ? $" ({detail})" : "")}; not bought: {(notBought.Count == 0 ? "none" : string.Join(", ", notBought))}");
+        switch (outcome)
+        {
+            case VendorBuyListManager.RunPurchaseOutcome.BagsFull:
+                Communicator.PrintRun(PurchaseRules.BagsFull);
+                _buyingPaused = true;
+                _queueProcessor.Pause("Your bags filled up while buying from vendors. Make room, then press Resume; it buys only what is still missing (fork).");
+                return;
+            case VendorBuyListManager.RunPurchaseOutcome.Stopped:
+                Communicator.PrintRun(PurchaseRules.StoppedWhileBuying);
+                StopQueue();
+                return;
+            case VendorBuyListManager.RunPurchaseOutcome.Finished when notBought.Count == 0:
+                Communicator.PrintRun(PurchaseRules.AllBought, tone: Communicator.Tone.Info);
+                break;
+            case VendorBuyListManager.RunPurchaseOutcome.Finished:
+                ForkChat.List(PurchaseRules.NotBoughtHeader(notBought.Count), notBought, 12);
+                break;
+            default:
+                Communicator.PrintRun(PurchaseRules.CouldNotBuy(detail.Length > 0 ? detail : "the vendor run ended early"));
+                break;
+        }
+
+        FinishBuying();
+    }
+
+    private static void FinishBuying()
+    {
+        var materials = _afterBuying;
+        ClearBuying();
+        if (materials != null)
+            CreateGatherListForMissingIngredients(materials);
+    }
+
+    private static void ClearBuying()
+    {
+        _afterBuying  = null;
+        _buyStarted   = false;
+        _buyingPaused = false;
+        _noVendor.Clear();
+    }
+
+    internal static void PauseBuying()
+    {
+        if (_afterBuying == null || _buyingPaused)
+            return;
+
+        _buyingPaused = true;
+        GatherBuddy.VendorBuyListManager?.CancelRunPurchase();
+    }
+
+    internal static bool ResumeBuying()
+    {
+        if (_afterBuying == null || !_buyingPaused)
+            return false;
+
+        _buyingPaused = false;
+        StartBuying();
+        return true;
     }
 
     public static void CreateGatherListForMissingIngredients(Dictionary<uint, int> missing)
@@ -779,6 +937,9 @@ public static class CraftingGatherBridge
             _lastCollectablesHardFailLog = DateTime.MinValue;
             _ephemeralListId = null;
             GatherBuddy.AutoGather.Enabled = false;
+            if (_afterBuying != null)
+                GatherBuddy.VendorBuyListManager?.CancelRunPurchase();
+            ClearBuying();
             CraftingGameInterop.CancelCurrentCraft();
             DeleteTemporaryGatherList();
             _queueProcessor.Reset();

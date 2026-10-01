@@ -104,7 +104,7 @@ public class CraftingStatusWindow : Window
         ImGui.Separator();
         ImGui.Spacing();
 
-        ImGui.Text($"State: {GetStateDisplayName(currentState)}");
+        ImGui.Text($"State: {(CraftingGatherBridge.IsBuying ? "Buying From Vendors (fork)" : GetStateDisplayName(currentState))}");
         ImGui.Text($"Progress: {Math.Min(currentIndex + 1, totalCount)} / {totalCount}");
 
         if (_queueProcessor.Paused && !string.IsNullOrWhiteSpace(_queueProcessor.PauseReason))

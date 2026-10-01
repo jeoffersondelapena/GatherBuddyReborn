@@ -9,6 +9,19 @@ namespace GatherBuddy.Gui;
 // fork: settings and tools that aren't tied to one list or one run's window
 internal static class ForkSettingsPage
 {
+    public static void DrawBuyBeforeGathering()
+    {
+        var buy = GatherBuddy.Config.VulcanBuyBeforeGathering;
+        if (ImGui.Checkbox("Buy From Vendors Before Gathering (fork)", ref buy))
+        {
+            GatherBuddy.Config.VulcanBuyBeforeGathering = buy;
+            GatherBuddy.Config.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("A crafting run first buys, for gil, every material it can neither gather nor fish (vendor items, drops a vendor also "
+              + "sells), only what your bags lack, then gathers and crafts. What it can gather it gathers, and in-between items it crafts.");
+    }
+
     public static void DrawRepairAfterRun()
     {
         var config   = GatherBuddy.Config.VulcanRepairConfig;

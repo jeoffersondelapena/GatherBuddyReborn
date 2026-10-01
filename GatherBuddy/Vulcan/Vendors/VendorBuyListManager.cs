@@ -75,6 +75,23 @@ public sealed partial class VendorBuyListManager : IDisposable
     private bool _runHitScripReserveLimit;
     private string   _statusText = string.Empty;
 
+    // fork: a crafting run buys on a list kept out of the settings, so it is never saved, shown, or left behind
+    public enum RunPurchaseOutcome
+    {
+        None,
+        Running,
+        Finished,
+        BagsFull,
+        Failed,
+        Stopped,
+    }
+
+    private VendorBuyListDefinition? _runList;
+    private readonly List<string> _runNotBought = new();
+
+    public RunPurchaseOutcome RunPurchase { get; private set; }
+    public string RunPurchaseDetail { get; private set; } = string.Empty;
+
     public VendorBuyListManager()
     {
         EnsureVendorCachesAvailable();
@@ -154,6 +171,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetShopCloseWaitState();
+        NoteRunPurchase(RunPurchaseOutcome.Failed, "it timed out leaving the previous vendor");
         ResetExecutionState();
         _statusText    = "Timed out leaving the previous vendor interaction.";
         GatherBuddy.Log.Error($"[VendorBuyListManager] Timed out leaving the previous vendor interaction. Last blocker: {blocker}");
@@ -433,7 +451,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         {
             _isRunning = true;
             _runningListId = activeList.Id;
-            _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Where(e => e.Enabled).Select(e => (e.ItemId, (int)Math.Min(e.TargetQuantity, int.MaxValue))));
+            _keepRun ??= BeginKeep(activeList);
             Divide(activeList.Name);
             _statusText = $"Leaving the previous vendor interaction for '{activeList.Name}'.";
             return StartResult.WaitingForPreviousInteraction;
@@ -476,12 +494,91 @@ public sealed partial class VendorBuyListManager : IDisposable
 
         _isRunning = true;
         _runningListId = activeList.Id;
-        _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Where(e => e.Enabled).Select(e => (e.ItemId, (int)Math.Min(e.TargetQuantity, int.MaxValue))));
+        _keepRun ??= BeginKeep(activeList);
         Divide(activeList.Name);
         _waitingForCancelledPurchase = false;
         _statusText = $"Starting vendor list '{activeList.Name}'...";
         TryStartNextEntry();
         return StartResult.Started;
+    }
+
+    // what the crafting run buys are materials it will use up, not what its list counts toward, so they get no green mark
+    private KeepRules.Run? BeginKeep(VendorBuyListDefinition list)
+        => ReferenceEquals(list, _runList)
+            ? null
+            : KeepMarks.BeginRun(list.Name, "bought", list.Entries.Where(e => e.Enabled).Select(e => (e.ItemId, (int)Math.Min(e.TargetQuantity, int.MaxValue))));
+
+    // gil shops only: a run never spends seals or scrips on its own
+    public StartResult StartForRun(string name, IReadOnlyList<VendorTargetRequest> targets, out List<uint> noVendor)
+    {
+        noVendor = new List<uint>();
+        if (IsBusy)
+            return StartResult.AlreadyRunning;
+        if (!VendorShopResolver.IsInitialized)
+        {
+            EnsureVendorCachesAvailable();
+            return StartResult.VendorDataLoading;
+        }
+        if (!VendorNpcLocationCache.IsInitialized)
+        {
+            EnsureVendorCachesAvailable();
+            return StartResult.LocationDataLoading;
+        }
+
+        var list = new VendorBuyListDefinition { Name = name };
+        foreach (var request in targets)
+        {
+            if (!TryResolveDefaultEntry(request.ItemId, out var liveEntry, out var vendor, gilOnly: true)
+             || !TrySetResolvedTarget(list, liveEntry, vendor, request.TargetQuantity))
+                noVendor.Add(request.ItemId);
+        }
+        if (list.Entries.Count == 0)
+            return StartResult.Empty;
+
+        _runList = list;
+        _runNotBought.Clear();
+        RunPurchaseDetail = string.Empty;
+        RunPurchase       = RunPurchaseOutcome.Running;
+        var result = Start(list.Id);
+        if (result is not (StartResult.Started or StartResult.WaitingForPreviousInteraction))
+        {
+            _runList    = null;
+            RunPurchase = RunPurchaseOutcome.None;
+        }
+
+        return result;
+    }
+
+    // the run's own Pause or Stop: nothing is reported back, the run already knows
+    public void CancelRunPurchase()
+    {
+        RunPurchase = RunPurchaseOutcome.None;
+        if (_runList != null && _runningListId == _runList.Id)
+            Stop();
+        _runList = null;
+        _runNotBought.Clear();
+    }
+
+    public (RunPurchaseOutcome Outcome, string Detail, List<string> NotBought) TakeRunPurchase()
+    {
+        var taken = (RunPurchase, RunPurchaseDetail, _runNotBought.ToList());
+        RunPurchase       = RunPurchaseOutcome.None;
+        RunPurchaseDetail = string.Empty;
+        _runNotBought.Clear();
+        _runList = null;
+        return taken;
+    }
+
+    private bool RunningRunPurchase
+        => _runList != null && _runningListId == _runList.Id;
+
+    private void NoteRunPurchase(RunPurchaseOutcome outcome, string detail = "")
+    {
+        if (!RunningRunPurchase)
+            return;
+
+        RunPurchase       = outcome;
+        RunPurchaseDetail = detail;
     }
 
     public void Stop()
@@ -584,6 +681,8 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void ResetExecutionState()
     {
+        if (RunPurchase == RunPurchaseOutcome.Running)
+            NoteRunPurchase(RunPurchaseOutcome.Stopped);
         KeepMarks.EndRun(_keepRun);
         _keepRun = null;
         if (_divided)
@@ -631,6 +730,15 @@ public sealed partial class VendorBuyListManager : IDisposable
     // fork: with no free slot every later entry would only time out in turn, and what is already bought must not be sold to make room
     private void StopForFullInventory()
     {
+        if (RunningRunPurchase)
+        {
+            NoteRunPurchase(RunPurchaseOutcome.BagsFull);
+            LastRunHitScripReserveLimit = _runHitScripReserveLimit;
+            ResetExecutionState();
+            BeginShopCloseTransition("Stopped: your inventory is full.");
+            return;
+        }
+
         Communicator.PrintRun("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room; "
           + "it only buys what is still missing (fork).");
         KeepMarks.EndRun(_keepRun);
@@ -644,6 +752,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void FailCurrentRun(string message)
     {
+        NoteRunPurchase(RunPurchaseOutcome.Failed, message);
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
         _statusText = message;
@@ -691,6 +800,18 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void FinishCurrentRun(VendorBuyListDefinition list)
     {
+        if (RunningRunPurchase)
+        {
+            _runNotBought.Clear();
+            foreach (var entry in list.Entries.Where(e => GetRemainingQuantity(e) > 0))
+                _runNotBought.Add(_skipNotes.TryGetValue(entry.Id, out var note) ? note : $"{entry.ItemName} ({GetRemainingQuantity(entry)} still missing)");
+            NoteRunPurchase(RunPurchaseOutcome.Finished);
+            LastRunHitScripReserveLimit = _runHitScripReserveLimit;
+            ResetExecutionState();
+            _statusText = $"Bought what '{list.Name}' needs.";
+            return;
+        }
+
         var keepRun = _keepRun;
         _keepRun = null;
         var skippedCount = _skippedEntryIds.Count;
@@ -747,7 +868,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     }
 
     private VendorBuyListDefinition? GetList(Guid listId)
-        => GatherBuddy.Config.VendorBuyLists.FirstOrDefault(list => list.Id == listId);
+        => _runList?.Id == listId ? _runList : GatherBuddy.Config.VendorBuyLists.FirstOrDefault(list => list.Id == listId);
 
     private static List<VendorShopEntry> GetMatchingCandidates(VendorBuyListEntry entry)
     {
@@ -917,7 +1038,9 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private bool TryFindEntry(Guid entryId, out VendorBuyListDefinition? list, out VendorBuyListEntry? entry)
     {
-        foreach (var currentList in GatherBuddy.Config.VendorBuyLists)
+        // fork: the run's own list too, or a skipped entry is never set aside and is retried without end
+        var lists = _runList == null ? GatherBuddy.Config.VendorBuyLists : GatherBuddy.Config.VendorBuyLists.Prepend(_runList);
+        foreach (var currentList in lists)
         {
             var currentEntry = currentList.Entries.FirstOrDefault(item => item.Id == entryId);
             if (currentEntry == null)
@@ -1016,14 +1139,14 @@ public sealed partial class VendorBuyListManager : IDisposable
             _                                => Enumerable.Empty<VendorShopEntry>(),
         };
 
-    private bool TryResolveDefaultEntry(uint itemId, out VendorShopEntry entry, out VendorNpc vendor)
+    private bool TryResolveDefaultEntry(uint itemId, out VendorShopEntry entry, out VendorNpc vendor, bool gilOnly = false)
     {
         entry  = null!;
         vendor = null!;
 
         if (!VendorShopResolver.IsInitialized)
             return false;
-        var candidates = GetDefaultEntryCandidates(itemId).ToList();
+        var candidates = GetDefaultEntryCandidates(itemId).Where(c => !gilOnly || c.ShopType == VendorShopType.GilShop).ToList();
         foreach (var candidate in candidates)
         {
             var supportedVendors = VendorDevExclusions.GetSelectableNpcs(
