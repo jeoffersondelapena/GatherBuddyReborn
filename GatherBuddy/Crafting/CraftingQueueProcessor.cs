@@ -1014,6 +1014,7 @@ public class CraftingQueueProcessor
         StateChanged?.Invoke(_currentState);
         QueueCompleted?.Invoke();
         KeepMarks.EndRun(CraftingGatherBridge.KeepRun);
+        RunChat.End();
         if (_currentQueueIndex >= QueueItems.Count && AfterRunRepair.Wanted(false))
             AfterRunRepair.Start("crafting run done", false);
     }

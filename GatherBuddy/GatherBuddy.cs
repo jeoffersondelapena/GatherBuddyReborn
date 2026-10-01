@@ -280,6 +280,7 @@ public partial class GatherBuddy : IDalamudPlugin
     {
         Config.SaveIfDirty();
         Helpers.KeepMarks.Update();
+        Helpers.RunChat.Update();
         var prev = LastObjectsLength;
         LastObjectsLength = Dalamud.Objects.Length;
         //Scan objects every 5 secons or when the number of objects change

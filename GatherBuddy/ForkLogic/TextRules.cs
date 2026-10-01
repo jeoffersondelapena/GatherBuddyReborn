@@ -30,6 +30,12 @@ public static class TextRules
     public static string? KindLabel(string kind, string? name)
         => string.IsNullOrWhiteSpace(name) ? null : $"{kind}: {ShownLabel(name)}";
 
+    public static string DividerStart(string label)
+        => $"[GatherBuddy] ======== {label} started (fork) ========";
+
+    public static string DividerEnd(string label)
+        => $"[GatherBuddy] ======== {label} ended (fork) ========";
+
     public static string KindOfVerb(string verb)
         => verb switch
         {

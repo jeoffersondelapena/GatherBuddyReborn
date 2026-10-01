@@ -399,6 +399,8 @@ namespace GatherBuddy.AutoGather
 
                 if (!value)
                 {
+                    if (_keepRun != null)
+                        RunChat.End();
                     KeepMarks.EndRun(_keepRun);
                     _keepRun   = null;
                     AutoStatus = "Idle...";
@@ -473,8 +475,11 @@ namespace GatherBuddy.AutoGather
                 }
                 
                 if (!Crafting.CraftingGatherBridge.IsQueueMode)
+                {
+                    RunChat.Begin(TextRules.KindLabel(TextRules.Gathering, RunLabel.GatherLists()));
                     _keepRun = KeepMarks.BeginRun(RunLabel.GatherLists(), "gathered",
                         _plugin.AutoGatherListsManager.ActiveItems.Select(i => i.Item.ItemId));
+                }
                 WentHome = true; //Prevents going home right after enabling auto-gather
                 if (AutoHook.Enabled)
                 {

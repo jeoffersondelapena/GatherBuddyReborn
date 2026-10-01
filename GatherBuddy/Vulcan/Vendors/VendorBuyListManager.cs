@@ -58,6 +58,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     private Guid?    _runningListId;
     private bool     _homeAfterRun;
     private KeepRules.Run? _keepRun;
+    private bool           _divided;
     private bool     _homePending;
     private DateTime _homePendingSince;
     private bool     _isRunning;
@@ -433,6 +434,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             _isRunning = true;
             _runningListId = activeList.Id;
             _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Select(e => e.ItemId));
+            Divide(activeList.Name);
             _statusText = $"Leaving the previous vendor interaction for '{activeList.Name}'.";
             return StartResult.WaitingForPreviousInteraction;
         }
@@ -475,6 +477,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         _isRunning = true;
         _runningListId = activeList.Id;
         _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Select(e => e.ItemId));
+        Divide(activeList.Name);
         _waitingForCancelledPurchase = false;
         _statusText = $"Starting vendor list '{activeList.Name}'...";
         TryStartNextEntry();
@@ -566,10 +569,26 @@ public sealed partial class VendorBuyListManager : IDisposable
     private int GetPendingEntryCount(VendorBuyListDefinition? list)
         => list?.Entries.Count(entry => GetRemainingQuantity(entry) > 0) ?? 0;
 
+    // a buy run started from its window is a run of its own; collectable scrip purchases happen inside another run
+    private void Divide(string listName)
+    {
+        if (!_homeAfterRun || _divided)
+            return;
+
+        RunChat.Begin(TextRules.KindLabel(TextRules.BuyList, listName));
+        _divided = true;
+    }
+
+    public bool HomeTripPending
+        => _homePending;
+
     private void ResetExecutionState()
     {
         KeepMarks.EndRun(_keepRun);
         _keepRun = null;
+        if (_divided)
+            RunChat.End();
+        _divided = false;
         _isRunning = false;
         _activeEntryId = null;
         _runningListId = null;

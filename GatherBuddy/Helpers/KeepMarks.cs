@@ -33,6 +33,9 @@ public static unsafe class KeepMarks
     public static int Count
         => _needed.Keys.Union(_made.Keys).Count();
 
+    public static bool IsClosing
+        => Closing.Count > 0;
+
     public static int NeededCount
         => _needed.Count;
 

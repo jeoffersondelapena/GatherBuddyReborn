@@ -230,6 +230,7 @@ public static class CraftingGatherBridge
     
     public static void StartQueueCraftAndGather(CraftingExecutionPlan executionPlan, CraftingListConsumableSettings? listConsumables = null, int? ephemeralListId = null)
     {
+        RunChat.Begin(TextRules.KindLabel(TextRules.Crafting, executionPlan.ListName));
         _isQueueMode = true;
         _ephemeralListId = ephemeralListId;
         _activeExecutionPlan = executionPlan;
@@ -776,6 +777,7 @@ public static class CraftingGatherBridge
             _isQueueMode = false;
             KeepMarks.EndRun(_keepRun);
             _keepRun = null;
+            RunChat.End();
             RestoreDisabledGatherLists();
             GatherBuddy.CraftingStatusWindow?.SetQueueProcessor(null);
         }
