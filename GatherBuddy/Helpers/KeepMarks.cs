@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Dalamud.Game.Inventory.InventoryEventArgTypes;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using GatherBuddy.ForkLogic;
 using GatherBuddy.Plugin;
@@ -35,6 +36,23 @@ public static unsafe class KeepMarks
         needed = _needed.GetValueOrDefault(id);
         made   = _made.GetValueOrDefault(id);
         return needed != null || made != null;
+    }
+
+    public static void Start()
+        => Dalamud.GameInventory.InventoryChanged += OnInventoryChanged;
+
+    public static void Stop()
+        => Dalamud.GameInventory.InventoryChanged -= OnInventoryChanged;
+
+    // green follows the bags as items arrive, so a crash or a reload mid-run keeps what the run had made
+    private static void OnInventoryChanged(IReadOnlyCollection<InventoryEventArgs> events)
+    {
+        if (Open.Count == 0)
+            return;
+
+        var changed = events.Select(e => e.Item.BaseItemId).Where(id => id != 0).ToHashSet();
+        foreach (var run in Open.Where(kv => kv.Value.Keys.Any(changed.Contains)).Select(kv => kv.Key).ToList())
+            NoteMade(run);
     }
 
     public static KeepRules.Run BeginRun(string? label, string verb, IEnumerable<uint> targets)
