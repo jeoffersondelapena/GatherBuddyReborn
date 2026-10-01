@@ -15,7 +15,16 @@ public static unsafe class KeepMarks
     private static Dictionary<uint, KeepRules.Mark> _needed = new();
     private static Dictionary<uint, KeepRules.Mark> _made   = new();
 
-    private static readonly Dictionary<KeepRules.Run, Dictionary<uint, int>> Open = new();
+    private static readonly Dictionary<KeepRules.Run, Dictionary<uint, int>> Open    = new();
+    private static readonly Dictionary<KeepRules.Run, DateTime>                Closing = new();
+
+    private static readonly InventoryType[] Holding =
+    [
+        InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4,
+        InventoryType.ArmoryMainHand, InventoryType.ArmoryOffHand, InventoryType.ArmoryHead, InventoryType.ArmoryBody,
+        InventoryType.ArmoryHands, InventoryType.ArmoryLegs, InventoryType.ArmoryFeets, InventoryType.ArmoryEar,
+        InventoryType.ArmoryNeck, InventoryType.ArmoryWrist, InventoryType.ArmoryRings,
+    ];
     private static int      _nextRun;
     private static DateTime _nextPrune;
     private static string?  _loadedFor;
@@ -58,7 +67,7 @@ public static unsafe class KeepMarks
     public static KeepRules.Run BeginRun(string? label, string verb, IEnumerable<uint> targets)
     {
         var run = new KeepRules.Run(++_nextRun, string.IsNullOrWhiteSpace(label) ? "this run" : label, verb);
-        Open[run] = targets.Select(t => KeepRules.BaseItemId(t)).Where(t => t != 0).Distinct().ToDictionary(t => t, Held);
+        Open[run] = Held(targets.Select(t => KeepRules.BaseItemId(t)).Where(t => t != 0));
         ForkTrace.Info($"keep marks: run {run.Id} ({run.Label}, {verb}) watches {Open[run].Count} item(s)");
         return run;
     }
@@ -69,7 +78,7 @@ public static unsafe class KeepMarks
             return;
 
         _needed = KeepRules.Merge(_needed, needed, r);
-        var made   = NoteMade(r);
+        var made   = NoteMade(r).Count;
         var marked = _needed.Values.Count(m => m.ByRun.ContainsKey(r));
         ForkTrace.Info($"keep marks: run {r.Id} paused; still needed {string.Join(", ", needed.Where(i => i.Count > 0).Select(i => $"{ForkTrace.Named(i.ItemId)} x{i.Count}"))}; made so far {made}");
         if (marked > 0 || made > 0)
@@ -85,17 +94,30 @@ public static unsafe class KeepMarks
         ForkTrace.Info($"keep marks: run {r.Id} went on, its orange marks cleared");
     }
 
+    // the last craft's or purchase's item can land a moment after the run ends, so the run is watched a little longer
     public static void EndRun(KeepRules.Run? run)
     {
-        if (run is not { } r || !Open.ContainsKey(r))
+        if (run is not { } r || !Open.ContainsKey(r) || Closing.ContainsKey(r))
             return;
 
         _needed = KeepRules.WithoutRun(_needed, r);
-        var made = NoteMade(r);
-        Open.Remove(r);
-        ForkTrace.Info($"keep marks: run {r.Id} ended, {made} item(s) {r.Verb}");
-        if (made > 0)
-            Communicator.PrintRun(KeepRules.EndSummary(made, r.Verb), r.Label);
+        NoteMade(r);
+        Closing[r] = DateTime.Now.AddSeconds(5);
+    }
+
+    private static void Close(KeepRules.Run run)
+    {
+        Closing.Remove(run);
+        if (!Open.Remove(run, out var before))
+            return;
+
+        var now  = Held(before.Keys);
+        var made = Merge(run, KeepRules.Made(before, now));
+        var none = before.Keys.Where(id => !made.ContainsKey(id)).ToList();
+        ForkTrace.Info($"keep marks: run {run.Id} ended, {made.Count} of {before.Count} item(s) {run.Verb}"
+          + (none.Count == 0 ? "" : $"; no gain: {string.Join(", ", none.Select(id => $"{ForkTrace.Named(id)} {before[id]}->{now[id]}"))}"));
+        if (made.Count > 0)
+            Communicator.PrintRun(KeepRules.EndSummary(made.Count, run.Verb), run.Label);
     }
 
     public static void ClearNeeded()
@@ -110,7 +132,7 @@ public static unsafe class KeepMarks
         ForkTrace.Info($"keep marks: {_made.Count} green cleared by the player");
         _made = new Dictionary<uint, KeepRules.Mark>();
         foreach (var run in Open.Keys.ToList())
-            Open[run] = Open[run].Keys.ToDictionary(id => id, Held);
+            Open[run] = Held(Open[run].Keys);
         Save();
     }
 
@@ -120,11 +142,14 @@ public static unsafe class KeepMarks
         if (key != _loadedFor)
             SwitchTo(key);
 
+        foreach (var run in Closing.Where(kv => DateTime.Now >= kv.Value).Select(kv => kv.Key).ToList())
+            Close(run);
+
         if (DateTime.Now < _nextPrune || Count == 0 || !InventoryReady())
             return;
 
         _nextPrune = DateTime.Now.AddSeconds(2);
-        var held = _needed.Keys.Union(_made.Keys).ToDictionary(id => id, Held);
+        var held = Held(_needed.Keys.Union(_made.Keys));
         _needed = KeepRules.Shrink(_needed, held);
         var made = KeepRules.Shrink(_made, held);
         if (made.Count == _made.Count && made.All(kv => ReferenceEquals(kv.Value, _made.GetValueOrDefault(kv.Key))))
@@ -137,6 +162,7 @@ public static unsafe class KeepMarks
     private static void SwitchTo(string? key)
     {
         Open.Clear();
+        Closing.Clear();
         _needed    = new Dictionary<uint, KeepRules.Mark>();
         _made      = new Dictionary<uint, KeepRules.Mark>();
         _nextRun   = 0;
@@ -204,20 +230,38 @@ public static unsafe class KeepMarks
         return true;
     }
 
-    private static int NoteMade(KeepRules.Run run)
+    private static Dictionary<uint, int> NoteMade(KeepRules.Run run)
+        => Merge(run, KeepRules.Made(Open[run], Held(Open[run].Keys)));
+
+    private static Dictionary<uint, int> Merge(KeepRules.Run run, Dictionary<uint, int> made)
     {
-        var before = Open[run];
-        var made   = KeepRules.Made(before, before.Keys.ToDictionary(id => id, Held));
         _made = KeepRules.Merge(_made, made.Select(kv => (kv.Key, kv.Value)).ToList(), run);
         Save();
-        return made.Count;
+        return made;
     }
 
-    private static int Held(uint itemId)
+    // counted slot by slot over the bags and every armoury section, where crafted gear can land
+    private static Dictionary<uint, int> Held(IEnumerable<uint> itemIds)
     {
+        var held      = itemIds.Distinct().ToDictionary(id => id, _ => 0);
         var inventory = InventoryManager.Instance();
-        return inventory == null
-            ? 0
-            : inventory->GetInventoryItemCount(itemId, false, false, true) + inventory->GetInventoryItemCount(itemId, true, false, true);
+        if (inventory == null || held.Count == 0)
+            return held;
+
+        foreach (var type in Holding)
+        {
+            var container = inventory->GetInventoryContainer(type);
+            if (container == null)
+                continue;
+
+            for (var i = 0; i < container->Size; i++)
+            {
+                var slot = container->GetInventorySlot(i);
+                if (slot != null && slot->ItemId != 0 && held.ContainsKey(slot->GetBaseItemId()))
+                    held[slot->GetBaseItemId()] += slot->Quantity;
+            }
+        }
+
+        return held;
     }
 }
