@@ -46,7 +46,6 @@ namespace GatherBuddy.AutoGather
                 if (Dalamud.Conditions[ConditionFlag.Gathering])
                 {
                     GatherBuddy.Log.Debug($"Opening node took {Environment.TickCount64 - _lastNodeInteractionTime} ms.");
-                    RunWork.NoteGathered();
                     return true;
                 }
                 return false;

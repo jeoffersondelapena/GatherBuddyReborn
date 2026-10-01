@@ -70,7 +70,6 @@ namespace GatherBuddy.AutoGather
         {
             PreviouslyCaughtFish = LastCaughtFish;
             LastCaughtFish       = arg1;
-            RunWork.NoteGathered();
             
             if (_consecutiveAmissCount > 0)
             {
@@ -469,8 +468,6 @@ namespace GatherBuddy.AutoGather
                     return;
                 }
                 
-                if (!Crafting.CraftingGatherBridge.IsQueueMode)
-                    RunWork.Reset();
                 WentHome = true; //Prevents going home right after enabling auto-gather
                 if (AutoHook.Enabled)
                 {

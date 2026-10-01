@@ -226,7 +226,6 @@ public static class CraftingGatherBridge
     
     public static void StartQueueCraftAndGather(CraftingExecutionPlan executionPlan, CraftingListConsumableSettings? listConsumables = null, int? ephemeralListId = null)
     {
-        RunWork.Reset();
         _isQueueMode = true;
         _ephemeralListId = ephemeralListId;
         _activeExecutionPlan = executionPlan;

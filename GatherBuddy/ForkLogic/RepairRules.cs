@@ -44,8 +44,8 @@ public static class RepairRules
             .OrderBy(c => c)
             .ToList();
 
-    public static bool AfterRun(bool enabled, bool partOfCraftingRun, bool boundByDuty, bool didWork)
-        => enabled && didWork && !partOfCraftingRun && !boundByDuty;
+    public static bool AfterRun(bool enabled, bool partOfCraftingRun, bool boundByDuty)
+        => enabled && !partOfCraftingRun && !boundByDuty;
 
     public static Mender? Choose(IReadOnlyList<Mender> menders, uint preferredId, uint territory)
     {

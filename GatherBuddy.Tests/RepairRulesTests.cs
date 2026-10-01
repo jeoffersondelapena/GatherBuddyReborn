@@ -44,11 +44,10 @@ public class RepairRulesTests
     [Fact]
     public void A_run_ends_with_a_repair_only_when_it_is_really_over()
     {
-        Assert.True(RepairRules.AfterRun(enabled: true, partOfCraftingRun: false, boundByDuty: false, didWork: true));
-        Assert.False(RepairRules.AfterRun(enabled: true, partOfCraftingRun: true, boundByDuty: false, didWork: true));
-        Assert.False(RepairRules.AfterRun(enabled: true, partOfCraftingRun: false, boundByDuty: true, didWork: true));
-        Assert.False(RepairRules.AfterRun(enabled: false, partOfCraftingRun: false, boundByDuty: false, didWork: true));
-        Assert.False(RepairRules.AfterRun(enabled: true, partOfCraftingRun: false, boundByDuty: false, didWork: false));
+        Assert.True(RepairRules.AfterRun(enabled: true, partOfCraftingRun: false, boundByDuty: false));
+        Assert.False(RepairRules.AfterRun(enabled: true, partOfCraftingRun: true, boundByDuty: false));
+        Assert.False(RepairRules.AfterRun(enabled: true, partOfCraftingRun: false, boundByDuty: true));
+        Assert.False(RepairRules.AfterRun(enabled: false, partOfCraftingRun: false, boundByDuty: false));
     }
 
     [Fact]
