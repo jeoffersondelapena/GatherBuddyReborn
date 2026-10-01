@@ -174,10 +174,10 @@ public class CraftingStatusWindow : Window
                 if (_queueProcessor.PausedInGathering)
                 {
                     ImGui.SameLine();
-                    if (ImGui.Button("Craft What I Have"))
+                    if (ImGui.Button("Craft What I Have (fork)"))
                         _queueProcessor.CraftWithWhatIsGathered();
                     if (ImGui.IsItemHovered())
-                        ImGui.SetTooltip("Skip the rest of the gathering and craft with what is here; what cannot be made is listed when the run ends (fork).");
+                        ImGui.SetTooltip("Skip the rest of the gathering and craft with what is here; what cannot be made is listed when the run ends.");
                 }
             }
             

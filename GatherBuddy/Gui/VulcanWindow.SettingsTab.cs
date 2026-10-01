@@ -262,7 +262,7 @@ public partial class VulcanWindow
         {
             var afterRunThreshold = config.AfterRunThreshold;
             ImGui.SetNextItemWidth(VulcanUiScaling.Scaled(150f));
-            if (ImGui.SliderInt("After-Run Threshold (%)", ref afterRunThreshold, 1, 100))
+            if (ImGui.SliderInt("After-Run Threshold % (fork)", ref afterRunThreshold, 1, 100))
             {
                 config.AfterRunThreshold = afterRunThreshold;
                 GatherBuddy.Config.Save();

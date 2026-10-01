@@ -1678,9 +1678,9 @@ public class CraftingQueueProcessor
     public unsafe void PauseGatheringStoppedShort(string? reason, IReadOnlyList<string> missing)
     {
         var why = string.IsNullOrWhiteSpace(reason) ? "it could not go on" : reason.TrimEnd('.');
-        Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have.");
+        Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have (fork).");
         Dalamud.Chat.PrintError($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
-          + "the rest, or press Craft What I Have in the Craft Status window to craft with what is here (fork).");
+          + "the rest, or press Craft What I Have (fork) in the Craft Status window to craft with what is here (fork).");
         ForkTrace.Info($"crafting run paused in its gathering part: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
         if (missing.Count > 0)
             ForkChat.List("Still missing:", missing, 12);
