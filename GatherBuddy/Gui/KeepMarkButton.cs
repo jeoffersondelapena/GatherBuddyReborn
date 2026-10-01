@@ -7,11 +7,12 @@ namespace GatherBuddy.Gui;
 
 internal static class KeepMarkButton
 {
-    private const string Orange = "Orange: items a crafting run paused for full bags still needs from your bags.\n"
+    private const string Orange = "Orange: items a paused crafting run still needs from your bags.\n"
       + "They also clear by themselves when the run goes on (Resume, Craft What I Have or Stop).";
 
-    private const string Green = "Green: items a run crafted, gathered or bought.\n"
-      + "They stay until you clear them; a run that is still going marks what it made when it ends.";
+    private const string Green = "Green: what a run was for: a crafting run's own recipes (not its materials or in-between crafts),\n"
+      + "a gathering run's items, a buy run's purchases.\n"
+      + "They appear as a run makes them and stay until you clear them.";
 
     public static void DrawBoth()
     {

@@ -1519,7 +1519,8 @@ public class CraftingQueueProcessor
         return nearest;
     }
 
-    public void Pause(string? reason = null)
+    // fork: a pause that waits for the player marks what the rest of the run needs; the collectables turn-in resumes by itself
+    public void Pause(string? reason = null, bool forPlayer = true)
     {
         if (_paused || _currentState == QueueState.Complete || _currentState == QueueState.Idle)
             return;
@@ -1548,6 +1549,9 @@ public class CraftingQueueProcessor
                 CraftingGatherBridge.PreserveListOnDisable = false;
             }
         }
+
+        if (forPlayer)
+            MarkStillNeeded();
     }
 
     public void Resume()
@@ -1681,16 +1685,12 @@ public class CraftingQueueProcessor
     public unsafe void PauseGatheringStoppedShort(string? reason, IReadOnlyList<string> missing)
     {
         var why = string.IsNullOrWhiteSpace(reason) ? "it could not go on" : reason.TrimEnd('.');
-        Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have (fork).");
         Communicator.PrintRun($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
           + "the rest, or press Craft What I Have (fork) in the Craft Status window to craft with what is here (fork).");
         ForkTrace.Info($"crafting run paused in its gathering part: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
         if (missing.Count > 0)
             ForkChat.List("Still missing:", missing, 12);
-        var inventory = InventoryManager.Instance();
-        if (inventory == null || inventory->GetEmptySlotsInBag() > 0)
-            return;
-        MarkStillNeeded();
+        Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have (fork).");
     }
 
     public void CraftWithWhatIsGathered()
@@ -1708,9 +1708,8 @@ public class CraftingQueueProcessor
     {
         var pauseReason = $"{message} Clear inventory, then press Resume to continue the current queue.";
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
-        Pause(pauseReason);
         Communicator.PrintRun("[GatherBuddy] Run paused: your bags are full. Make room, then press Resume in the Craft Status window (fork).");
-        MarkStillNeeded();
+        Pause(pauseReason);
     }
 
     private void MarkStillNeeded()

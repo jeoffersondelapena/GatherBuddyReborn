@@ -234,7 +234,7 @@ public static class CraftingGatherBridge
         _ephemeralListId = ephemeralListId;
         _activeExecutionPlan = executionPlan;
         _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted",
-            executionPlan.QueueView.Select(i => RecipeManager.GetRecipe(i.RecipeId)?.ItemResult.RowId ?? 0));
+            executionPlan.QueueView.Where(i => i.IsOriginalRecipe).Select(i => RecipeManager.GetRecipe(i.RecipeId)?.ItemResult.RowId ?? 0));
         ResetCollectablesInterruptionState();
         _lastCollectablesHardFailLog = DateTime.MinValue;
         _queueProcessor = new CraftingQueueProcessor();
@@ -533,7 +533,7 @@ public static class CraftingGatherBridge
             var thresholdState = CollectableInventoryHelper.GetThresholdState(GatherBuddy.Config.CollectableConfig);
             if (!thresholdState.ThresholdReached)
                 return;
-            _queueProcessor.Pause();
+            _queueProcessor.Pause(forPlayer: false);
             _collectablesStartPending = true;
             _lastCollectablesWaitLog = DateTime.MinValue;
             _lastCollectablesExitAttempt = DateTime.MinValue;
