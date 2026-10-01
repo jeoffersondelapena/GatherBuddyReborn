@@ -303,7 +303,7 @@ public sealed partial class VendorBuyListWindow : Window
             using (ImRaii.Disabled(entries.Count == 0 || pending == 0 || manager.IsBusy || !vendorAutomationAvailable))
             {
                 if (ImGui.Button("Start List", VulcanUiScaling.Scaled(120f, 0f)) && vendorAutomationAvailable)
-                    manager.Start();
+                    manager.Start(homeAfterRun: true);
             }
             if (ImGui.IsItemHovered(vendorAutomationAvailable ? ImGuiHoveredFlags.None : ImGuiHoveredFlags.AllowWhenDisabled))
                 ImGui.SetTooltip(vendorAutomationAvailable

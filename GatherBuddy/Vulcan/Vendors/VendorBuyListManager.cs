@@ -55,6 +55,9 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private Guid?    _activeEntryId;
     private Guid?    _runningListId;
+    private bool     _homeAfterRun;
+    private bool     _homePending;
+    private DateTime _homePendingSince;
     private bool     _isRunning;
     private bool     _waitingForShopClose;
     private bool     _waitingForCancelledPurchase;
@@ -114,6 +117,8 @@ public sealed partial class VendorBuyListManager : IDisposable
     public void Update()
     {
         EnsureVendorCachesAvailable();
+        if (_homePending)
+            UpdateHomeTrip();
         if (!_waitingForShopClose)
             return;
 
@@ -391,11 +396,13 @@ public sealed partial class VendorBuyListManager : IDisposable
         _statusText = $"Cleared vendor list '{list.Name}'.";
     }
 
-    public StartResult Start(Guid? listId = null, VendorPurchaseConstraints? purchaseConstraints = null)
+    public StartResult Start(Guid? listId = null, VendorPurchaseConstraints? purchaseConstraints = null, bool homeAfterRun = false)
     {
         EnsureListState();
         if (_isRunning)
             return StartResult.AlreadyRunning;
+        _homeAfterRun = homeAfterRun;
+        _homePending  = false;
         if (!VendorAutomationRequirements.IsAvailable)
         {
             _statusText = VendorAutomationRequirements.UnavailableStatusText;
@@ -605,6 +612,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             .ToList();
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
+        QueueHomeTrip();
         if (keep.Count > 0)
             ForkChat.List("Buy run stopped: your inventory is full. Already bought for this list, keep these:", keep, footer: "Run the list again after making room; it only buys what is still missing.");
         else
@@ -618,6 +626,46 @@ public sealed partial class VendorBuyListManager : IDisposable
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
         _statusText = message;
+        QueueHomeTrip();
+    }
+
+    // fork: a buy run started from its window ends at home like every other run; collectable scrip buys are mid-run and stay
+    private void QueueHomeTrip()
+    {
+        if (!_homeAfterRun || !GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
+            return;
+
+        _homeAfterRun     = false;
+        _homePending      = true;
+        _homePendingSince = DateTime.UtcNow;
+    }
+
+    private void UpdateHomeTrip()
+    {
+        if (_isRunning || _waitingForShopClose)
+            return;
+
+        if (DateTime.UtcNow - _homePendingSince > TimeSpan.FromSeconds(30))
+        {
+            _homePending = false;
+            ForkTrace.Info("go home (after buy run): the vendor window did not close in 30 s, staying put");
+            return;
+        }
+
+        if (VendorInteractionHelper.GetVendorExitBlocker() != null)
+        {
+            if (DateTime.UtcNow - _lastShopCloseAttemptTime >= ShopCloseRetryDelay && VendorInteractionHelper.TryExitVendorInteraction())
+                _lastShopCloseAttemptTime = DateTime.UtcNow;
+            return;
+        }
+
+        if (HomeNavigationHelper.TryStartReturnHome(out var error, "after buy run"))
+            _homePending = false;
+        else if (error != null)
+        {
+            _homePending = false;
+            ForkTrace.Info($"go home (after buy run): {error}");
+        }
     }
 
     private void FinishCurrentRun(VendorBuyListDefinition list)
@@ -627,6 +675,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         var notBought = _skipNotes.Values.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
+        QueueHomeTrip();
         if (skippedCount == 0 && partiallyFulfilledCount == 0)
         {
             _statusText = $"Vendor list '{list.Name}' complete.";
