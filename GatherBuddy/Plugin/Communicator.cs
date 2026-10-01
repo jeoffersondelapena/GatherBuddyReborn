@@ -88,9 +88,33 @@ public static class Communicator
         Dalamud.Chat.Print(entry);
     }
 
+    public enum Tone
+    {
+        Problem,
+        Info,
+        Good,
+        Needed,
+    }
+
     // fork: a run's end, or anything a run needs from the player, is printed the way the crafting run's end list is (ForkChat)
-    public static void PrintRun(string message, string? label = null)
-        => Dalamud.Chat.PrintError(TextRules.WithRunLabel(TextRules.Tagged(message), label ?? RunLabel.Current));
+    public static void PrintRun(string message, string? label = null, Tone tone = Tone.Problem)
+        => PrintTinted(TextRules.WithRunLabel(TextRules.Tagged(message), label ?? RunLabel.Current), tone);
+
+    // that channel shows red in every tab; the color says whether a line is a problem, plain news, or good news
+    public static void PrintTinted(string text, Tone tone)
+    {
+        ushort color = tone switch
+        {
+            Tone.Info   => 1,
+            Tone.Good   => Gui.KeepMarkFrames.MadeColor,
+            Tone.Needed => Gui.KeepMarkFrames.NeededColor,
+            _           => 0,
+        };
+        if (color == 0)
+            Dalamud.Chat.PrintError(text);
+        else
+            Dalamud.Chat.PrintError(new SeStringBuilder().AddUiForeground(color).AddText(text).AddUiForegroundOff().Build());
+    }
 
     public static void PrintRun(SeString message)
         => Dalamud.Chat.PrintError(Labelled(message));

@@ -266,7 +266,7 @@ public static unsafe class AfterRunRepair
         ForkTrace.Info($"after-run repair ({_reason}): done at {where}, {spent} gil; still below {threshold}%: "
           + (still.Count == 0 ? "none" : string.Join(", ", still)));
         if (still.Count == 0)
-            Communicator.PrintRun($"[GatherBuddy] Repaired all gear after the run at {where} ({spent:N0} gil) (fork).", _label);
+            Communicator.PrintRun($"[GatherBuddy] Repaired all gear after the run at {where} ({spent:N0} gil) (fork).", _label, Communicator.Tone.Good);
         else
             Communicator.PrintRun($"[GatherBuddy] Repaired gear after the run at {where} ({spent:N0} gil), but "
               + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}% (fork).", _label);

@@ -2336,7 +2336,8 @@ namespace GatherBuddy.AutoGather
             else if (left > 0)
                 Communicator.PrintRun($"[GatherBuddy] Gathering stopped: {left} item(s) on your lists have no node GatherBuddy can use right now (fork).");
             else
-                Communicator.PrintRun($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).");
+                Communicator.PrintRun($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).",
+                    tone: Communicator.Tone.Good);
         }
 
         private void AbortAutoGather(string? status = null, string? detail = null)

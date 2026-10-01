@@ -705,7 +705,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             GatherBuddy.Log.Information($"[VendorBuyListManager] Vendor list '{list.Name}' complete.");
             Communicator.Print($"[GatherBuddyReborn] Vendor list '{list.Name}' complete.");
             Communicator.PrintRun($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).",
-                TextRules.KindLabel(TextRules.BuyList, list.Name));
+                TextRules.KindLabel(TextRules.BuyList, list.Name), Communicator.Tone.Good);
             KeepMarks.EndRun(keepRun);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run finished");
             return;

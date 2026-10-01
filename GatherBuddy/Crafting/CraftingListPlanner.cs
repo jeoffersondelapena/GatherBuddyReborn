@@ -87,14 +87,16 @@ public static class CraftingListPlanner
             SkippedRecipes.LockedThisRun.AddRange(locked);
             if (locked.Count > 0)
             {
-                ForkChat.List($"Left out {locked.Count} recipe(s) the game does not offer yet, materials included:", locked, 10);
+                ForkChat.List($"Left out {locked.Count} recipe(s) the game does not offer yet, materials included:", locked, 10,
+                    tone: Communicator.Tone.Info);
                 GatherBuddy.Log.Warning($"[CraftingListPlanner] Locked recipes left out of list '{_list.Name}': {string.Join(", ", locked)}");
             }
             SkippedRecipes.LeftOutThisRun.Clear();
             if (remembered.Count > 0)
             {
                 SkippedRecipes.LeftOutThisRun.AddRange(remembered);
-                ForkChat.List($"Left out {remembered.Count} remembered recipe(s) that would not start before:", remembered, 10);
+                ForkChat.List($"Left out {remembered.Count} remembered recipe(s) that would not start before:", remembered, 10,
+                    tone: Communicator.Tone.Info);
                 GatherBuddy.Log.Warning($"[CraftingListPlanner] Remembered recipes left out of list '{_list.Name}': {string.Join(", ", remembered)}");
             }
 

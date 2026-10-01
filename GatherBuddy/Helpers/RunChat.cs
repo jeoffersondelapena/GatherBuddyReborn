@@ -23,7 +23,7 @@ public static class RunChat
 
         _open   = label;
         _ending = false;
-        Communicator.PrintRun(TextRules.DividerStart(label), label);
+        Communicator.PrintRun(TextRules.DividerStart(label), label, Communicator.Tone.Info);
     }
 
     public static void End()
@@ -66,6 +66,6 @@ public static class RunChat
         var label = _open!;
         _open   = null;
         _ending = false;
-        Communicator.PrintRun(TextRules.DividerEnd(label), label);
+        Communicator.PrintRun(TextRules.DividerEnd(label), label, Communicator.Tone.Info);
     }
 }

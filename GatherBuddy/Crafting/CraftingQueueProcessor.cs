@@ -970,12 +970,12 @@ public class CraftingQueueProcessor
             .Select(id => _runReasons.TryGetValue(id, out var why) ? $"{SkippedRecipes.NameOf(id)} ({why})" : SkippedRecipes.NameOf(id)).ToList();
         if (QueueItems.Count == 0)
         {
-            Communicator.PrintRun("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
+            Communicator.PrintRun("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).", tone: Communicator.Tone.Info);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished, nothing left to craft");
         }
         else if (failed.Count == 0)
         {
-            Communicator.PrintRun($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
+            Communicator.PrintRun($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).", tone: Communicator.Tone.Good);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished");
         }
         else
@@ -990,10 +990,11 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
         AnnounceRunEnd();
         if (SkippedRecipes.LockedThisRun.Count > 0)
-            ForkChat.List($"Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet:", SkippedRecipes.LockedThisRun, 10);
+            ForkChat.List($"Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet:", SkippedRecipes.LockedThisRun, 10,
+                tone: Communicator.Tone.Info);
         if (SkippedRecipes.Count > 0)
             ForkChat.List($"{SkippedRecipes.Count} recipe(s) the game would not start stay out of runs:", SkippedRecipes.Names(), 10,
-                "Retry skipped (fork) in the Crafting Lists tab tries them again.");
+                "Retry skipped (fork) in the Crafting Lists tab tries them again.", Communicator.Tone.Info);
         SkippedRecipes.LockedThisRun.Clear();
         SkippedRecipes.LeftOutThisRun.Clear();
         YesAlready.Unlock();
