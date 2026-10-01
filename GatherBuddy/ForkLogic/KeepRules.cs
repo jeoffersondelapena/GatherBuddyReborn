@@ -1,6 +1,7 @@
 #nullable enable
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace GatherBuddy.ForkLogic;
 
@@ -91,6 +92,28 @@ public static class KeepRules
     private static IEnumerable<(string Label, string Verb, int Count)> ByLabel(Mark mark)
         => mark.ByRun.GroupBy(kv => (Label: TextRules.ShownLabel(kv.Key.Label), kv.Key.Verb))
             .Select(g => (g.Key.Label, g.Key.Verb, g.Sum(kv => kv.Value)));
+
+    public sealed record SavedRow(uint Item, int Run, string Label, string Verb, int Count);
+
+    public sealed record Saved(int NextRun, List<SavedRow> Made);
+
+    private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
+
+    // only green is kept on disk: orange belongs to a paused run, which a restart ends
+    public static string Serialize(IReadOnlyDictionary<uint, Mark> made, int nextRun)
+        => JsonSerializer.Serialize(new Saved(nextRun, made.Values
+            .SelectMany(m => m.ByRun.Select(kv => new SavedRow(m.ItemId, kv.Key.Id, kv.Key.Label, kv.Key.Verb, kv.Value)))
+            .OrderBy(r => r.Item).ThenBy(r => r.Run)
+            .ToList()), Indented);
+
+    public static (Dictionary<uint, Mark> Made, int NextRun) Deserialize(string text)
+    {
+        var saved = JsonSerializer.Deserialize<Saved>(text);
+        var rows  = (saved?.Made ?? new List<SavedRow>()).Where(r => r.Count > 0 && r.Item != 0 && BaseItemId(r.Item) == r.Item).ToList();
+        var made  = rows.GroupBy(r => r.Item).ToDictionary(g => g.Key,
+            g => new Mark(g.Key, g.GroupBy(r => new Run(r.Run, r.Label, r.Verb)).ToDictionary(x => x.Key, x => x.Sum(r => r.Count))));
+        return (made, System.Math.Max(saved?.NextRun ?? 0, rows.Select(r => r.Run).DefaultIfEmpty(0).Max()));
+    }
 
     public static string PauseSummary(int needed, int made)
         => $"[GatherBuddy] Marked in your bags: {needed} item(s) this run still needs, in orange, cleared when the run goes on"

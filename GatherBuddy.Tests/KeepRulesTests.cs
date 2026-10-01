@@ -76,6 +76,32 @@ public class KeepRulesTests
     }
 
     [Fact]
+    public void Green_marks_are_saved_and_read_back_whole()
+    {
+        var made = KeepRules.Merge(KeepRules.Merge(None, new[] { (5319u, 3), (5106u, 1) }, Gsm), new[] { (5319u, 6) }, Bought);
+        var (back, next) = KeepRules.Deserialize(KeepRules.Serialize(made, 7));
+        Assert.Equal(7, next);
+        Assert.Equal(new[] { 5106u, 5319u }, back.Keys.OrderBy(k => k));
+        Assert.Equal(KeepRules.MadeLine(made[5319]), KeepRules.MadeLine(back[5319]));
+        Assert.Equal(new[] { Gsm, Bought }, back[5319].ByRun.Keys.OrderBy(r => r.Id));
+    }
+
+    [Fact]
+    public void A_saved_file_with_bad_rows_or_a_stale_run_counter_still_reads()
+    {
+        const string text = """
+            { "NextRun": 1, "Made": [
+              { "Item": 5319, "Run": 9, "Label": "LTW Lv 1-15", "Verb": "crafted", "Count": 2 },
+              { "Item": 1005106, "Run": 2, "Label": "x", "Verb": "crafted", "Count": 1 },
+              { "Item": 5107, "Run": 3, "Label": "x", "Verb": "crafted", "Count": 0 } ] }
+            """;
+        var (made, next) = KeepRules.Deserialize(text);
+        Assert.Equal(new[] { 5319u }, made.Keys);
+        Assert.Equal(9, next);
+        Assert.Empty(KeepRules.Deserialize("""{ "NextRun": 0, "Made": [] }""").Made);
+    }
+
+    [Fact]
     public void The_chat_lines_say_which_color_means_what()
     {
         Assert.Contains("9 item(s) this run still needs, in orange", KeepRules.PauseSummary(9, 0));
