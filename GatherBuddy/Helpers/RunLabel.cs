@@ -16,12 +16,12 @@ public static class RunLabel
             try
             {
                 if (CraftingGatherBridge.RunningListName is { } crafting)
-                    return crafting;
+                    return TextRules.KindLabel(TextRules.Crafting, crafting);
 
                 if (GatherBuddy.AutoGather?.Enabled == true)
-                    return GatherLists();
+                    return TextRules.KindLabel(TextRules.Gathering, GatherLists());
 
-                return GatherBuddy.VendorBuyListManager?.RunningListName;
+                return TextRules.KindLabel(TextRules.BuyList, GatherBuddy.VendorBuyListManager?.RunningListName);
             }
             catch (Exception)
             {

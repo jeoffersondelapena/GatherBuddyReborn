@@ -82,7 +82,7 @@ public static unsafe class KeepMarks
         var marked = _needed.Values.Count(m => m.ByRun.ContainsKey(r));
         ForkTrace.Info($"keep marks: run {r.Id} paused; still needed {string.Join(", ", needed.Where(i => i.Count > 0).Select(i => $"{ForkTrace.Named(i.ItemId)} x{i.Count}"))}; made so far {made}");
         if (marked > 0 || made > 0)
-            Communicator.PrintRun(KeepRules.PauseSummary(marked, made), r.Label);
+            Communicator.PrintRun(KeepRules.PauseSummary(marked, made), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label));
     }
 
     public static void ResumeRun(KeepRules.Run? run)
@@ -117,7 +117,7 @@ public static unsafe class KeepMarks
         ForkTrace.Info($"keep marks: run {run.Id} ended, {made.Count} of {before.Count} item(s) {run.Verb}"
           + (none.Count == 0 ? "" : $"; no gain: {string.Join(", ", none.Select(id => $"{ForkTrace.Named(id)} {before[id]}->{now[id]}"))}"));
         if (made.Count > 0)
-            Communicator.PrintRun(KeepRules.EndSummary(made.Count, run.Verb), run.Label);
+            Communicator.PrintRun(KeepRules.EndSummary(made.Count, run.Verb), TextRules.KindLabel(TextRules.KindOfVerb(run.Verb), run.Label));
     }
 
     public static void ClearNeeded()

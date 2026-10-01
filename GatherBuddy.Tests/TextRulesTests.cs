@@ -110,4 +110,21 @@ public class TextRulesTests
         Assert.Equal("[GatherBuddyReborn] Timed out.", TextRules.Tagged("[GatherBuddyReborn] Timed out."));
         Assert.Equal("Leatherworker", TextRules.Capitalized("leatherworker"));
     }
+
+    [Fact]
+    public void The_label_says_which_kind_of_run_a_line_comes_from()
+    {
+        var crafting = TextRules.KindLabel(TextRules.Crafting, "GSM Lv 1-15 +vendor");
+        var buying   = TextRules.KindLabel(TextRules.BuyList, "[gbr-lists] GSM Lv 1-15 +vendor");
+        Assert.Equal("[GatherBuddy] [Crafting: GSM Lv 1-15 +vendor] Run finished: all 3 recipe(s) done (fork).",
+            TextRules.WithRunLabel("[GatherBuddy] Run finished: all 3 recipe(s) done (fork).", crafting));
+        Assert.Equal("[GatherBuddy] [Buy list: GSM Lv 1-15 +vendor] Run finished: all 6 item(s) bought (fork).",
+            TextRules.WithRunLabel("[GatherBuddy] Run finished: all 6 item(s) bought (fork).", buying));
+        Assert.Equal("[GatherBuddyReborn] Vendor list '[gbr-lists] GSM Lv 1-15 +vendor' complete.",
+            TextRules.WithRunLabel("[GatherBuddyReborn] Vendor list '[gbr-lists] GSM Lv 1-15 +vendor' complete.", buying));
+        Assert.Null(TextRules.KindLabel(TextRules.Gathering, null));
+        Assert.Equal(TextRules.BuyList, TextRules.KindOfVerb("bought"));
+        Assert.Equal(TextRules.Gathering, TextRules.KindOfVerb("gathered"));
+        Assert.Equal(TextRules.Crafting, TextRules.KindOfVerb("crafted"));
+    }
 }

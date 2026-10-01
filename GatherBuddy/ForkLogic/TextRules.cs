@@ -20,6 +20,24 @@ public static class TextRules
             _ => $"{lists[0]} + {lists.Count - 1} more",
         };
 
+    public const string Crafting  = "Crafting";
+    public const string Gathering = "Gathering";
+    public const string BuyList   = "Buy list";
+
+    private static readonly string[] Kinds = [Crafting, Gathering, BuyList];
+
+    // a crafting list and its generated buy list share a name, so the label says which kind of run it is
+    public static string? KindLabel(string kind, string? name)
+        => string.IsNullOrWhiteSpace(name) ? null : $"{kind}: {ShownLabel(name)}";
+
+    public static string KindOfVerb(string verb)
+        => verb switch
+        {
+            "gathered" => Gathering,
+            "bought"   => BuyList,
+            _          => Crafting,
+        };
+
     // the label goes after the plugin's own tag; a line that already names the list is left alone
     public static string WithRunLabel(string message, string? label)
     {
@@ -27,7 +45,8 @@ public static class TextRules
             return message;
 
         var shown = ShownLabel(label);
-        if (message.Contains($"[{shown}]", StringComparison.Ordinal))
+        var name  = Kinds.Select(k => $"{k}: ").FirstOrDefault(p => shown.StartsWith(p, StringComparison.Ordinal)) is { } kind ? shown[kind.Length..] : shown;
+        if (message.Contains($"[{shown}]", StringComparison.Ordinal) || message.Contains(name, StringComparison.Ordinal))
             return message;
 
         var tag = ChatTag.Match(message);

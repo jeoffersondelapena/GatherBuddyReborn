@@ -685,13 +685,15 @@ public sealed partial class VendorBuyListManager : IDisposable
             _statusText = $"Vendor list '{list.Name}' complete.";
             GatherBuddy.Log.Information($"[VendorBuyListManager] Vendor list '{list.Name}' complete.");
             Communicator.Print($"[GatherBuddyReborn] Vendor list '{list.Name}' complete.");
-            Communicator.PrintRun($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).", list.Name);
+            Communicator.PrintRun($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).",
+                TextRules.KindLabel(TextRules.BuyList, list.Name));
             KeepMarks.EndRun(keepRun);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run finished");
             return;
         }
         if (notBought.Count > 0)
-            ForkChat.List(TextRules.WithRunLabel($"Run finished: {notBought.Count} item(s) not fully bought:", list.Name), notBought, 12);
+            ForkChat.List(TextRules.WithRunLabel($"Run finished: {notBought.Count} item(s) not fully bought:", TextRules.KindLabel(TextRules.BuyList, list.Name)),
+                notBought, 12);
         Dalamud.ToastGui.ShowNormal($"GatherBuddy: buy run finished, {skippedCount + partiallyFulfilledCount} not fully bought");
         var resultParts = new List<string>();
         if (partiallyFulfilledCount > 0)
