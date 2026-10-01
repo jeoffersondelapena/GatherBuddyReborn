@@ -5,6 +5,9 @@ namespace GatherBuddy.Gui;
 
 internal static class VulcanUiScaling
 {
+    // fork: the list panels of the crafting lists tab and the buy-list window share one width, enough for the generated names three folders deep
+    internal const float ListPanelWidth = 360f;
+
     internal static float Scale
         => ImGuiHelpers.GlobalScale;
 
