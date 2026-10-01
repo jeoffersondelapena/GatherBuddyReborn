@@ -256,7 +256,7 @@ public partial class VulcanWindow
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("When a crafting run or a gathering run is over, visit a mender (the preferred one below, else one in the "
-              + "current zone, else the first one known), repair every gear category including the armoury chest and bags; the run ends there.");
+              + "current zone, else the first one known), repair every gear category including the armoury chest and bags, then go home.");
 
         if (config.RepairAfterRun)
         {

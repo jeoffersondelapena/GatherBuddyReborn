@@ -196,6 +196,8 @@ public static unsafe class AfterRunRepair
         Steps.Enqueue(("close repairs", 15, CraftingTasks.TaskCloseRepairWindow));
         Steps.Enqueue(("report", 5, Report));
         Steps.Enqueue(("let go", 5, LetGo));
+        if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
+            Steps.Enqueue(("go home", 120, GoHome));
         return TaskResult.Done;
     }
 
