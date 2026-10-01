@@ -34,6 +34,14 @@ public class GatherLevelRulesTests
             GatherLevelRules.Reason(new[] { new OutOfReach("Silex", "Miner", 21, 30) }));
 
     [Fact]
+    public void The_window_gets_a_short_form()
+    {
+        Assert.Equal("Silex needs Miner 26", GatherLevelRules.Short(new[] { new OutOfReach("Silex", "Miner", 22, 30) }));
+        Assert.Equal("2 items need a higher level",
+            GatherLevelRules.Short(new[] { new OutOfReach("Silex", "Miner", 22, 30), new OutOfReach("Ash Log", "Botanist", 22, 35) }));
+    }
+
+    [Fact]
     public void Several_items_are_joined_and_a_long_list_is_cut()
     {
         var two = GatherLevelRules.Reason(new[] { new OutOfReach("Silex", "Miner", 21, 30), new OutOfReach("Ash Log", "Botanist", 22, 35) });

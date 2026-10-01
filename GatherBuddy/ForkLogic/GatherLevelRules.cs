@@ -26,4 +26,9 @@ public static class GatherLevelRules
         var joined = parts.Count == 1 ? parts[0] : $"{string.Join(", ", parts.Take(parts.Count - 1))} and {parts[^1]}";
         return $"{joined}, so GatherBuddy left {(items.Count == 1 ? "it" : "them")} out";
     }
+
+    public static string Short(IReadOnlyList<OutOfReach> items)
+        => items.Count == 1
+            ? $"{items[0].Item} needs {items[0].Job} {LevelNeeded(items[0].NodeLevel)}"
+            : $"{items.Count} items need a higher level";
 }

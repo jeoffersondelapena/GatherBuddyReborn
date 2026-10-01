@@ -969,10 +969,10 @@ namespace GatherBuddy.AutoGather
             {
                 if (!_activeItemList.HasItemsToGather)
                 {
-                    var reason = OutOfReachReason();
+                    var (reason, status) = OutOfReachReason();
                     if (reason != null && !CraftingGatherBridge.IsQueueMode)
                         Communicator.PrintError($"[GatherBuddy] Gathering stopped: {reason} (fork).");
-                    AbortAutoGather(reason);
+                    AbortAutoGather(status, reason);
                     return;
                 }
 
@@ -2301,18 +2301,19 @@ namespace GatherBuddy.AutoGather
             TaskManager.Enqueue(() => GenericHelpers.IsScreenReady());
         }
 
-        // upstream stops here without a reason when only items above the gatherer's level are left
-        private string? OutOfReachReason()
+        // upstream stops here without a reason when only items above the gatherer's level are left; the gather window sizes to its status, so that stays short
+        private (string? Reason, string? Status) OutOfReachReason()
         {
             var items = _activeItemList.OutOfReach;
             if (items.Count == 0)
-                return null;
+                return (null, null);
 
             ForkTrace.Info($"gathering: left out for level: {string.Join(", ", items.Select(i => $"{i.Item.Name[GatherBuddy.Language]} (node {i.Node.Level})"))}");
-            return GatherLevelRules.Reason(items.Select(i => i.Node.GatheringType.ToGroup() == GatheringType.Botanist
+            var list = items.Select(i => i.Node.GatheringType.ToGroup() == GatheringType.Botanist
                     ? new GatherLevelRules.OutOfReach(i.Item.Name[GatherBuddy.Language], "Botanist", DiscipleOfLand.BotanistLevel, i.Node.Level)
                     : new GatherLevelRules.OutOfReach(i.Item.Name[GatherBuddy.Language], "Miner", DiscipleOfLand.MinerLevel, i.Node.Level))
-                .ToList());
+                .ToList();
+            return (GatherLevelRules.Reason(list), GatherLevelRules.Short(list));
         }
 
         // a crafting run marks what its recipes still need instead
@@ -2321,7 +2322,7 @@ namespace GatherBuddy.AutoGather
                 .Select(i => (i.Item.ItemId, Count: (int)Math.Min(i.Item.GetInventoryCount(), i.Quantity)))
                 .ToList(), RunLabel.Current);
 
-        private void AbortAutoGather(string? status = null)
+        private void AbortAutoGather(string? status = null, string? detail = null)
         {
             ResetFishingApproachState();
             _currentRequestedTarget = null;
@@ -2361,14 +2362,14 @@ namespace GatherBuddy.AutoGather
                         
                         ReduceItems(true, () =>
                         {
-                            AbortAutoGather(status);
+                            AbortAutoGather(status, detail);
                         });
                     }
                     else
                     {
                         ReduceItems(true, () =>
                         {
-                            AbortAutoGather(status);
+                            AbortAutoGather(status, detail);
                         });
                     }
                     
@@ -2388,7 +2389,7 @@ namespace GatherBuddy.AutoGather
                 EnqueueActionWithDelay(() => { GoHome(stoppedShort ? "gathering stopped short" : "done"); });
             TaskManager.Enqueue(() =>
             {
-                if (!stoppedShort || !CraftingGatherBridge.PauseRunForGatheringStop(status))
+                if (!stoppedShort || !CraftingGatherBridge.PauseRunForGatheringStop(detail ?? status))
                     Enabled = false;
                 AutoStatus = status ?? AutoStatus;
             });
