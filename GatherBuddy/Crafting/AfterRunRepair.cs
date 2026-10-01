@@ -108,7 +108,7 @@ public static unsafe class AfterRunRepair
         if (why != null)
         {
             ForkTrace.Info($"after-run repair ({_reason}): stopped, {why}");
-            Communicator.PrintError(TextRules.WithRunLabel($"[GatherBuddy] After-run repair stopped: {why} (fork).", _label));
+            Communicator.PrintRun($"[GatherBuddy] After-run repair stopped: {why} (fork).", _label);
         }
 
         Steps.Clear();
@@ -171,7 +171,7 @@ public static unsafe class AfterRunRepair
         _mender = choice is { } chosen ? known.First(n => n.DataId == chosen.Id) : null;
         if (_mender == null)
         {
-            Communicator.PrintError(TextRules.WithRunLabel("[GatherBuddy] After-run repair: no mender is known; pick one under Preferred Repair NPC in Vulcan's settings (fork).", _label));
+            Communicator.PrintRun("[GatherBuddy] After-run repair: no mender is known; pick one under Preferred Repair NPC in Vulcan's settings (fork).", _label);
             ForkTrace.Info($"after-run repair ({_reason}): no mender known ({known.Count} listed)");
             if (_homeWithoutTrip)
                 Steps.Enqueue(("go home", 120, GoHome));
@@ -266,10 +266,10 @@ public static unsafe class AfterRunRepair
         ForkTrace.Info($"after-run repair ({_reason}): done at {where}, {spent} gil; still below {threshold}%: "
           + (still.Count == 0 ? "none" : string.Join(", ", still)));
         if (still.Count == 0)
-            Communicator.PrintRunEnd($"[GatherBuddy] Repaired all gear after the run at {where} ({spent:N0} gil) (fork).", _label);
+            Communicator.PrintRun($"[GatherBuddy] Repaired all gear after the run at {where} ({spent:N0} gil) (fork).", _label);
         else
-            Communicator.PrintError(TextRules.WithRunLabel($"[GatherBuddy] Repaired gear after the run at {where} ({spent:N0} gil), but "
-              + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}% (fork).", _label));
+            Communicator.PrintRun($"[GatherBuddy] Repaired gear after the run at {where} ({spent:N0} gil), but "
+              + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}% (fork).", _label);
         return TaskResult.Done;
     }
 

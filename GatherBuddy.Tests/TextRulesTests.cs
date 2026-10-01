@@ -9,15 +9,15 @@ public class TextRulesTests
     public void A_list_goes_to_chat_one_item_per_line()
     {
         Assert.Equal(
-            new[] { "[GatherBuddy] Run finished: 1 recipe(s) done, 2 could not be made: (fork)", "    - Brass Alembic (missing Brass Ingot)", "    - Iron Plate (needs armorer level 14)" },
-            TextRules.ListLines("Run finished: 1 recipe(s) done, 2 could not be made:", new[] { "Brass Alembic (missing Brass Ingot)", "Iron Plate (needs armorer level 14)" }));
+            new[] { "[GatherBuddy] Run finished: 1 recipe(s) done, 2 could not be made (fork):", "    - Brass Alembic (missing Brass Ingot)", "    - Iron Plate (needs Armorer level 14, yours is 9)" },
+            TextRules.ListLines("Run finished: 1 recipe(s) done, 2 could not be made:", new[] { "Brass Alembic (missing Brass Ingot)", "Iron Plate (needs Armorer level 14, yours is 9)" }));
     }
 
     [Fact]
     public void A_long_list_is_cut_with_a_count_and_a_footer_comes_last()
     {
         var lines = TextRules.ListLines("Left out:", new[] { "a", "b", "c", "d" }, 2, "Retry skipped (fork) tries them again.").ToList();
-        Assert.Equal(new[] { "[GatherBuddy] Left out: (fork)", "    - a", "    - b", "    - and 2 more", "    Retry skipped (fork) tries them again." }, lines);
+        Assert.Equal(new[] { "[GatherBuddy] Left out (fork):", "    - a", "    - b", "    - and 2 more", "    Retry skipped (fork) tries them again." }, lines);
         Assert.Single(TextRules.ListLines("Nothing:", Array.Empty<string>()));
     }
 
@@ -96,5 +96,18 @@ public class TextRulesTests
         Assert.Equal("[MIN Lv 1-15] No position data for fishing spot X.", TextRules.WithRunLabel("No position data for fishing spot X.", "MIN Lv 1-15"));
         Assert.Equal("[GatherBuddyReborn] Vendor list 'Buy' complete.", TextRules.WithRunLabel("[GatherBuddyReborn] Vendor list 'Buy' complete.", "Buy"));
         Assert.Equal("plain", TextRules.WithRunLabel("plain", null));
+    }
+
+    [Fact]
+    public void A_generated_buy_list_shows_without_its_tag_and_a_bare_line_gets_the_plugin_tag()
+    {
+        Assert.Equal("[GatherBuddy] [GSM Lv 1-15 +vendor] Run finished: all 6 item(s) bought (fork).",
+            TextRules.WithRunLabel("[GatherBuddy] Run finished: all 6 item(s) bought (fork).", "[gbr-lists] GSM Lv 1-15 +vendor"));
+        Assert.Equal("[GatherBuddyReborn] Vendor list '[gbr-lists] GSM Lv 1-15 +vendor' complete.",
+            TextRules.WithRunLabel("[GatherBuddyReborn] Vendor list '[gbr-lists] GSM Lv 1-15 +vendor' complete.", "[gbr-lists] GSM Lv 1-15 +vendor"));
+        Assert.Equal("[only a tag]", TextRules.ShownLabel("[only a tag]"));
+        Assert.Equal("[GatherBuddy] No saved gear set for Miner found.", TextRules.Tagged("No saved gear set for Miner found."));
+        Assert.Equal("[GatherBuddyReborn] Timed out.", TextRules.Tagged("[GatherBuddyReborn] Timed out."));
+        Assert.Equal("Leatherworker", TextRules.Capitalized("leatherworker"));
     }
 }

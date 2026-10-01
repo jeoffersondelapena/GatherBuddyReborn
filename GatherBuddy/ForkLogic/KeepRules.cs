@@ -49,7 +49,7 @@ public static class KeepRules
     }
 
     public static string TooltipLine(Mark mark)
-        => $"[Keep] {string.Join(", ", mark.ByRun.Select(kv => $"{kv.Value} for {kv.Key}"))} (fork)";
+        => $"[Keep] {string.Join(", ", mark.ByRun.Select(kv => $"{kv.Value} for {TextRules.ShownLabel(kv.Key)}"))} (fork)";
 
     public static string Summary(int marked)
         => $"[GatherBuddy] Marked Keep in your bags: {marked} item(s) still needed. Hover one to see how many, or look for its green frame; "

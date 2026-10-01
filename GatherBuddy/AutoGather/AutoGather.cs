@@ -726,7 +726,7 @@ namespace GatherBuddy.AutoGather
                 {
                     if (!CraftingGatherBridge.IsQueueMode)
                     {
-                        Communicator.PrintError("[GatherBuddy] Gathering stopped: your bags are full (fork).");
+                        Communicator.PrintRun("[GatherBuddy] Gathering stopped: your bags are full (fork).");
                         MarkListItemsToKeep();
                     }
                     AbortAutoGather("Inventory is full");
@@ -842,7 +842,7 @@ namespace GatherBuddy.AutoGather
                 }
                 catch (NoCollectableActionsException)
                 {
-                    Communicator.PrintError(
+                    Communicator.PrintRun(
                         "Unable to pick a collectability increasing action to use. Make sure that at least one of the collectable actions is enabled.");
                     AbortAutoGather();
                 }
@@ -941,7 +941,7 @@ namespace GatherBuddy.AutoGather
                 if (!GatherBuddy.Config.AutoGatherConfig.FishDataCollection)
                 {
                     GatherBuddy.Log.Warning("[AutoGather] Fishing data collection opt-in is disabled. Enable fishing data collection in configuration or remove fish from auto-gather lists.");
-                    Communicator.PrintError(
+                    Communicator.PrintRun(
                         "You have fish on your auto-gather list but you have not opted in to fishing data collection. Auto-gather cannot continue. Please enable fishing data collection in your configuration options or remove fish from your auto-gather lists.");
                     AbortAutoGather();
                     return;
@@ -949,7 +949,7 @@ namespace GatherBuddy.AutoGather
 
                 if (!AutoHook.Enabled)
                 {
-                    Communicator.PrintError(
+                    Communicator.PrintRun(
                         "[GatherBuddyReborn] You have fish on your auto-gather list but AutoHook is not installed or enabled. Auto-gather cannot continue. Please install and enable AutoHook or remove fish from your auto-gather lists.");
                     AbortAutoGather();
                     return;
@@ -1529,7 +1529,7 @@ namespace GatherBuddy.AutoGather
                         return;
                     }
 
-                    Communicator.PrintError(
+                    Communicator.PrintRun(
                         $"No position data for fishing spot {fish.FishingSpot.Name}. Auto-Fishing cannot continue. Please, manually fish at least once at {fish.FishingSpot.Name} so GBR can know its location.");
                     AbortAutoGather();
                     return;
@@ -1608,7 +1608,7 @@ namespace GatherBuddy.AutoGather
                     if (!positionData.HasValue)
                     {
                         _processingFishingToast = false;
-                        Communicator.PrintError(
+                        Communicator.PrintRun(
                             $"No alternate position data for fishing spot {fish.FishingSpot.Name}. Auto-Fishing cannot continue.");
                         AbortAutoGather();
                         return;
@@ -1741,7 +1741,7 @@ namespace GatherBuddy.AutoGather
 
                     if (!positionData.HasValue)
                     {
-                        Communicator.PrintError(
+                        Communicator.PrintRun(
                             $"No alternate position data for fishing spot {fish.FishingSpot.Name}. Auto-Fishing cannot continue.");
                         AbortAutoGather();
                         return;
@@ -1786,7 +1786,7 @@ namespace GatherBuddy.AutoGather
 
                 if (!positionData.HasValue)
                 {
-                    Communicator.PrintError(
+                    Communicator.PrintRun(
                         $"No alternate position data for fishing spot {fish.FishingSpot.Name}. Auto-Fishing cannot continue.");
                     AbortAutoGather();
                     return;
@@ -2323,11 +2323,11 @@ namespace GatherBuddy.AutoGather
         {
             var left = _activeItemList.StillNeeded;
             if (outOfReach != null)
-                Communicator.PrintError($"[GatherBuddy] Gathering stopped: {outOfReach} (fork).");
+                Communicator.PrintRun($"[GatherBuddy] Gathering stopped: {outOfReach} (fork).");
             else if (left > 0)
-                Communicator.PrintError($"[GatherBuddy] Gathering stopped: {left} item(s) on your lists have no node GatherBuddy can use right now (fork).");
+                Communicator.PrintRun($"[GatherBuddy] Gathering stopped: {left} item(s) on your lists have no node GatherBuddy can use right now (fork).");
             else
-                Communicator.PrintRunEnd($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).");
+                Communicator.PrintRun($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).");
         }
 
         // a crafting run marks what its recipes still need instead
@@ -2479,7 +2479,7 @@ namespace GatherBuddy.AutoGather
                     _                      => "Miner or Botanist",
                 };
                 var yours = gatheringType == GatheringType.Multiple ? "your higher one is" : "yours is";
-                Communicator.PrintError($"You've put a collectable on the gathering list, but collectables need {job} level {Actions.Collect.MinLevel} "
+                Communicator.PrintRun($"You've put a collectable on the gathering list, but collectables need {job} level {Actions.Collect.MinLevel} "
                   + $"and {yours} {level} (fork).");
                 return false;
             }
@@ -2493,7 +2493,7 @@ namespace GatherBuddy.AutoGather
 
             if (questId != 0 && !QuestManager.IsQuestComplete(questId))
             {
-                Communicator.PrintError("You've put a collectable on the gathering list, but you haven't unlocked the collectables.");
+                Communicator.PrintRun("You've put a collectable on the gathering list, but you haven't unlocked the collectables.");
                 var sheet      = Dalamud.GameData.GetExcelSheet<Lumina.Excel.Sheets.Quest>()!;
                 var row        = sheet.GetRow(questId)!;
                 var loc        = row.IssuerLocation.Value!;
@@ -2528,7 +2528,7 @@ namespace GatherBuddy.AutoGather
                     .AddUiGlowOff()
                     .AddUiForegroundOff()
                     .AddText(".");
-                Communicator.Print(text.BuiltString);
+                Communicator.PrintRun(text.BuiltString);
                 return false;
             }
 
@@ -2546,21 +2546,21 @@ namespace GatherBuddy.AutoGather
             };
             if (classJobId == 0)
             {
-                Communicator.PrintError($"No job type associated with {job}.");
+                Communicator.PrintRun($"No job type associated with {job}.");
                 return false;
             }
 
             var gearsetModule = RaptureGearsetModule.Instance();
             if (gearsetModule == null)
             {
-                Communicator.PrintError("Could not read saved gear sets.");
+                Communicator.PrintRun("Could not read saved gear sets.");
                 return false;
             }
 
             if (!GearsetStatsReader.TryResolveExistingGearsetIndex(gearsetModule, classJobId, preferredName, out var gearsetIndex,
                     out var gearsetName))
             {
-                Communicator.PrintError($"No saved gear set for {job} found.");
+                Communicator.PrintRun($"No saved gear set for {job} found.");
                 return false;
             }
 
@@ -2691,7 +2691,7 @@ namespace GatherBuddy.AutoGather
                 if (insufficientPerception.Count > 0)
                 {
                     var itemDetails = string.Join(", ", insufficientPerception.Select(x => $"{x.Name} (needs {x.Required})"));
-                    Communicator.PrintError($"[AutoGather] Cannot enable AutoGather: Insufficient perception (current: {playerPerception}): {itemDetails}");
+                    Communicator.PrintRun($"[AutoGather] Cannot enable AutoGather: Insufficient perception (current: {playerPerception}): {itemDetails}");
                     GatherBuddy.Log.Error($"[AutoGather] AutoGather not enabled: Insufficient perception {playerPerception}");
                     return false;
                 }

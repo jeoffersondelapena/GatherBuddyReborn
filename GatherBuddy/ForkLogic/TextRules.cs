@@ -8,7 +8,8 @@ namespace GatherBuddy.ForkLogic;
 
 public static class TextRules
 {
-    private static readonly Regex ChatTag = new(@"^\[GatherBuddy(Reborn)?\]\s*");
+    private static readonly Regex ChatTag    = new(@"^\[GatherBuddy(Reborn)?\]\s*");
+    private static readonly Regex LeadingTag = new(@"^\[[^\]]*\]\s*");
 
     public static string? RunLabel(IReadOnlyList<string> lists)
         => lists.Count switch
@@ -25,13 +26,27 @@ public static class TextRules
         if (string.IsNullOrEmpty(label) || message.Contains(label, StringComparison.Ordinal))
             return message;
 
+        var shown = ShownLabel(label);
+        if (message.Contains($"[{shown}]", StringComparison.Ordinal))
+            return message;
+
         var tag = ChatTag.Match(message);
-        return tag.Success ? $"{tag.Value.TrimEnd()} [{label}] {message[tag.Length..]}" : $"[{label}] {message}";
+        return tag.Success ? $"{tag.Value.TrimEnd()} [{shown}] {message[tag.Length..]}" : $"[{shown}] {message}";
     }
+
+    // a generated buy list is named "[gbr-lists] ..."; in brackets of its own that read as "[[gbr-lists] ...]"
+    public static string ShownLabel(string label)
+        => LeadingTag.Replace(label, "") is { Length: > 0 } rest ? rest : label;
+
+    public static string Tagged(string message)
+        => ChatTag.IsMatch(message) || message.StartsWith('[') ? message : $"[GatherBuddy] {message}";
+
+    public static string Capitalized(string name)
+        => name.Length == 0 ? name : char.ToUpperInvariant(name[0]) + name[1..];
 
     public static IEnumerable<string> ListLines(string header, IReadOnlyList<string> items, int max = int.MaxValue, string? footer = null)
     {
-        yield return $"[GatherBuddy] {header} (fork)";
+        yield return header.EndsWith(':') ? $"[GatherBuddy] {header[..^1]} (fork):" : $"[GatherBuddy] {header} (fork)";
         foreach (var item in items.Take(max))
             yield return $"    - {item}";
         if (items.Count > max)

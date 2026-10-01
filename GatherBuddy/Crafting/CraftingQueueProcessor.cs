@@ -970,12 +970,12 @@ public class CraftingQueueProcessor
             .Select(id => _runReasons.TryGetValue(id, out var why) ? $"{SkippedRecipes.NameOf(id)} ({why})" : SkippedRecipes.NameOf(id)).ToList();
         if (QueueItems.Count == 0)
         {
-            Communicator.PrintRunEnd("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
+            Communicator.PrintRun("[GatherBuddy] Run finished: nothing in this list was left to craft (fork).");
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished, nothing left to craft");
         }
         else if (failed.Count == 0)
         {
-            Communicator.PrintRunEnd($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
+            Communicator.PrintRun($"[GatherBuddy] Run finished: all {done.Count} recipe(s) done (fork).");
             Dalamud.ToastGui.ShowNormal("GatherBuddy: run finished");
         }
         else
@@ -1055,7 +1055,7 @@ public class CraftingQueueProcessor
 
             var jobName = GetJobName(jobId);
             GatherBuddy.Log.Error($"[CraftingQueueProcessor] No gearset found for {jobName} (Job ID: {jobId})");
-            Communicator.PrintError($"[GatherBuddy] Cannot continue crafting: No gearset found for {jobName}. Please create a gearset for this job.");
+            Communicator.PrintRun($"[GatherBuddy] Cannot continue crafting: No gearset found for {jobName}. Please create a gearset for this job.");
             CompleteQueue();
         }
         catch (Exception ex)
@@ -1682,7 +1682,7 @@ public class CraftingQueueProcessor
     {
         var why = string.IsNullOrWhiteSpace(reason) ? "it could not go on" : reason.TrimEnd('.');
         Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have (fork).");
-        Communicator.PrintError($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
+        Communicator.PrintRun($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
           + "the rest, or press Craft What I Have (fork) in the Craft Status window to craft with what is here (fork).");
         ForkTrace.Info($"crafting run paused in its gathering part: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
         if (missing.Count > 0)
@@ -1709,6 +1709,7 @@ public class CraftingQueueProcessor
         var pauseReason = $"{message} Clear inventory, then press Resume to continue the current queue.";
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
         Pause(pauseReason);
+        Communicator.PrintRun("[GatherBuddy] Run paused: your bags are full. Make room, then press Resume in the Craft Status window (fork).");
         MarkStillNeeded();
     }
 

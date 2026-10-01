@@ -155,7 +155,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         ResetExecutionState();
         _statusText    = "Timed out leaving the previous vendor interaction.";
         GatherBuddy.Log.Error($"[VendorBuyListManager] Timed out leaving the previous vendor interaction. Last blocker: {blocker}");
-        Communicator.PrintError("[GatherBuddyReborn] Timed out leaving the previous vendor interaction.");
+        Communicator.PrintRun("[GatherBuddyReborn] Timed out leaving the previous vendor interaction.");
     }
 
     public void OpenWindow()
@@ -611,7 +611,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         var keep = (list?.Entries ?? new List<VendorBuyListEntry>())
             .Select(e => (e.ItemId, Count: (int)Math.Min((uint)Math.Max(0, GetCurrentInventoryAndArmoryCount(e.ItemId)), e.TargetQuantity)))
             .ToList();
-        Communicator.PrintError("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room; "
+        Communicator.PrintRun("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room; "
           + "it only buys what is still missing (fork).");
         KeepMarks.Add(keep, list?.Name);
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
@@ -681,7 +681,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             _statusText = $"Vendor list '{list.Name}' complete.";
             GatherBuddy.Log.Information($"[VendorBuyListManager] Vendor list '{list.Name}' complete.");
             Communicator.Print($"[GatherBuddyReborn] Vendor list '{list.Name}' complete.");
-            Communicator.PrintRunEnd($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).", list.Name);
+            Communicator.PrintRun($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).", list.Name);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run finished");
             return;
         }

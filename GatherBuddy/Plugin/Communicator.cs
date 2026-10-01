@@ -88,9 +88,12 @@ public static class Communicator
         Dalamud.Chat.Print(entry);
     }
 
-    // fork: every end of a run is printed the way the crafting run's end list is (ForkChat)
-    public static void PrintRunEnd(string message, string? label = null)
-        => Dalamud.Chat.PrintError(TextRules.WithRunLabel(message, label ?? RunLabel.Current));
+    // fork: a run's end, or anything a run needs from the player, is printed the way the crafting run's end list is (ForkChat)
+    public static void PrintRun(string message, string? label = null)
+        => Dalamud.Chat.PrintError(TextRules.WithRunLabel(TextRules.Tagged(message), label ?? RunLabel.Current));
+
+    public static void PrintRun(SeString message)
+        => Dalamud.Chat.PrintError(Labelled(message));
 
     // fork: a line printed during a run names the run's list
     private static SeString Labelled(SeString message)

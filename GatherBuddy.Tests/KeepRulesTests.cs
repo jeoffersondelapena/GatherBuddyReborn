@@ -59,6 +59,8 @@ public class KeepRulesTests
     public void The_chat_line_points_at_the_marks_and_the_button()
     {
         Assert.StartsWith("[GatherBuddy] Marked Keep in your bags: 3 item(s)", KeepRules.Summary(3));
+        var bought = KeepRules.Merge(None, new[] { (5319u, 6) }, "[gbr-lists] LTW Lv 1-15 +vendor");
+        Assert.Equal("[Keep] 6 for LTW Lv 1-15 +vendor (fork)", KeepRules.TooltipLine(bought[5319]));
         Assert.Contains("Clear Keep Marks (fork)", KeepRules.Summary(3));
     }
 }

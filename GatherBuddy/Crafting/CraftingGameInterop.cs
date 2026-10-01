@@ -6,6 +6,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using GatherBuddy.Automation;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Vulcan;
 using Lumina.Excel.Sheets;
 using System;
@@ -59,7 +60,7 @@ public static class CraftingGameInterop
     {
         if (!LevelShort(recipe, out var need, out var have)) return false;
         var classJob = 8u + recipe.CraftType.RowId;
-        var jobName = Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}";
+        var jobName = TextRules.Capitalized(Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}");
         var itemName = GetItemName(recipe.ItemResult.RowId);
         _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.JobLevelTooLow, recipe.ItemResult.RowId, need, have, 0,
             $"{jobName} level {need} (yours is {have})");
