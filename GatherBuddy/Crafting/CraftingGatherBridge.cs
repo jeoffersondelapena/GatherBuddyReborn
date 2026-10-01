@@ -59,6 +59,16 @@ public static class CraftingGatherBridge
     public static uint RecipeToCraft => _recipeIdToCraft;
     public static bool WaitingForGatherComplete => _waitingForGatherComplete;
     public static bool IsQueueMode => _isQueueMode;
+
+    // fork: full bags pause the run inside its gathering part, so Resume gathers the rest instead of crafting short
+    public static bool PauseRunForFullBags()
+    {
+        if (!_isQueueMode || _queueProcessor is not { CurrentState: CraftingQueueProcessor.QueueState.WaitingForGather } || _gatherList == null)
+            return false;
+
+        _queueProcessor.PauseGatheringForFullBags();
+        return true;
+    }
     
     public static AutoGatherList? GetTemporaryGatherList() => _gatherList;
     public static CraftingExecutionPlan? GetActiveExecutionPlan()

@@ -721,6 +721,18 @@ namespace GatherBuddy.AutoGather
                     else
                         GatherBuddy.CollectableManager?.Start(Collectables.CollectableRunSource.AutoGather);
                 }
+                else if (CraftingGatherBridge.IsQueueMode)
+                {
+                    AutoStatus = "Inventory is full";
+                    CloseGatheringAddons();
+                    if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
+                        EnqueueActionWithDelay(() => { GoHome("inventory full"); });
+                    TaskManager.Enqueue(() =>
+                    {
+                        if (!CraftingGatherBridge.PauseRunForFullBags())
+                            AbortAutoGather("Inventory is full");
+                    });
+                }
                 else
                 {
                     AbortAutoGather("Inventory is full");

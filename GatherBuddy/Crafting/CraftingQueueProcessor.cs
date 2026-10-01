@@ -1672,6 +1672,17 @@ public class CraftingQueueProcessor
         return inventoryManager != null && inventoryManager->GetEmptySlotsInBag() == 0;
     }
 
+    public void PauseGatheringForFullBags()
+    {
+        Pause("Gathering stopped: your inventory is full. Make room, then press Resume; it gathers what is still missing, then crafts.");
+        Dalamud.Chat.PrintError("[GatherBuddy] Gathering for this crafting run stopped: your inventory is full. "
+          + "Make room, then press Resume; it gathers what is still missing, then crafts (fork).");
+        ForkTrace.Info("crafting run paused in its gathering part: inventory full");
+        var keep = StillNeededFromBags();
+        if (keep.Count > 0)
+            ForkChat.List("Keep these in your bags for the rest of this run:", keep);
+    }
+
     private void PauseForInventoryFull(string message)
     {
         var pauseReason = $"{message} Clear inventory, then press Resume to continue the current queue.";
