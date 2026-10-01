@@ -15,8 +15,7 @@ public static unsafe class KeepMarks
     private static Dictionary<uint, KeepRules.Mark> _needed = new();
     private static Dictionary<uint, KeepRules.Mark> _made   = new();
 
-    private static readonly Dictionary<KeepRules.Run, Dictionary<uint, int>> Open    = new();
-    private static readonly Dictionary<KeepRules.Run, DateTime>                Closing = new();
+    private static readonly Dictionary<KeepRules.Run, Dictionary<uint, int>> Open = new();
 
     private static readonly InventoryType[] Holding =
     [
@@ -32,9 +31,6 @@ public static unsafe class KeepMarks
 
     public static int Count
         => _needed.Keys.Union(_made.Keys).Count();
-
-    public static bool IsClosing
-        => Closing.Count > 0;
 
     public static int NeededCount
         => _needed.Count;
@@ -97,30 +93,19 @@ public static unsafe class KeepMarks
         ForkTrace.Info($"keep marks: run {r.Id} went on, its orange marks cleared");
     }
 
-    // the last craft's or purchase's item can land a moment after the run ends, so the run is watched a little longer
     public static void EndRun(KeepRules.Run? run)
     {
-        if (run is not { } r || !Open.ContainsKey(r) || Closing.ContainsKey(r))
+        if (run is not { } r || !Open.Remove(r, out var before))
             return;
 
         _needed = KeepRules.WithoutRun(_needed, r);
-        NoteMade(r);
-        Closing[r] = DateTime.Now.AddSeconds(5);
-    }
-
-    private static void Close(KeepRules.Run run)
-    {
-        Closing.Remove(run);
-        if (!Open.Remove(run, out var before))
-            return;
-
         var now  = Held(before.Keys);
-        var made = Merge(run, KeepRules.Made(before, now));
+        var made = Merge(r, KeepRules.Made(before, now));
         var none = before.Keys.Where(id => !made.ContainsKey(id)).ToList();
-        ForkTrace.Info($"keep marks: run {run.Id} ended, {made.Count} of {before.Count} item(s) {run.Verb}"
+        ForkTrace.Info($"keep marks: run {r.Id} ended, {made.Count} of {before.Count} item(s) {r.Verb}"
           + (none.Count == 0 ? "" : $"; no gain: {string.Join(", ", none.Select(id => $"{ForkTrace.Named(id)} {before[id]}->{now[id]}"))}"));
         if (made.Count > 0)
-            Communicator.PrintRun(KeepRules.EndSummary(made.Count, run.Verb), TextRules.KindLabel(TextRules.KindOfVerb(run.Verb), run.Label), Communicator.Tone.Good);
+            Communicator.PrintRun(KeepRules.EndSummary(made.Count, r.Verb), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label), Communicator.Tone.Good);
     }
 
     public static void ClearNeeded()
@@ -145,9 +130,6 @@ public static unsafe class KeepMarks
         if (key != _loadedFor)
             SwitchTo(key);
 
-        foreach (var run in Closing.Where(kv => DateTime.Now >= kv.Value).Select(kv => kv.Key).ToList())
-            Close(run);
-
         if (DateTime.Now < _nextPrune || Count == 0 || !InventoryReady())
             return;
 
@@ -165,7 +147,6 @@ public static unsafe class KeepMarks
     private static void SwitchTo(string? key)
     {
         Open.Clear();
-        Closing.Clear();
         _needed    = new Dictionary<uint, KeepRules.Mark>();
         _made      = new Dictionary<uint, KeepRules.Mark>();
         _nextRun   = 0;

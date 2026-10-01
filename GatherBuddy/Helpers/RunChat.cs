@@ -5,12 +5,15 @@ using GatherBuddy.Plugin;
 
 namespace GatherBuddy.Helpers;
 
-// fork: the end divider waits out what still follows a run (the green summary, the after-run repair, the trip home), so it is the run's last line
+// fork: the end divider waits out what still follows a run (the after-run repair, the trip home), so it is the run's last line
 public static class RunChat
 {
+    private static readonly TimeSpan TravelLimit = TimeSpan.FromMinutes(2);
+
     private static string?  _open;
     private static bool     _ending;
     private static DateTime _quietSince;
+    private static DateTime _travelSince;
     private static DateTime _endBy;
 
     public static void Begin(string? label)
@@ -31,9 +34,10 @@ public static class RunChat
         if (_open == null || _ending)
             return;
 
-        _ending     = true;
-        _quietSince = DateTime.MinValue;
-        _endBy      = DateTime.Now.AddMinutes(10);
+        _ending      = true;
+        _quietSince  = DateTime.MinValue;
+        _travelSince = DateTime.MinValue;
+        _endBy       = DateTime.Now.AddMinutes(10);
     }
 
     public static void Update()
@@ -41,7 +45,11 @@ public static class RunChat
         if (!_ending)
             return;
 
-        if (Busy() && DateTime.Now < _endBy)
+        var limited    = AfterRunRepair.Busy || CraftingGatherBridge.IsQueueMode
+         || GatherBuddy.VendorBuyListManager is { } vendor && (vendor.IsBusy || vendor.HomeTripPending);
+        var travelling = !limited && Lifestream.Enabled && Lifestream.IsBusy();
+        _travelSince = travelling ? (_travelSince == DateTime.MinValue ? DateTime.Now : _travelSince) : DateTime.MinValue;
+        if (DateTime.Now < _endBy && (limited || travelling && DateTime.Now - _travelSince < TravelLimit))
         {
             _quietSince = DateTime.MinValue;
             return;
@@ -52,14 +60,6 @@ public static class RunChat
         else if (DateTime.Now - _quietSince >= TimeSpan.FromSeconds(2))
             Close();
     }
-
-    private static bool Busy()
-        => KeepMarks.IsClosing
-         || AfterRunRepair.Busy
-         || CraftingGatherBridge.IsQueueMode
-         || GatherBuddy.AutoGather?.Enabled == true
-         || GatherBuddy.VendorBuyListManager is { } vendor && (vendor.IsBusy || vendor.HomeTripPending)
-         || (Lifestream.Enabled && Lifestream.IsBusy());
 
     private static void Close()
     {
