@@ -1013,8 +1013,7 @@ public class CraftingQueueProcessor
         _currentState = QueueState.Complete;
         StateChanged?.Invoke(_currentState);
         QueueCompleted?.Invoke();
-        if (_currentQueueIndex >= QueueItems.Count)
-            KeepMarks.ClearRun(RunLabel.Current);
+        KeepMarks.EndRun(CraftingGatherBridge.KeepRun);
         if (_currentQueueIndex >= QueueItems.Count && AfterRunRepair.Wanted(false))
             AfterRunRepair.Start("crafting run done", false);
     }
@@ -1559,6 +1558,7 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Information("[CraftingQueueProcessor] Resuming queue");
         _paused = false;
         _pauseReason = string.Empty;
+        KeepMarks.ResumeRun(CraftingGatherBridge.KeepRun);
         YesAlready.Lock();
 
         if (_currentState == QueueState.NavigatingToRetainerBell)
@@ -1714,7 +1714,7 @@ public class CraftingQueueProcessor
     }
 
     private void MarkStillNeeded()
-        => KeepMarks.Add(StillNeededFromBags(), RunLabel.Current);
+        => KeepMarks.MarkPause(CraftingGatherBridge.KeepRun, StillNeededFromBags());
 
     // What the plan counted as already owned: selling it while paused leaves a later recipe short.
     private unsafe List<(uint ItemId, int Count)> StillNeededFromBags()

@@ -387,6 +387,8 @@ namespace GatherBuddy.AutoGather
             }
         } = false;
 
+        private KeepRules.Run? _keepRun;
+
         public unsafe bool Enabled
         {
             get => _enabled;
@@ -397,6 +399,8 @@ namespace GatherBuddy.AutoGather
 
                 if (!value)
                 {
+                    KeepMarks.EndRun(_keepRun);
+                    _keepRun   = null;
                     AutoStatus = "Idle...";
                     TaskManager.Abort();
                     YesAlready.Unlock();
@@ -468,6 +472,9 @@ namespace GatherBuddy.AutoGather
                     return;
                 }
                 
+                if (!Crafting.CraftingGatherBridge.IsQueueMode)
+                    _keepRun = KeepMarks.BeginRun(RunLabel.GatherLists(), "gathered",
+                        _plugin.AutoGatherListsManager.ActiveItems.Select(i => i.Item.ItemId));
                 WentHome = true; //Prevents going home right after enabling auto-gather
                 if (AutoHook.Enabled)
                 {
@@ -725,10 +732,7 @@ namespace GatherBuddy.AutoGather
                 else
                 {
                     if (!CraftingGatherBridge.IsQueueMode)
-                    {
                         Communicator.PrintRun("[GatherBuddy] Gathering stopped: your bags are full (fork).");
-                        MarkListItemsToKeep();
-                    }
                     AbortAutoGather("Inventory is full");
                 }
 
@@ -2329,12 +2333,6 @@ namespace GatherBuddy.AutoGather
             else
                 Communicator.PrintRun($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).");
         }
-
-        // a crafting run marks what its recipes still need instead
-        private void MarkListItemsToKeep()
-            => KeepMarks.Add(_plugin.AutoGatherListsManager.ActiveItems
-                .Select(i => (i.Item.ItemId, Count: (int)Math.Min(i.Item.GetInventoryCount(), i.Quantity)))
-                .ToList(), RunLabel.Current);
 
         private void AbortAutoGather(string? status = null, string? detail = null)
         {

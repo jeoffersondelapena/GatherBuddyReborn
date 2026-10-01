@@ -57,6 +57,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     private Guid?    _activeEntryId;
     private Guid?    _runningListId;
     private bool     _homeAfterRun;
+    private KeepRules.Run? _keepRun;
     private bool     _homePending;
     private DateTime _homePendingSince;
     private bool     _isRunning;
@@ -431,6 +432,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         {
             _isRunning = true;
             _runningListId = activeList.Id;
+            _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Select(e => e.ItemId));
             _statusText = $"Leaving the previous vendor interaction for '{activeList.Name}'.";
             return StartResult.WaitingForPreviousInteraction;
         }
@@ -472,6 +474,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
         _isRunning = true;
         _runningListId = activeList.Id;
+        _keepRun ??= KeepMarks.BeginRun(activeList.Name, "bought", activeList.Entries.Select(e => e.ItemId));
         _waitingForCancelledPurchase = false;
         _statusText = $"Starting vendor list '{activeList.Name}'...";
         TryStartNextEntry();
@@ -565,6 +568,8 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void ResetExecutionState()
     {
+        KeepMarks.EndRun(_keepRun);
+        _keepRun = null;
         _isRunning = false;
         _activeEntryId = null;
         _runningListId = null;
@@ -607,13 +612,10 @@ public sealed partial class VendorBuyListManager : IDisposable
     // fork: with no free slot every later entry would only time out in turn, and what is already bought must not be sold to make room
     private void StopForFullInventory()
     {
-        var list = GatherBuddy.Config.VendorBuyLists.FirstOrDefault(l => l.Id == _runningListId);
-        var keep = (list?.Entries ?? new List<VendorBuyListEntry>())
-            .Select(e => (e.ItemId, Count: (int)Math.Min((uint)Math.Max(0, GetCurrentInventoryAndArmoryCount(e.ItemId)), e.TargetQuantity)))
-            .ToList();
         Communicator.PrintRun("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room; "
           + "it only buys what is still missing (fork).");
-        KeepMarks.Add(keep, list?.Name);
+        KeepMarks.EndRun(_keepRun);
+        _keepRun = null;
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
         QueueHomeTrip();
@@ -670,6 +672,8 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void FinishCurrentRun(VendorBuyListDefinition list)
     {
+        var keepRun = _keepRun;
+        _keepRun = null;
         var skippedCount = _skippedEntryIds.Count;
         var partiallyFulfilledCount = _partiallyFulfilledEntryIds.Count;
         var notBought = _skipNotes.Values.OrderBy(n => n, StringComparer.OrdinalIgnoreCase).ToList();
@@ -682,6 +686,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             GatherBuddy.Log.Information($"[VendorBuyListManager] Vendor list '{list.Name}' complete.");
             Communicator.Print($"[GatherBuddyReborn] Vendor list '{list.Name}' complete.");
             Communicator.PrintRun($"[GatherBuddy] Run finished: all {list.Entries.Count(e => e.Enabled)} item(s) bought (fork).", list.Name);
+            KeepMarks.EndRun(keepRun);
             Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run finished");
             return;
         }
@@ -698,6 +703,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         _statusText = $"Vendor list '{list.Name}' completed with {detail}.";
         GatherBuddy.Log.Warning($"[VendorBuyListManager] Vendor list '{list.Name}' completed with {detail}.");
         Communicator.PrintError($"[GatherBuddyReborn] Vendor list '{list.Name}' completed with {detail}.");
+        KeepMarks.EndRun(keepRun);
     }
 
     private void EnsureListState()

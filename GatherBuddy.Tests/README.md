@@ -21,8 +21,9 @@ What is covered:
 - `TextRules`: the chat lists, the solver's "no solution" against a real failure, and the XIV Doctor note line.
 - `GatherLevelRules`: the level a stop line names is exactly the lowest the gathering filter lets through, and how the
   line reads for one item and for several.
-- `KeepRules`: the Keep marks a full-bags stop puts on items: HQ and collectable ids, each run's own count on a shared item,
-  a run stopping again or finishing changing only its own marks, and the tooltip line.
+- `KeepRules`: the two kinds of Keep mark (orange: what a paused run still needs; green: what a run crafted, gathered or bought):
+  HQ and collectable ids, each run's own count on a shared item, a run marking again or ending changing only its own
+  marks, marks shrinking with what leaves the bags (oldest run first), what a run made, and the tooltip and chat wording.
 - `SafeFile`: a file shared by two game windows is swapped in whole, never read half-written.
 
 What is not covered: anything that needs the game (reading levels, the logs, inventory, driving the crafting window).

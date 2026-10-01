@@ -10,8 +10,8 @@ internal static class KeepMarkButton
     {
         var tooltip = KeepMarks.Count == 0
             ? "Nothing in your bags is marked Keep."
-            : $"Remove the Keep mark (tooltip line and green frame) from the {KeepMarks.Count} item(s) marked when a run stopped with full bags.\n"
-          + "A crafting run that finishes removes its own marks; the others stay until you press this.";
+            : $"Remove the Keep marks from the {KeepMarks.Count} marked item(s): orange (what a paused run still needs, which also clears when the run goes on)\n"
+          + "and green (what a run crafted, gathered or bought, which stays until you press this).";
         if (ImGuiUtil.DrawDisabledButton("Clear Keep Marks (fork)", Vector2.Zero, tooltip, KeepMarks.Count == 0))
             KeepMarks.Clear();
     }

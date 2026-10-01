@@ -18,11 +18,8 @@ public static class RunLabel
                 if (CraftingGatherBridge.RunningListName is { } crafting)
                     return crafting;
 
-                if (GatherBuddy.AutoGather?.Enabled == true && CraftingGatherBridge.ListsManager is { } manager)
-                    return TextRules.RunLabel(manager.Lists
-                        .Where(l => l.Enabled && l.Name != AutoGatherListsManager.TemporaryListName)
-                        .Select(l => l.Name)
-                        .ToList());
+                if (GatherBuddy.AutoGather?.Enabled == true)
+                    return GatherLists();
 
                 return GatherBuddy.VendorBuyListManager?.RunningListName;
             }
@@ -32,4 +29,12 @@ public static class RunLabel
             }
         }
     }
+
+    public static string? GatherLists()
+        => CraftingGatherBridge.ListsManager is { } manager
+            ? TextRules.RunLabel(manager.Lists
+                .Where(l => l.Enabled && l.Name != AutoGatherListsManager.TemporaryListName)
+                .Select(l => l.Name)
+                .ToList())
+            : null;
 }

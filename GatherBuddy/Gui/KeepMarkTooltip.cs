@@ -3,7 +3,6 @@ using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Text.SeStringHandling;
-using FFXIVClientStructs.FFXIV.Client.Graphics;
 using FFXIVClientStructs.FFXIV.Client.System.Memory;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using GatherBuddy.Automation;
@@ -56,12 +55,17 @@ internal sealed unsafe class KeepMarkTooltip : IDisposable
     private void OnPostUpdate(AddonEvent type, AddonArgs args)
     {
         var addon = (AtkUnitBase*)args.Addon.Address;
-        if (addon == null || KeepMarks.Count == 0 || !KeepMarks.TryGet(Dalamud.GameGui.HoveredItem, out var mark))
+        if (addon == null || KeepMarks.Count == 0 || !KeepMarks.TryGet(Dalamud.GameGui.HoveredItem, out var needed, out var made))
             return;
 
         try
         {
-            Show(addon, KeepRules.TooltipLine(mark));
+            var text = new SeStringBuilder();
+            if (needed != null)
+                text.AddUiForeground(KeepMarkFrames.NeededColor).AddText(KeepRules.NeededLine(needed)).AddUiForegroundOff();
+            if (made != null)
+                text.AddText(needed != null ? "\n" : "").AddUiForeground(KeepMarkFrames.MadeColor).AddText(KeepRules.MadeLine(made)).AddUiForegroundOff();
+            Show(addon, text.Build());
         }
         catch (Exception e)
         {
@@ -98,7 +102,7 @@ internal sealed unsafe class KeepMarkTooltip : IDisposable
         below->SetYFloat(below->Y - node->AtkResNode.Height - Gap);
     }
 
-    private void Show(AtkUnitBase* addon, string text)
+    private void Show(AtkUnitBase* addon, SeString text)
     {
         var below = addon->GetNodeById(2);
         if (below == null || addon->WindowNode == null)
@@ -109,7 +113,7 @@ internal sealed unsafe class KeepMarkTooltip : IDisposable
             return;
 
         node->AtkResNode.ToggleVisibility(true);
-        node->SetText(new SeStringBuilder().AddText(text).Build().Encode());
+        node->SetText(text.Encode());
         node->ResizeNodeForCurrentText();
         node->AtkResNode.SetYFloat(addon->WindowNode->AtkResNode.Height - 8);
         SetWindowHeight(addon, (ushort)(addon->WindowNode->AtkResNode.Height + node->AtkResNode.Height + Gap), true);
@@ -156,7 +160,7 @@ internal sealed unsafe class KeepMarkTooltip : IDisposable
         node->AtkResNode.X         = 16;
         node->AtkResNode.Width     = 50;
         node->AtkResNode.Color     = style->AtkResNode.Color;
-        node->TextColor            = new ByteColor { R = 0x8C, G = 0xE6, B = 0x7A, A = 0xFF };
+        node->TextColor            = style->TextColor;
         node->EdgeColor            = style->EdgeColor;
         node->LineSpacing          = 18;
         node->FontSize             = 12;

@@ -20,8 +20,12 @@ internal static unsafe class KeepMarkFrames
     private static readonly string[] ExpansionGrids = ["InventoryGrid0E", "InventoryGrid1E", "InventoryGrid2E", "InventoryGrid3E"];
     private static readonly string[] Overlays       = ["ItemDetail", "ContextMenu"];
 
-    private static readonly uint Edge = ImGui.ColorConvertFloat4ToU32(new Vector4(0.55f, 0.9f, 0.48f, 1f));
-    private static readonly uint Fill = ImGui.ColorConvertFloat4ToU32(new Vector4(0.55f, 0.9f, 0.48f, 0.16f));
+    // the game's UIColor rows 32 and 67, so a tooltip line and its frame share one color
+    public const ushort NeededColor = 32;
+    public const ushort MadeColor   = 67;
+
+    private static readonly Vector4 Orange = new(240 / 255f, 142 / 255f, 55 / 255f, 1f);
+    private static readonly Vector4 Green  = new(160 / 255f, 248 / 255f, 116 / 255f, 1f);
 
     private static readonly Dictionary<uint, uint> Icons  = new();
     private static readonly HashSet<string>        Traced = new();
@@ -80,7 +84,7 @@ internal static unsafe class KeepMarkFrames
                 continue;
 
             var item = inventory->GetInventorySlot((InventoryType)((uint)InventoryType.Inventory1 + entry->Page), entry->Slot);
-            if (item == null || item->ItemId == 0 || !KeepMarks.TryGet(item->GetBaseItemId(), out _))
+            if (item == null || item->ItemId == 0 || !KeepMarks.TryGet(item->GetBaseItemId(), out var needed, out _))
                 continue;
 
             var dragDrop = grid->Slots[slot].Value;
@@ -93,11 +97,11 @@ internal static unsafe class KeepMarkFrames
             TraceOnce($"{name}:{shown == icon}", $"keep frames: {name} page {page} slot {slot} holds bag {entry->Page} slot {entry->Slot}, "
               + $"{ForkTrace.Named(item->GetBaseItemId())}; icon shown {shown}, item icon {icon}: {(shown == icon ? "match" : "MISMATCH, not framed")}");
             if (shown == icon)
-                Frame(&dragDrop->AtkComponentBase.OwnerNode->AtkResNode);
+                Frame(&dragDrop->AtkComponentBase.OwnerNode->AtkResNode, needed != null ? Orange : Green);
         }
     }
 
-    private static void Frame(AtkResNode* node)
+    private static void Frame(AtkResNode* node, Vector4 color)
     {
         if (!node->IsVisible())
             return;
@@ -113,8 +117,8 @@ internal static unsafe class KeepMarkFrames
                 return;
 
         var draw = ImGui.GetBackgroundDrawList();
-        draw.AddRectFilled(min, max, Fill, 4f);
-        draw.AddRect(min, max, Edge, 4f, ImDrawFlags.None, 2f);
+        draw.AddRectFilled(min, max, ImGui.ColorConvertFloat4ToU32(color with { W = 0.16f }), 4f);
+        draw.AddRect(min, max, ImGui.ColorConvertFloat4ToU32(color), 4f, ImDrawFlags.None, 2f);
     }
 
     private static (Vector2, Vector2) Rect(AtkUnitBase* addon)

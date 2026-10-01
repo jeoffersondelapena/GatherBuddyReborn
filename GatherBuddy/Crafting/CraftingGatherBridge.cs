@@ -7,6 +7,7 @@ using FFXIVClientStructs.FFXIV.Component.GUI;
 using GatherBuddy.Automation;
 using GatherBuddy.AutoGather.Lists;
 using GatherBuddy.AutoGather.Collectables;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using Lumina.Excel.Sheets;
 using GatherBuddy.Plugin;
@@ -25,6 +26,7 @@ public static class CraftingGatherBridge
     private static CraftingQueueProcessor? _queueProcessor = null;
     private static CraftingExecutionPlan? _activeExecutionPlan = null;
     private static bool _isQueueMode = false;
+    private static KeepRules.Run? _keepRun;
     private static List<AutoGatherList> _disabledGatherLists = new();
     private static int? _ephemeralListId = null;
     private static bool _waitingForCollectables = false;
@@ -60,6 +62,7 @@ public static class CraftingGatherBridge
     public static bool WaitingForGatherComplete => _waitingForGatherComplete;
     public static bool IsQueueMode => _isQueueMode;
     public static string? RunningListName => _isQueueMode ? _activeExecutionPlan?.ListName : null;
+    internal static KeepRules.Run? KeepRun => _keepRun;
     internal static AutoGatherListsManager? ListsManager => _plugin?.AutoGatherListsManager;
 
     // fork: a gathering part that stops short pauses the run there, so Resume gathers the rest instead of crafting short
@@ -185,6 +188,7 @@ public static class CraftingGatherBridge
                 _queueProcessor = null;
                 _activeExecutionPlan = null;
                 _isQueueMode = false;
+                _keepRun = null;
 
                 if (_ephemeralListId.HasValue)
                 {
@@ -229,6 +233,8 @@ public static class CraftingGatherBridge
         _isQueueMode = true;
         _ephemeralListId = ephemeralListId;
         _activeExecutionPlan = executionPlan;
+        _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted",
+            executionPlan.QueueView.Select(i => RecipeManager.GetRecipe(i.RecipeId)?.ItemResult.RowId ?? 0));
         ResetCollectablesInterruptionState();
         _lastCollectablesHardFailLog = DateTime.MinValue;
         _queueProcessor = new CraftingQueueProcessor();
@@ -768,6 +774,8 @@ public static class CraftingGatherBridge
             _queueProcessor = null;
             _activeExecutionPlan = null;
             _isQueueMode = false;
+            KeepMarks.EndRun(_keepRun);
+            _keepRun = null;
             RestoreDisabledGatherLists();
             GatherBuddy.CraftingStatusWindow?.SetQueueProcessor(null);
         }

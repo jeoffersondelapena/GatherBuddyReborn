@@ -278,6 +278,7 @@ public partial class GatherBuddy : IDalamudPlugin
     private unsafe void Update(IFramework framework)
     {
         Config.SaveIfDirty();
+        Helpers.KeepMarks.Prune();
         var prev = LastObjectsLength;
         LastObjectsLength = Dalamud.Objects.Length;
         //Scan objects every 5 secons or when the number of objects change
