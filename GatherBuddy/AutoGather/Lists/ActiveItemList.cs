@@ -23,6 +23,7 @@ namespace GatherBuddy.AutoGather.Lists
     internal sealed class ActiveItemList : IEnumerable<GatherTarget>, IDisposable
     {
         private readonly List<GatherTarget>                      _gatherableItems    = [];
+        private readonly List<(IGatherable Item, GatheringNode Node)> _outOfReach    = [];
         private readonly AutoGatherListsManager                  _listsManager;
         private readonly AutoGather                              _autoGather;
         private readonly Dictionary<uint, int>                   _teleportationCosts = [];
@@ -57,6 +58,9 @@ namespace GatherBuddy.AutoGather.Lists
 
         public bool IsCloudedNodeConsumed
             => _consumedCloudedNode;
+
+        public IReadOnlyList<(IGatherable Item, GatheringNode Node)> OutOfReach
+            => _outOfReach;
 
         public bool IsInitialized
             => _lastUpdateTime != TimeStamp.MinValue;
@@ -428,8 +432,31 @@ namespace GatherBuddy.AutoGather.Lists
                 _gatherableItems.AddRange(ApplyFishPriorityOrdering(targets, adjustedServerTime));
             }
             LogFishPriorityOrder(adjustedServerTime);
+            NoteOutOfReach(minerLevel, botanistLevel);
 
             GatherBuddy.Log.Verbose($"Gatherable items: ({_gatherableItems.Count}): {string.Join(", ", _gatherableItems.Select(x => x.Item.Name))}.");
+        }
+
+        // fork: what the level filter alone kept out, so a run that stops on it can say so
+        private void NoteOutOfReach(int minerLevel, int botanistLevel)
+        {
+            _outOfReach.Clear();
+            foreach (var entry in _listsManager.ActiveItems)
+            {
+                if (!NeedsGathering(entry) || _gatherableItems.Any(t => t.Item == entry.Item))
+                    continue;
+
+                var nodes = entry.Item.Locations.OfType<GatheringNode>().ToList();
+                if (nodes.Count == 0 || nodes.Any(n => n.GatheringType.ToGroup() switch
+                    {
+                        GatheringType.Miner    => n.Level <= minerLevel,
+                        GatheringType.Botanist => n.Level <= botanistLevel,
+                        _                      => true,
+                    }))
+                    continue;
+
+                _outOfReach.Add((entry.Item, nodes.MinBy(n => n.Level)!));
+            }
         }
 
         private ILocation CorrectForPredatorLocation(IGatherable item, ILocation location)

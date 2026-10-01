@@ -25,6 +25,7 @@ using GatherBuddy.Crafting;
 using GatherBuddy.CustomInfo;
 using GatherBuddy.Data;
 using GatherBuddy.Enums;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Interfaces;
 using GatherBuddy.Plugin;
@@ -968,7 +969,10 @@ namespace GatherBuddy.AutoGather
             {
                 if (!_activeItemList.HasItemsToGather)
                 {
-                    AbortAutoGather();
+                    var reason = OutOfReachReason();
+                    if (reason != null && !CraftingGatherBridge.IsQueueMode)
+                        Communicator.PrintError($"[GatherBuddy] Gathering stopped: {reason} (fork).");
+                    AbortAutoGather(reason);
                     return;
                 }
 
@@ -2295,6 +2299,20 @@ namespace GatherBuddy.AutoGather
             TaskManager.DelayNext(500);
             TaskManager.Enqueue(() => !GenericHelpers.TryGetAddonByName("SelectYesno", out _), "Wait for SelectYesno to close");
             TaskManager.Enqueue(() => GenericHelpers.IsScreenReady());
+        }
+
+        // upstream stops here without a reason when only items above the gatherer's level are left
+        private string? OutOfReachReason()
+        {
+            var items = _activeItemList.OutOfReach;
+            if (items.Count == 0)
+                return null;
+
+            ForkTrace.Info($"gathering: left out for level: {string.Join(", ", items.Select(i => $"{i.Item.Name[GatherBuddy.Language]} (node {i.Node.Level})"))}");
+            return GatherLevelRules.Reason(items.Select(i => i.Node.GatheringType.ToGroup() == GatheringType.Botanist
+                    ? new GatherLevelRules.OutOfReach(i.Item.Name[GatherBuddy.Language], "Botanist", DiscipleOfLand.BotanistLevel, i.Node.Level)
+                    : new GatherLevelRules.OutOfReach(i.Item.Name[GatherBuddy.Language], "Miner", DiscipleOfLand.MinerLevel, i.Node.Level))
+                .ToList());
         }
 
         // a crafting run marks what its recipes still need instead

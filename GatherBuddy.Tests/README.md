@@ -19,6 +19,8 @@ What is covered:
 - `CharacterSettingsRules`: a character's own mount beside the shared setting.
 - `RepairRules`: which gear categories a mender visit after a run covers, when a run counts as over, and which mender.
 - `TextRules`: the chat lists, the solver's "no solution" against a real failure, and the XIV Doctor note line.
+- `GatherLevelRules`: the level a stop line names is exactly the lowest the gathering filter lets through, and how the
+  line reads for one item and for several.
 - `KeepRules`: the Keep marks a full-bags stop puts on items: HQ and collectable ids, each run's own count on a shared item,
   a run stopping again or finishing changing only its own marks, and the tooltip line.
 - `SafeFile`: a file shared by two game windows is swapped in whole, never read half-written.
