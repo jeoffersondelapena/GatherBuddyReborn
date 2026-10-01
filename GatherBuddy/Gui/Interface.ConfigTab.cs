@@ -1661,6 +1661,20 @@ public partial class Interface
         [
             new("Colors", DrawAllColors),
         ]),
+        new("", "Fork",
+        [
+            new("Repair All Gear After a Run After-Run Threshold mender fork",
+                layout =>
+                {
+                    ForkSettingsPage.DrawRepairAfterRun();
+                    if (GatherBuddy.Config.VulcanRepairConfig.RepairAfterRun)
+                        layout.Child.Draw(ForkSettingsPage.DrawAfterRunThreshold);
+                }),
+            new("Reset settings to policy fork",                  ForkSettingsPage.DrawResetSettings),
+            new("Reset generated lists fork",                     ForkSettingsPage.DrawResetLists),
+            new("Clear Keep Marks fork",                          KeepMarkButton.Draw),
+            new("Skip Logged Items Skip Logged Recipes Craft What I Have Retry skipped fork", ForkSettingsPage.DrawElsewhere),
+        ]),
     ];
 
     private static void DrawAllColors()
