@@ -34,23 +34,7 @@ public static class GeneratedLists
             BackUp(tag, gatherLists, crafting, vendors);
 
             var gatherConfigs = snap["gather"]?.ToObject<AutoGatherList.Config[]>() ?? Array.Empty<AutoGatherList.Config>();
-            var former   = snap["gather_former"]?.ToObject<Dictionary<string, string[]>>() ?? new();
-            var choices  = gatherLists.Lists.Where(l => IsGenerated(l, tag))
-                .GroupBy(CharacterListState.KeyOf)
-                .ToDictionary(g => g.Key, g => new Choice(g.First().Enabled || gatherLists.PausedByRun.Contains(g.First()),
-                    g.First().EnabledItems.Where(kv => !kv.Value).Select(kv => kv.Key.ItemId).ToHashSet()));
             var gathered = gatherLists.ReplaceGenerated(tag, gatherConfigs);
-            foreach (var list in gatherLists.Lists.Where(l => IsGenerated(l, tag)).ToList())
-            {
-                if (GeneratedListRules.Carried(CharacterListState.KeyOf(list), choices, former) is not { } choice)
-                    continue;
-
-                list.Enabled = choice.On;
-                foreach (var item in list.Items.ToList())
-                    list.SetEnabled(item, !choice.Off.Contains(item.ItemId));
-            }
-            gatherLists.Save();
-            gatherLists.SetActiveItems();
 
             var kept = crafting.Where(l => !(l.Description ?? string.Empty).StartsWith(tag)).ToList();
             var fresh = snap["crafting"]?.ToObject<List<CraftingListDefinition>>() ?? new();
@@ -78,11 +62,6 @@ public static class GeneratedLists
             GatherBuddy.Log.Error($"[GeneratedLists] Reset failed: {ex}");
         }
     }
-
-    private sealed record Choice(bool On, HashSet<uint> Off);
-
-    private static bool IsGenerated(AutoGatherList list, string tag)
-        => (list.Description ?? string.Empty).StartsWith(tag);
 
     // One rolling copy of what the reset replaces, for a click that was a mistake.
     private static void BackUp(string tag, AutoGatherListsManager gatherLists, List<CraftingListDefinition> crafting, List<VendorBuyListDefinition> vendors)
