@@ -16,7 +16,7 @@ internal static class GatherPause
     public static void Start(string? why, IReadOnlyList<string> missing)
     {
         Reason = string.IsNullOrWhiteSpace(why) ? "it could not go on" : why.Trim().TrimEnd('.');
-        Communicator.PrintRun(TextRules.GatheringRunStopped(Reason));
+        Communicator.PrintRun(TextRules.RunStopped(TextRules.Gathering, Reason));
         ForkTrace.Info($"gathering run paused: {Reason}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
         if (missing.Count > 0)
             ForkChat.List("Still missing:", missing, 12);

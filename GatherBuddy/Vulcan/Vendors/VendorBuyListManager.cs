@@ -62,6 +62,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     private KeepRules.Run? _keepRun;
     private bool           _divided;
     private bool           _retainerPart;
+    private string?        _pausedFor;
     private bool     _homePending;
     private DateTime _homePendingSince;
     private bool     _isRunning;
@@ -136,6 +137,9 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     internal KeepRules.Run? KeepRun
         => _keepRun;
+
+    public bool BuyingPaused
+        => _pausedFor != null;
 
     public void Dispose()
     {
@@ -729,6 +733,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         _keepRun = null;
         RetainerStage.BuyList.Reset();
         _retainerPart = false;
+        _pausedFor    = null;
         if (_divided)
             RunChat.End();
         _divided = false;
@@ -783,15 +788,50 @@ public sealed partial class VendorBuyListManager : IDisposable
             return;
         }
 
+        if (_homeAfterRun)
+        {
+            PauseForFullInventory();
+            return;
+        }
+
         Communicator.PrintRun("[GatherBuddy] Buy run stopped: your inventory is full. Run the list again after making room; "
           + "it only buys what is still missing (fork).");
         KeepMarks.EndRun(_keepRun);
         _keepRun = null;
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
-        QueueHomeTrip();
         Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run stopped, inventory full");
         BeginShopCloseTransition("Stopped: your inventory is full.");
+    }
+
+    // fork: a run started from its window pauses like the other runs; collectable scrip buys happen inside another run and still stop
+    private void PauseForFullInventory()
+    {
+        _pausedFor              = PurchaseRules.BagsFull;
+        _activeEntryId          = null;
+        _currentExecutionVendor = null;
+        Communicator.PrintRun(TextRules.RunStopped(TextRules.BuyList, _pausedFor));
+        ForkTrace.Info($"buy run paused: {_pausedFor}");
+        KeepMarks.MarkPause(_keepRun, []);
+        PauseHome.Request("buying");
+        Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run paused, bags full");
+        BeginShopCloseTransition($"Paused: {_pausedFor}");
+    }
+
+    // what was skipped or cut short is tried again, as pressing Start again would
+    public void Resume()
+    {
+        if (_pausedFor == null || !_isRunning)
+            return;
+
+        ForkTrace.Info("buy run resumed");
+        _pausedFor = null;
+        _skippedEntryIds.Clear();
+        _skipNotes.Clear();
+        _partiallyFulfilledEntryIds.Clear();
+        _statusText = "Resuming the vendor list...";
+        if (!_waitingForShopClose)
+            TryStartNextEntry();
     }
 
     private void FailCurrentRun(string message)
@@ -1434,7 +1474,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void TryStartNextEntry()
     {
-        if (!_isRunning || _retainerPart)
+        if (!_isRunning || _retainerPart || _pausedFor != null)
             return;
 
         var list = GetExecutionList();

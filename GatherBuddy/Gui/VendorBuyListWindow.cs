@@ -270,9 +270,19 @@ public sealed partial class VendorBuyListWindow : Window
         ImGui.Spacing();
     }
 
-    // fork: the same two choices a crafting or gathering run offers when its retainer part stops short
-    private static void DrawRetainerPause()
+    // fork: the same choices a gathering run offers when it pauses
+    private static void DrawPause(VendorBuyListManager manager)
     {
+        if (manager.BuyingPaused)
+        {
+            ImGui.SameLine();
+            if (ImGui.Button("Resume##buying"))
+                manager.Resume();
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Buy the rest. Stop ends the run instead (fork).");
+            return;
+        }
+
         if (!Crafting.RetainerStage.BuyList.Paused)
             return;
 
@@ -333,7 +343,7 @@ public sealed partial class VendorBuyListWindow : Window
             manager.Stop();
         }
 
-        DrawRetainerPause();
+        DrawPause(manager);
 
         ImGui.SameLine();
         using (ImRaii.Disabled(entries.Count == 0 || manager.IsBusy))

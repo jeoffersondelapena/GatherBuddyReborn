@@ -53,9 +53,10 @@ public static class TextRules
             _         => "Craft Status window",
         };
 
-    public static string GatheringRunStopped(string? why)
-        => $"[GatherBuddy] This gathering run stopped: {Why(why)}. Fix the cause and press Resume in the Auto-Gather tab to gather the rest, "
-         + "or untick Enabled there to end the run (fork).";
+    // a whole gathering or buy run pausing, where nothing comes after to skip to
+    public static string RunStopped(string run, string? why)
+        => $"[GatherBuddy] This {RunName(run)} run stopped: {Why(why)}. Fix the cause and press Resume in the {RunWindow(run)} to "
+         + $"{(run == BuyList ? "buy" : "gather")} the rest, or {(run == BuyList ? "press Stop" : "untick Enabled")} there to end the run (fork).";
 
     public static string StoppedShortReason(string part, string? why)
     {

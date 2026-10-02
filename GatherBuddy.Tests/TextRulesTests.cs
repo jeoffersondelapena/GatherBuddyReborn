@@ -160,7 +160,9 @@ public class TextRulesTests
           + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Vendor Buy List window to go on without them (fork).",
             TextRules.StoppedShort(TextRules.Retainers, "your bags are full", TextRules.BuyList));
         Assert.Equal("[GatherBuddy] This gathering run stopped: Inventory is full. Fix the cause and press Resume in the Auto-Gather tab to gather "
-          + "the rest, or untick Enabled there to end the run (fork).", TextRules.GatheringRunStopped("Inventory is full"));
+          + "the rest, or untick Enabled there to end the run (fork).", TextRules.RunStopped(TextRules.Gathering, "Inventory is full"));
+        Assert.Equal("[GatherBuddy] This buy run stopped: your bags are full. Fix the cause and press Resume in the Vendor Buy List window to buy "
+          + "the rest, or press Stop there to end the run (fork).", TextRules.RunStopped(TextRules.BuyList, "your bags are full"));
         Assert.Contains(TextRules.SkipRetainers, TextRules.StoppedShortReason(TextRules.Retainers, "x"));
     }
 }
