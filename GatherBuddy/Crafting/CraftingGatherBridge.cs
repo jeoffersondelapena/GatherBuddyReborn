@@ -339,8 +339,10 @@ public static class CraftingGatherBridge
 
     private static List<(uint ItemId, uint Target, int Missing)> ToBuy()
         => PurchaseRules.BeforeGathering(_afterBuying!,
-            id => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
-             || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id),
+            id => PurchaseRules.GatheredWithoutWaiting(
+                GatherBuddy.GameData.Gatherables.TryGetValue(id, out var node) ? node.InternalLocationId : null,
+                GatherBuddy.GameData.Fishes.TryGetValue(id, out var fish) ? fish.InternalLocationId : null,
+                AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
             MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
 
     private static List<string> Named(IEnumerable<(uint ItemId, uint Target, int Missing)> targets)

@@ -24,6 +24,10 @@ public static class PurchaseRules
         return buy;
     }
 
+    // GatherBuddy numbers timed nodes and windowed fish from 1 up; waiting for one is what a vendor saves, so those count as not gathered
+    public static bool GatheredWithoutWaiting(int? nodeLocation, int? fishLocation, bool diademRaw)
+        => nodeLocation is <= 0 || fishLocation is <= 0 || diademRaw;
+
     public const string BuyingHeader = "Buying first what only vendors sell:";
 
     public const string AllBought = "[GatherBuddy] Bought everything this run needs from vendors (fork).";

@@ -45,4 +45,16 @@ public class PurchaseRulesTests
         Assert.Equal(2, PurchaseRules.SlotsShort([(2, 999, 0), (1500, 999, 0)], 1));
         Assert.Equal(0, PurchaseRules.SlotsShort([], 0));
     }
+
+    [Fact]
+    public void A_timed_node_or_a_windowed_fish_counts_as_not_gathered_so_a_vendor_that_sells_it_is_used()
+    {
+        Assert.True(PurchaseRules.GatheredWithoutWaiting(0, null, false));
+        Assert.True(PurchaseRules.GatheredWithoutWaiting(-3, null, false));
+        Assert.True(PurchaseRules.GatheredWithoutWaiting(null, -8, false));
+        Assert.True(PurchaseRules.GatheredWithoutWaiting(null, null, true));
+        Assert.False(PurchaseRules.GatheredWithoutWaiting(12, null, false));
+        Assert.False(PurchaseRules.GatheredWithoutWaiting(null, 40, false));
+        Assert.False(PurchaseRules.GatheredWithoutWaiting(null, null, false));
+    }
 }
