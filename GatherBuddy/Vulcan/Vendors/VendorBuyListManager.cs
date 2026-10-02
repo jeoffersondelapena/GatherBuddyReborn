@@ -141,6 +141,10 @@ public sealed partial class VendorBuyListManager : IDisposable
     public bool BuyingPaused
         => _pausedFor != null;
 
+    // fork: a failure inside the entry loops now pauses instead of ending the run, so the loops stop on either
+    private bool Going
+        => _isRunning && _pausedFor == null;
+
     public void Dispose()
     {
         Stop();
@@ -193,10 +197,17 @@ public sealed partial class VendorBuyListManager : IDisposable
 
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetShopCloseWaitState();
+        GatherBuddy.Log.Error($"[VendorBuyListManager] Timed out leaving the previous vendor interaction. Last blocker: {blocker}");
+        if (_isRunning && _homeAfterRun)
+        {
+            if (_pausedFor == null)
+                PauseRun("it timed out leaving the vendor", closeShop: false);
+            return;
+        }
+
         NoteRunPurchase(RunPurchaseOutcome.Failed, "it timed out leaving the previous vendor");
         ResetExecutionState();
         _statusText    = "Timed out leaving the previous vendor interaction.";
-        GatherBuddy.Log.Error($"[VendorBuyListManager] Timed out leaving the previous vendor interaction. Last blocker: {blocker}");
         Communicator.PrintRun("[GatherBuddyReborn] Timed out leaving the previous vendor interaction.");
     }
 
@@ -790,7 +801,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
         if (_homeAfterRun)
         {
-            PauseForFullInventory();
+            PauseRun(PurchaseRules.BagsFull);
             return;
         }
 
@@ -805,18 +816,29 @@ public sealed partial class VendorBuyListManager : IDisposable
     }
 
     // fork: a run started from its window pauses like the other runs; collectable scrip buys happen inside another run and still stop
-    private void PauseForFullInventory()
+    private void PauseRun(string why, bool closeShop = true)
     {
-        _pausedFor              = PurchaseRules.BagsFull;
+        _pausedFor              = why;
         _activeEntryId          = null;
         _currentExecutionVendor = null;
-        Communicator.PrintRun(TextRules.RunStopped(TextRules.BuyList, _pausedFor));
-        ForkTrace.Info($"buy run paused: {_pausedFor}");
+        var missing = GetExecutionList() is { } list ? StillMissing(list) : [];
+        Communicator.PrintRun(TextRules.RunStopped(TextRules.BuyList, why));
+        ForkTrace.Info($"buy run paused: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
+        if (missing.Count > 0)
+            ForkChat.List("Still missing:", missing, 12);
         KeepMarks.MarkPause(_keepRun, []);
         PauseHome.Request("buying");
-        Dalamud.ToastGui.ShowNormal("GatherBuddy: buy run paused, bags full");
-        BeginShopCloseTransition($"Paused: {_pausedFor}");
+        Dalamud.ToastGui.ShowNormal($"GatherBuddy: buy run paused, {why}");
+        if (closeShop)
+            BeginShopCloseTransition($"Paused: {why}");
+        else
+            _statusText = $"Paused: {why}";
     }
+
+    private List<string> StillMissing(VendorBuyListDefinition list)
+        => list.Entries.Where(e => GetRemainingQuantity(e) > 0)
+            .Select(e => _skipNotes.TryGetValue(e.Id, out var note) ? note : $"{e.ItemName} ({GetRemainingQuantity(e)} still missing)")
+            .ToList();
 
     // what was skipped or cut short is tried again, as pressing Start again would
     public void Resume()
@@ -836,6 +858,12 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void FailCurrentRun(string message)
     {
+        if (_homeAfterRun && GetExecutionList() != null)
+        {
+            PauseRun(message.TrimEnd('.'));
+            return;
+        }
+
         NoteRunPurchase(RunPurchaseOutcome.Failed, message);
         LastRunHitScripReserveLimit = _runHitScripReserveLimit;
         ResetExecutionState();
@@ -887,12 +915,17 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (RunningRunPurchase)
         {
             _runNotBought.Clear();
-            foreach (var entry in list.Entries.Where(e => GetRemainingQuantity(e) > 0))
-                _runNotBought.Add(_skipNotes.TryGetValue(entry.Id, out var note) ? note : $"{entry.ItemName} ({GetRemainingQuantity(entry)} still missing)");
+            _runNotBought.AddRange(StillMissing(list));
             NoteRunPurchase(RunPurchaseOutcome.Finished);
             LastRunHitScripReserveLimit = _runHitScripReserveLimit;
             ResetExecutionState();
             _statusText = $"Bought what '{list.Name}' needs.";
+            return;
+        }
+
+        if (_homeAfterRun && StillMissing(list) is { Count: > 0 } missing)
+        {
+            PauseRun(PurchaseRules.NotBought(missing.Count));
             return;
         }
 
@@ -1299,7 +1332,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             if (resolutionResult != PurchaseContextResolutionResult.Success)
             {
                 HandleEntryResolutionFailure(entry, errorMessage, resolutionResult);
-                if (!_isRunning)
+                if (!Going)
                     return null;
                 continue;
             }
@@ -1433,7 +1466,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private SameVendorContinuationResult TryContinueWithCurrentVendor(VendorExecutionGroup vendorGroup)
     {
-        if (!_isRunning)
+        if (!Going)
             return SameVendorContinuationResult.NoCompatibleEntry;
 
         var list = GetExecutionList();
@@ -1456,7 +1489,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             if (resolutionResult != PurchaseContextResolutionResult.Success)
             {
                 HandleEntryResolutionFailure(entry, errorMessage, resolutionResult);
-                if (!_isRunning)
+                if (!Going)
                     return SameVendorContinuationResult.Failed;
                 continue;
             }
@@ -1484,12 +1517,12 @@ public sealed partial class VendorBuyListManager : IDisposable
             return;
         }
 
-        while (_isRunning)
+        while (Going)
         {
             var nextSelection = GetNextPendingEntry(list);
             if (nextSelection == null)
             {
-                if (!_isRunning)
+                if (!Going)
                     return;
                 FinishCurrentRun(list);
                 return;
