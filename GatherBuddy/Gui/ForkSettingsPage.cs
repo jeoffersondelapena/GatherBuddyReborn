@@ -24,6 +24,20 @@ internal static class ForkSettingsPage
               + "sells), only what your bags lack, then gathers and crafts. What it can gather it gathers, and in-between items it crafts.");
     }
 
+    public static void DrawSprint()
+    {
+        var sprint = GatherBuddy.Config.SprintWhenWalking;
+        if (ImGui.Checkbox("Sprint When Walking (fork)", ref sprint))
+        {
+            GatherBuddy.Config.SprintWhenWalking = sprint;
+            GatherBuddy.Config.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Use Sprint whenever the game allows it on a walk GatherBuddy drives: to a vendor, a summoning bell or a mender, "
+              + "or between gathering spots on foot. Skipped on walks under 30 yalms, while mounted, and while Sprint, Peloton or Jog is "
+              + "already active.");
+    }
+
     public static void DrawBellZone()
     {
         var chosen = CharacterSettings.BellZone;

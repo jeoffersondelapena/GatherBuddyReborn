@@ -82,6 +82,7 @@ public partial class Configuration : IPluginConfiguration
     public VulcanMateriaConfig VulcanMateriaConfig { get; set; } = new();
     public VulcanRetainerBellConfig VulcanRetainerBellConfig { get; set; } = new();
     public bool VulcanBuyBeforeGathering { get; set; } = true;
+    public bool SprintWhenWalking { get; set; } = true;
     public int VulcanExecutionDelayMs { get; set; } = 300;
     public bool VulcanContextMenuEntries { get; set; } = true;
     public bool ShowRecipeBrowserTooltips { get; set; } = true;
