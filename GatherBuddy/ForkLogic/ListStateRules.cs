@@ -35,6 +35,14 @@ public static class ListStateRules
         return state;
     }
 
+    public static bool Forget(Dictionary<string, Entry> state, IReadOnlySet<string> keys)
+    {
+        var gone = state.Keys.Where(keys.Contains).ToList();
+        foreach (var key in gone)
+            state.Remove(key);
+        return gone.Count > 0;
+    }
+
     public static Entry For(IReadOnlyDictionary<string, Entry>? state, string key)
         => state != null && state.TryGetValue(key, out var entry) ? entry : new Entry();
 

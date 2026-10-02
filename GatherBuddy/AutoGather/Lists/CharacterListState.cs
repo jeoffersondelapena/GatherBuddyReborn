@@ -47,6 +47,18 @@ public static class CharacterListState
         return new();
     }
 
+    // A reset of the generated lists clears every character's choices for them, logged in or not, as the list generator's write does.
+    public static void ForgetEverywhere(IReadOnlySet<string> keys)
+    {
+        foreach (var path in Directory.GetFiles(Dalamud.PluginInterface.ConfigDirectory.FullName, "gather-state-*.json"))
+        {
+            var key   = Path.GetFileNameWithoutExtension(path)["gather-state-".Length..];
+            var state = Load(key);
+            if (ListStateRules.Forget(state, keys))
+                Save(key, state);
+        }
+    }
+
     public static void Save(string key, Dictionary<string, ListStateRules.Entry> state)
     {
         try

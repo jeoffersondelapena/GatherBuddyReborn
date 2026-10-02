@@ -114,4 +114,19 @@ public class ListStateRulesTests
         Assert.Equal("/Loose list", ListStateRules.KeyOf("", "Loose list"));
         Assert.Equal("/Loose list", ListStateRules.KeyOf(null, "Loose list"));
     }
+
+    [Fact]
+    public void Forgetting_the_generated_lists_keeps_the_choices_for_hand_made_ones()
+    {
+        var state = new Dictionary<string, ListStateRules.Entry>
+        {
+            ["Gathering Log/1. Miner/MIN Lv 1-15"] = new() { Enabled = true },
+            ["Gathering Log/1. Miner/Lv 1-15"]     = new() { Off = [5106] },
+            ["/My own"]                            = new() { Enabled = true },
+        };
+        var generated = new HashSet<string> { "Gathering Log/1. Miner/MIN Lv 1-15", "Gathering Log/1. Miner/Lv 1-15", "Gathering Log/1. Miner/MIN Lv 16-30" };
+        Assert.True(ListStateRules.Forget(state, generated));
+        Assert.Equal(["/My own"], state.Keys);
+        Assert.False(ListStateRules.Forget(state, generated));
+    }
 }

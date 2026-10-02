@@ -35,6 +35,9 @@ public static class GeneratedLists
 
             var gatherConfigs = snap["gather"]?.ToObject<AutoGatherList.Config[]>() ?? Array.Empty<AutoGatherList.Config>();
             var gathered = gatherLists.ReplaceGenerated(tag, gatherConfigs);
+            var former   = snap["gather_former"]?.ToObject<Dictionary<string, string[]>>() ?? new();
+            CharacterListState.ForgetEverywhere(gatherConfigs.Select(c => ListStateRules.KeyOf(c.FolderPath, c.Name))
+                .Concat(former.Values.SelectMany(keys => keys)).ToHashSet());
 
             var kept = crafting.Where(l => !(l.Description ?? string.Empty).StartsWith(tag)).ToList();
             var fresh = snap["crafting"]?.ToObject<List<CraftingListDefinition>>() ?? new();
