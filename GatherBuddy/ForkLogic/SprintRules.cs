@@ -11,7 +11,9 @@ public static class SprintRules
     // a walk this short gains under a second, while the 60-second recast may leave the next long walk without it
     public const float ShortestWalk = 30f;
 
-    public static readonly uint[] AlreadyFaster = [50, 1199, 4209];
+    public const uint SprintStatus = 50, PelotonStatus = 1199, JogStatus = 4209;
+
+    public static readonly uint[] AlreadyFaster = [SprintStatus, PelotonStatus, JogStatus];
 
     public static float Left(Vector3 from, IReadOnlyList<Vector3> waypoints)
     {
