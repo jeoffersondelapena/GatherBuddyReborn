@@ -105,9 +105,11 @@ internal static class ForkSettingsPage
     {
         var lists = CraftingGatherBridge.ListsManager;
         if (ImGuiUtil.DrawDisabledButton("Reset generated lists (fork)", Vector2.Zero,
-                "Put every list the generator made (gathering, fishing, crafting, vendor) back to its generated state: off, every item on.\n"
-              + "Hand-made lists stay as they are. The copy being replaced is kept once as generated-lists.before-reset.json.",
-                !GeneratedLists.SnapshotExists || lists == null))
+                "Put every list the generator made (gathering, fishing, crafting) back to what it wrote last, keeping which gathering lists are on "
+              + "and which items you unticked, and removing the folders it no longer uses. Hand-made lists stay as they are.\n"
+              + "Works while the game runs; with two game windows open, press it in each. Not during a run. The copy being replaced is kept once as "
+              + "generated-lists.before-reset.json.",
+                !GeneratedLists.SnapshotExists || lists == null || CraftingGatherBridge.IsQueueMode || GatherBuddy.AutoGather.Enabled))
             GeneratedLists.Restore(lists!);
     }
 
