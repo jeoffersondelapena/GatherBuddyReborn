@@ -22,37 +22,66 @@ internal static class BellLocations
 
     private static HashSet<uint>? _bellIds;
     private static uint[]?        _towns;
+    private static uint[]?        _wards;
     private static Task?          _scan;
     private static DateTime       _lastScan = DateTime.MinValue;
 
-    // the bells of the zone the run is in and of every town; false while they are still being read
-    public static bool TryGet(uint territory, out List<BellRules.Bell> bells)
+    // false until the zone files have been read off the framework thread
+    public static bool TryGet(uint territory, uint chosen, out List<BellRules.Bell> bells)
     {
-        if (_towns is { } towns && Read.ContainsKey(territory) && towns.All(Read.ContainsKey))
+        var wanted = Wanted(territory, chosen);
+        if (wanted != null && wanted.All(Read.ContainsKey))
         {
-            bells = towns.Append(territory).Distinct().SelectMany(t => Read[t]).ToList();
+            bells = wanted.SelectMany(t => Read[t]).ToList();
             return true;
         }
 
         bells = [];
-        if (_scan is not { IsCompleted: false } && DateTime.UtcNow - _lastScan > TimeSpan.FromSeconds(5))
-        {
-            _lastScan = DateTime.UtcNow;
-            _scan     = Task.Run(() => Scan(territory));
-        }
-
+        StartScan(territory, chosen);
         return false;
     }
 
-    private static void Scan(uint territory)
+    public static List<(uint Territory, string Name)> Zones()
+    {
+        if (_towns is not { } towns || _wards is not { } wards || !towns.Concat(wards).All(Read.ContainsKey))
+        {
+            StartScan(Dalamud.ClientState.TerritoryType, BellRules.Automatic);
+            return [];
+        }
+
+        var sheet = Dalamud.GameData.GetExcelSheet<TerritoryType>();
+        return towns.Concat(wards)
+            .Where(t => Read[t].Length > 0)
+            .Select(t => (t, sheet.GetRowOrDefault(t)?.PlaceName.ValueNullable?.Name.ExtractText() ?? $"zone {t}"))
+            .OrderBy(z => z.Item2, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static uint[]? Wanted(uint territory, uint chosen)
+        => _towns is { } towns
+            ? towns.Append(territory).Concat(chosen is BellRules.Automatic or BellRules.Home ? [] : [chosen]).Distinct().ToArray()
+            : null;
+
+    private static void StartScan(uint territory, uint chosen)
+    {
+        if (_scan is { IsCompleted: false } || DateTime.UtcNow - _lastScan <= TimeSpan.FromSeconds(5))
+            return;
+
+        _lastScan = DateTime.UtcNow;
+        _scan     = Task.Run(() => Scan(territory, chosen));
+    }
+
+    private static void Scan(uint territory, uint chosen)
     {
         try
         {
             var sheet = Dalamud.GameData.GetExcelSheet<TerritoryType>();
             _bellIds ??= BellIds();
-            _towns   ??= sheet.Where(t => t.TerritoryIntendedUse.RowId == 0).Select(t => t.RowId).ToArray();
-            foreach (var id in _towns.Append(territory).Distinct())
-                if (!Read.ContainsKey(id))
+            // housing districts need an aethernet hop into a ward, so they are used only when chosen
+            _towns ??= sheet.Where(t => t.TerritoryIntendedUse.RowId == 0 && !t.Bg.ExtractText().Contains("/hou/")).Select(t => t.RowId).ToArray();
+            _wards ??= sheet.Where(t => t.TerritoryIntendedUse.RowId == 13).Select(t => t.RowId).ToArray();
+            foreach (var id in _towns.Concat(_wards).Append(territory).Append(chosen).Distinct())
+                if (id is not (BellRules.Automatic or BellRules.Home) && !Read.ContainsKey(id))
                     Read[id] = sheet.TryGetRow(id, out var row) ? ReadZone(row) : [];
             ForkTrace.Info($"bell travel: read {Read.Values.Sum(b => b.Length)} summoning bells in {Read.Count(r => r.Value.Length > 0)} of {Read.Count} zones");
         }

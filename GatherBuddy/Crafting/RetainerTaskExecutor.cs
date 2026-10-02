@@ -90,9 +90,20 @@ internal unsafe class RetainerTaskExecutor
     // fork: from Allagan Tools' record alone, before any bell; null when it knows no retainers
     internal static bool? WouldTakeAnything(Dictionary<uint, int> materials, Dictionary<uint, IngredientQualityDemand> qualityTargets,
         HashSet<uint> precraftItemIds)
+        => WouldTake(materials, qualityTargets, precraftItemIds) is { } take ? take.Count > 0 : null;
+
+    internal static Dictionary<uint, int>? WouldTake(Dictionary<uint, int> materials, Dictionary<uint, IngredientQualityDemand> qualityTargets,
+        HashSet<uint> precraftItemIds)
     {
         var retainerIds = RetainerItemQuery.GetOwnedRetainerIds();
-        return retainerIds.Count == 0 ? null : PlanPerRetainer(materials, qualityTargets, precraftItemIds, retainerIds).Count > 0;
+        if (retainerIds.Count == 0)
+            return null;
+
+        var take = new Dictionary<uint, int>();
+        foreach (var items in PlanPerRetainer(materials, qualityTargets, precraftItemIds, retainerIds).Values)
+            foreach (var (itemId, need) in items)
+                take[itemId] = take.GetValueOrDefault(itemId) + need.NeedHQ + need.NeedNQ;
+        return take;
     }
 
     private static Dictionary<ulong, Dictionary<uint, (int NeedHQ, int NeedNQ)>> PlanPerRetainer(Dictionary<uint, int> materials,

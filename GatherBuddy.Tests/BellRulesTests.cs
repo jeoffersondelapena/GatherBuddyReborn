@@ -41,4 +41,13 @@ public class BellRulesTests
         var bells = new[] { new Bell(Limsa, new Vector3(-266, 16, 41)), new Bell(Limsa, new Vector3(-124, 18, 21)), new Bell(Kugane, new Vector3(-90, 0, 10)) };
         Assert.Equal(new Bell(Limsa, new Vector3(-124, 18, 21)), BellRules.NearestTo(new Vector2(-84, 0), bells, Limsa));
     }
+
+    [Fact]
+    public void A_chosen_zone_replaces_only_the_cheapest_town()
+    {
+        var bells = new[] { new Bell(Kugane, new Vector3(95, 0, 0)), new Bell(Limsa, new Vector3(45, 0, 0)), new Bell(Apartment + 1, new Vector3(5, 0, 0)) };
+        Assert.Equal(Limsa, BellRules.Pick(Apartment, Vector3.Zero, bells, Fee, chosen: Limsa)!.Value.Territory);
+        Assert.Equal(Apartment + 1, BellRules.Pick(Apartment + 1, Vector3.Zero, bells, Fee, chosen: Limsa)!.Value.Territory);
+        Assert.Equal(Kugane, BellRules.Pick(Apartment, Vector3.Zero, bells, Fee, chosen: 999u)!.Value.Territory);
+    }
 }

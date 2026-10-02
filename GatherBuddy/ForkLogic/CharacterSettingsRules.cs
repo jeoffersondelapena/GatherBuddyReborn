@@ -8,7 +8,8 @@ public static class CharacterSettingsRules
 {
     public sealed class Own
     {
-        public uint? MountId { get; set; }
+        public uint? MountId  { get; set; }
+        public uint? BellZone { get; set; }
     }
 
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };

@@ -25,21 +25,31 @@ public static class TextRules
     public const string BuyList   = "Buy list";
 
     // a crafting run that stops short of what it needs pauses; one button per part goes on without the rest
+    public const string Retainers     = "Retainers";
+    public const string SkipRetainers = "Skip Retainers (fork)";
     public const string SkipBuying    = "Skip Buying (fork)";
     public const string SkipGathering = "Skip Gathering (fork)";
 
     public static string StoppedShort(string part, string? why)
     {
-        var (verb, button, next) = part == BuyList
-            ? ("buy", SkipBuying, "go on to gathering and crafting without them")
-            : ("gather", SkipGathering, "craft with what is here");
-        return $"[GatherBuddy] {(part == BuyList ? "Buying" : "Gathering")} for this crafting run stopped: {Why(why)}. Fix the cause and press "
-          + $"Resume to {verb} the rest, or press {button} in the Craft Status window to {next} (fork).";
+        var (what, resume, button, next) = Part(part);
+        return $"[GatherBuddy] {what} for this crafting run stopped: {Why(why)}. Fix the cause and press Resume to {resume}, or press {button} "
+          + $"in the Craft Status window to {next} (fork).";
     }
 
     public static string StoppedShortReason(string part, string? why)
-        => $"{(part == BuyList ? "Buying" : "Gathering")} stopped: {Why(why)}. Fix the cause and press Resume to "
-          + $"{(part == BuyList ? "buy" : "gather")} the rest, or {(part == BuyList ? SkipBuying : SkipGathering)}.";
+    {
+        var (what, resume, button, _) = Part(part);
+        return $"{what} stopped: {Why(why)}. Fix the cause and press Resume to {resume}, or {button}.";
+    }
+
+    private static (string What, string Resume, string Button, string Next) Part(string part)
+        => part switch
+        {
+            BuyList   => ("Buying", "buy the rest", SkipBuying, "go on to gathering and crafting without them"),
+            Retainers => ("Taking from your retainers", "try again", SkipRetainers, "go on without them"),
+            _         => ("Gathering", "gather the rest", SkipGathering, "craft with what is here"),
+        };
 
     private static string Why(string? why)
         => string.IsNullOrWhiteSpace(why) ? "it could not go on" : why.Trim().TrimEnd('.');

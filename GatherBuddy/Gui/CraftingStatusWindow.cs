@@ -171,6 +171,15 @@ public class CraftingStatusWindow : Window
                     _queueProcessor.Resume();
                 }
 
+                if (_queueProcessor.PausedInRetainers)
+                {
+                    ImGui.SameLine();
+                    if (ImGui.Button(ForkLogic.TextRules.SkipRetainers))
+                        _queueProcessor.SkipRetainers();
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip("Go on without your retainers: the run buys or gathers those items instead; what cannot be made is listed when the run ends.");
+                }
+
                 if (_queueProcessor.PausedInBuying)
                 {
                     ImGui.SameLine();

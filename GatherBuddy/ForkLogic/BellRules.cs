@@ -10,10 +10,13 @@ public static class BellRules
 {
     public readonly record struct Bell(uint Territory, Vector3 Position);
 
+    public const uint Automatic = 0;
+    public const uint Home      = uint.MaxValue;
+
     // cost is null for a bell the character cannot teleport to
-    public static Bell? Pick(uint territory, Vector3 position, IEnumerable<Bell> bells, Func<Bell, int?> cost)
+    public static Bell? Pick(uint territory, Vector3 position, IEnumerable<Bell> bells, Func<Bell, int?> cost, uint chosen = Automatic)
     {
-        Bell? here = null, town = null;
+        Bell? here = null, mine = null, town = null;
         var nearest = float.MaxValue;
         var cheapest = int.MaxValue;
         foreach (var bell in bells)
@@ -32,6 +35,12 @@ public static class BellRules
             if (cost(bell) is not { } gil)
                 continue;
 
+            if (bell.Territory == chosen)
+            {
+                mine ??= bell;
+                continue;
+            }
+
             if (gil < cheapest || gil == cheapest && town is { } held && bell.Territory < held.Territory)
             {
                 cheapest = gil;
@@ -39,7 +48,7 @@ public static class BellRules
             }
         }
 
-        return here ?? town;
+        return here ?? mine ?? town;
     }
 
     public static Bell? NearestTo(Vector2 point, IEnumerable<Bell> bells, uint territory)

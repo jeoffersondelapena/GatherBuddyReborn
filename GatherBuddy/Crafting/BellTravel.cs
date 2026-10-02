@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using GatherBuddy.Automation;
 using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
@@ -23,6 +23,8 @@ internal sealed class BellTravel
     private DateTime _started;
     private BellRules.Bell? _target;
     private bool _walking;
+    private bool _goingHome;
+    private DateTime _homeSince = DateTime.MinValue;
     private int _walkRestarts;
     private DateTime _nextWalkRestart = DateTime.MinValue;
 
@@ -30,7 +32,7 @@ internal sealed class BellTravel
 
     public CraftingTasks.TaskResult Tick()
     {
-        if (_target is not { } target)
+        if (_target == null && !_goingHome)
             return Begin();
 
         if (RetainerTaskExecutor.FindNearestBellForNavigation() != null)
@@ -43,7 +45,9 @@ internal sealed class BellTravel
         if (DateTime.UtcNow - _started > TravelLimit)
             return Fail("it took longer than 3 minutes");
 
-        return _walking ? Walk(target) : Ride();
+        if (_goingHome)
+            return AtHome();
+        return _walking ? Walk(_target!.Value) : Ride();
     }
 
     public void Stop()
@@ -56,14 +60,16 @@ internal sealed class BellTravel
     private CraftingTasks.TaskResult Begin()
     {
         var territory = Dalamud.ClientState.TerritoryType;
-        if (!BellLocations.TryGet(territory, out var bells))
+        var chosen    = CharacterSettings.BellZone;
+        if (!BellLocations.TryGet(territory, chosen, out var bells))
             return DateTime.UtcNow - _created > ReadLimit ? Fail("the zone files could not be read") : CraftingTasks.TaskResult.Retry;
 
         // inside an inn room or a house a usable bell would already be in sight, so one the files list there is not one to walk to
         if (Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(territory)?.TerritoryIntendedUse.RowId is 2 or 14)
             bells.RemoveAll(b => b.Territory == territory);
+        if (chosen == BellRules.Home && !bells.Exists(b => b.Territory == territory))
+            return GoHome();
 
-        var costs  = TeleportCosts();
         var routes = new Dictionary<uint, uint>();
         uint Route(BellRules.Bell bell)
         {
@@ -73,7 +79,7 @@ internal sealed class BellTravel
         }
 
         var player = Dalamud.Objects.LocalPlayer?.Position ?? Vector3.Zero;
-        if (BellRules.Pick(territory, player, bells, b => costs.TryGetValue(Route(b), out var gil) ? gil : null) is not { } bell)
+        if (BellRules.Pick(territory, player, bells, b => TeleportCosts.For(Route(b)), chosen) is not { } bell)
             return Fail("none of the towns with a bell is one you can teleport to");
 
         if (bell.Territory != territory && Arrival(Route(bell), bell.Territory) is { } arrival)
@@ -91,9 +97,38 @@ internal sealed class BellTravel
                 VendorNpcLocationSource.Lgb));
 
         ForkTrace.Info($"bell travel: to {place} ({bell.Territory}) at {bell.Position}"
-          + (_walking ? ", same zone, walking" : $", teleport {costs.GetValueOrDefault(Route(bell))} gil"));
+          + (_walking ? ", same zone, walking" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
         Communicator.PrintRun($"[GatherBuddy] No summoning bell in sight for your retainers: going to the one in {place} (fork).", tone: Communicator.Tone.Info);
         return CraftingTasks.TaskResult.Retry;
+    }
+
+    // house bells are furniture, not in the zone files: go home instead
+    private CraftingTasks.TaskResult GoHome()
+    {
+        if (!HomeNavigationHelper.TryStartReturnHome(out var error, "to the bell at home"))
+            return error != null
+                ? Fail(error.TrimEnd('.').ToLowerInvariant())
+                : DateTime.UtcNow - _created > ReadLimit ? Fail("Lifestream stayed busy") : CraftingTasks.TaskResult.Retry;
+
+        _goingHome = true;
+        _started   = DateTime.UtcNow;
+        Communicator.PrintRun("[GatherBuddy] No summoning bell in sight for your retainers: going home to the one in your house (fork).", tone: Communicator.Tone.Info);
+        return CraftingTasks.TaskResult.Retry;
+    }
+
+    private CraftingTasks.TaskResult AtHome()
+    {
+        if (!HomeNavigationHelper.IsReturnComplete() || !GenericHelpers.IsScreenReady())
+        {
+            _homeSince = DateTime.MinValue;
+            return CraftingTasks.TaskResult.Retry;
+        }
+
+        if (_homeSince == DateTime.MinValue)
+            _homeSince = DateTime.UtcNow;
+        return DateTime.UtcNow - _homeSince < TimeSpan.FromSeconds(3)
+            ? CraftingTasks.TaskResult.Retry
+            : Fail("no summoning bell is in sight at home");
     }
 
     private CraftingTasks.TaskResult Ride()
@@ -136,21 +171,4 @@ internal sealed class BellTravel
         => Dalamud.GameData.GetExcelSheet<Aetheryte>().GetRowOrDefault(aetheryteId) is { } aetheryte && aetheryte.Territory.RowId == territory
             ? VendorNavigator.GetAetheryteXZ(aetheryte)
             : null;
-
-    private static unsafe Dictionary<uint, int> TeleportCosts()
-    {
-        var costs  = new Dictionary<uint, int>();
-        var telepo = Telepo.Instance();
-        if (telepo == null)
-            return costs;
-
-        telepo->UpdateAetheryteList();
-        for (var i = 0; i < telepo->TeleportList.Count; i++)
-        {
-            var entry = telepo->TeleportList[i];
-            costs.TryAdd(entry.AetheryteId, (int)entry.GilCost);
-        }
-
-        return costs;
-    }
 }

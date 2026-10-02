@@ -27,14 +27,32 @@ public static class CharacterSettings
             }
 
             own.MountId = value;
-            try
-            {
-                SafeFile.Write(PathFor(_owner!), CharacterSettingsRules.Serialize(own));
-            }
-            catch (Exception e)
-            {
-                GatherBuddy.Log.Warning($"[CharacterSettings] not saved: {e.Message}");
-            }
+            Save(own);
+        }
+    }
+
+    public static uint BellZone
+    {
+        get => Current()?.BellZone ?? BellRules.Automatic;
+        set
+        {
+            if (Current() is not { } own)
+                return;
+
+            own.BellZone = value == BellRules.Automatic ? null : value;
+            Save(own);
+        }
+    }
+
+    private static void Save(CharacterSettingsRules.Own own)
+    {
+        try
+        {
+            SafeFile.Write(PathFor(_owner!), CharacterSettingsRules.Serialize(own));
+        }
+        catch (Exception e)
+        {
+            GatherBuddy.Log.Warning($"[CharacterSettings] not saved: {e.Message}");
         }
     }
 

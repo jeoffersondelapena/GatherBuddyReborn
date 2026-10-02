@@ -150,5 +150,9 @@ public class TextRulesTests
         Assert.Contains(TextRules.SkipGathering, TextRules.StoppedShortReason(TextRules.Gathering, "your bags are full"));
         Assert.EndsWith("(fork)", TextRules.SkipBuying);
         Assert.EndsWith("(fork)", TextRules.SkipGathering);
+        Assert.Equal("[GatherBuddy] Taking from your retainers for this crafting run stopped: no summoning bell could be reached (no path to it). "
+          + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Craft Status window to go on without them (fork).",
+            TextRules.StoppedShort(TextRules.Retainers, "no summoning bell could be reached (no path to it)"));
+        Assert.Contains(TextRules.SkipRetainers, TextRules.StoppedShortReason(TextRules.Retainers, "x"));
     }
 }

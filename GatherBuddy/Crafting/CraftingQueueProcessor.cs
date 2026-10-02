@@ -46,6 +46,7 @@ public class CraftingQueueProcessor
     private RetainerBellNavigator? _retainerBellNavigator = null;
     private BellTravel? _bellTravel;
     private bool _bellTravelTried;
+    private bool _retainersHeld;
 
     private bool _paused = false;
     private bool _pausedDuringGather = false;
@@ -255,11 +256,12 @@ public class CraftingQueueProcessor
     {
         while (_tasks.Count > 0)
         {
-            var result = _tasks[0]();
+            var task   = _tasks[0];
+            var result = task();
             switch (result)
             {
                 case CraftingTasks.TaskResult.Done:
-                    _tasks.RemoveAt(0);
+                    _tasks.Remove(task);
                     break;
                 case CraftingTasks.TaskResult.Retry:
                     return;
@@ -1275,8 +1277,9 @@ public class CraftingQueueProcessor
             {
                 _bellTravel = null;
                 if (travel.Failure != null)
-                    Communicator.PrintRun($"[GatherBuddy] Could not get to a summoning bell: {travel.Failure}. This run goes on without your retainers (fork).");
-                QueueRetainerBellNavigationTasks();
+                    PauseRetainersStoppedShort($"no summoning bell could be reached ({travel.Failure})");
+                else
+                    QueueRetainerBellNavigationTasks();
                 return CraftingTasks.TaskResult.Done;
             });
             return;
@@ -1284,9 +1287,7 @@ public class CraftingQueueProcessor
 
         if (bell == null)
         {
-            GatherBuddy.Log.Warning("[CraftingQueueProcessor] No retainer bell found in current zone, skipping navigation");
-            _currentState = QueueState.WithdrawingFromRetainer;
-            QueueRetainerWithdrawalTasks();
+            PauseRetainersStoppedShort("no summoning bell was in sight where the trip ended");
             return;
         }
 
@@ -1415,9 +1416,27 @@ public class CraftingQueueProcessor
 
         _tasks.Add(() =>
         {
-            TransitionFromRetainerWithdrawComplete();
+            if (_retainerExecutor?.IsAborted == true)
+            {
+                _retainerExecutor = null;
+                _currentState     = QueueState.NavigatingToRetainerBell;
+                PauseRetainersStoppedShort("the summoning bell or the retainer window did not respond");
+            }
+            else
+            {
+                TransitionFromRetainerWithdrawComplete();
+            }
             return CraftingTasks.TaskResult.Done;
         });
+    }
+
+    // fork: same pause as a buying or gathering shortfall
+    private void PauseRetainersStoppedShort(string why)
+    {
+        _retainersHeld = true;
+        var (items, quality) = RetainerWithdrawalTargets();
+        var held = RetainerTaskExecutor.WouldTake(items, quality, RetainerPrecraftTargets.Keys.ToHashSet());
+        PauseStoppedShort(TextRules.Retainers, why, held?.Select(kv => $"{ForkTrace.ItemName(kv.Key)} x{kv.Value}").ToList() ?? []);
     }
 
     private unsafe void TransitionFromRetainerWithdrawComplete()
@@ -1600,10 +1619,17 @@ public class CraftingQueueProcessor
             MarkStillNeeded();
     }
 
-    public void Resume()
-        => Resume(skipBuying: false);
+    private enum Skip
+    {
+        Nothing,
+        Buying,
+        Retainers,
+    }
 
-    private void Resume(bool skipBuying)
+    public void Resume()
+        => Resume(Skip.Nothing);
+
+    private void Resume(Skip skip)
     {
         if (!_paused)
             return;
@@ -1613,6 +1639,17 @@ public class CraftingQueueProcessor
         _pauseReason = string.Empty;
         KeepMarks.ResumeRun(CraftingGatherBridge.KeepRun);
         YesAlready.Lock();
+
+        if (_retainersHeld)
+        {
+            _retainersHeld = false;
+            if (skip == Skip.Retainers)
+            {
+                ForkTrace.Info("crafting run: retainers skipped by the player");
+                TransitionFromRetainerWithdrawComplete();
+                return;
+            }
+        }
 
         if (_currentState == QueueState.NavigatingToRetainerBell)
         {
@@ -1631,7 +1668,7 @@ public class CraftingQueueProcessor
             return;
         }
         
-        if (_currentState == QueueState.WaitingForGather && (skipBuying ? CraftingGatherBridge.SkipBuying() : CraftingGatherBridge.ResumeBuying()))
+        if (_currentState == QueueState.WaitingForGather && (skip == Skip.Buying ? CraftingGatherBridge.SkipBuying() : CraftingGatherBridge.ResumeBuying()))
             return;
 
         if (_pausedDuringGather && _currentState == QueueState.WaitingForGather)
@@ -1668,6 +1705,7 @@ public class CraftingQueueProcessor
         _retainerBellNavigator = null;
         _bellTravel?.Stop();
         _bellTravel = null;
+        _retainersHeld = false;
         YesAlready.Unlock();
         
         GatherBuddy.AutoGather.Enabled = false;
@@ -1718,6 +1756,7 @@ public class CraftingQueueProcessor
         _retainerBellNavigator = null;
         _bellTravel?.Stop();
         _bellTravel = null;
+        _retainersHeld = false;
     }
     
     public void TestRepair()
@@ -1750,14 +1789,23 @@ public class CraftingQueueProcessor
         ForkTrace.Info($"crafting run paused in its {(part == TextRules.BuyList ? "buying" : "gathering")} part: {reason}; still missing: "
           + (missing.Count == 0 ? "nothing" : string.Join(", ", missing)));
         if (missing.Count > 0)
-            ForkChat.List("Still missing:", missing, 12);
+            ForkChat.List(part == TextRules.Retainers ? "Your retainers hold for this run:" : "Still missing:", missing, 12);
         Pause(TextRules.StoppedShortReason(part, reason));
     }
 
     public void SkipBuying()
     {
         if (PausedInBuying)
-            Resume(skipBuying: true);
+            Resume(Skip.Buying);
+    }
+
+    public bool PausedInRetainers
+        => _paused && _retainersHeld;
+
+    public void SkipRetainers()
+    {
+        if (PausedInRetainers)
+            Resume(Skip.Retainers);
     }
 
     public void CraftWithWhatIsGathered()

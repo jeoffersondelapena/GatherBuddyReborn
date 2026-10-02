@@ -321,6 +321,7 @@ public partial class GatherBuddy : IDalamudPlugin
             CraftingGameInterop.Update();
             CraftingGatherBridge.Update();
             AfterRunRepair.Update();
+            BellTravelTest.Update();
             VendorNavigator.Update();
             VendorPurchaseManager.Update();
             VendorBuyListManager.Update();
