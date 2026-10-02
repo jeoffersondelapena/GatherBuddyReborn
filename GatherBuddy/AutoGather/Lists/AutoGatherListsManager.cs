@@ -276,11 +276,11 @@ public partial class AutoGatherListsManager : IDisposable
             .OfType<FileSystem<AutoGatherList>.Leaf>()
             .Select(leaf => leaf.Value)
             .Where(l => l.Enabled)
-            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.SkipIfEnough)))
+            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.CountHeld)))
             .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && SkipAsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory),
-                OnTop: x.Any(g => !g.SkipIfEnough)));
+                OnTop: x.Any(g => !g.CountHeld)));
 
         ReportSkippedAsLogged();
         foreach (var (item, quantity, fallback, usesRetainerInventory, onTop) in items)
