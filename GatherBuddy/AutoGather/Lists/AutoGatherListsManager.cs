@@ -92,6 +92,9 @@ public partial class AutoGatherListsManager : IDisposable
     internal bool StillNeeded(IGatherable item, uint quantity)
         => GatherRules.StillNeeded(item.GetTotalCount(UsesRetainerInventory(item)), HeldAtStart(item), quantity);
 
+    internal int Missing(IGatherable item, uint quantity)
+        => GatherRules.Missing(item.GetTotalCount(UsesRetainerInventory(item)), HeldAtStart(item), quantity);
+
     public AutoGatherListsManager()
     {
         _fileSystem = new FileSystem<AutoGatherList>();

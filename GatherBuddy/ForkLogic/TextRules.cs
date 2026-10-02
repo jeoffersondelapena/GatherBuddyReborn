@@ -37,6 +37,10 @@ public static class TextRules
           + $"{resume}, or press {button} in the {(gatheringRun ? "Auto-Gather tab" : "Craft Status window")} to {next} (fork).";
     }
 
+    public static string GatheringRunStopped(string? why)
+        => $"[GatherBuddy] This gathering run stopped: {Why(why)}. Fix the cause and press Resume in the Auto-Gather tab to gather the rest, "
+         + "or untick Enabled there to end the run (fork).";
+
     public static string StoppedShortReason(string part, string? why)
     {
         var (what, resume, button, _) = Part(part);

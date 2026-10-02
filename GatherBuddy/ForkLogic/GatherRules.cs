@@ -6,5 +6,8 @@ namespace GatherBuddy.ForkLogic;
 public static class GatherRules
 {
     public static bool StillNeeded(int held, int? heldAtStart, uint quantity)
-        => (heldAtStart is { } start ? held - start : held) < quantity;
+        => Missing(held, heldAtStart, quantity) > 0;
+
+    public static int Missing(int held, int? heldAtStart, uint quantity)
+        => (int)System.Math.Max(0, quantity - (long)(heldAtStart is { } start ? held - start : held));
 }

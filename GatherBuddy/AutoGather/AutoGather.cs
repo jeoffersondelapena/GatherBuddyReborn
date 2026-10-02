@@ -407,6 +407,7 @@ namespace GatherBuddy.AutoGather
                     KeepMarks.EndRun(_keepRun);
                     _keepRun   = null;
                     GatherRetainerStage.Reset();
+                    GatherPause.Reset();
                     _plugin.AutoGatherListsManager.ForgetHeldAtStart();
                     AutoStatus = "Idle...";
                     TaskManager.Abort();
@@ -623,6 +624,12 @@ namespace GatherBuddy.AutoGather
                 return;
             }
 
+            if (!Crafting.CraftingGatherBridge.IsQueueMode && GatherPause.Paused)
+            {
+                AutoStatus = $"Paused: {GatherPause.Reason}";
+                return;
+            }
+
             // If we are not gathering and _currentGatherTarget is set, we just finished gathering or left the node
             if (!IsGathering && _currentGatherTarget != null)
             {
@@ -749,9 +756,7 @@ namespace GatherBuddy.AutoGather
                 }
                 else
                 {
-                    if (!CraftingGatherBridge.IsQueueMode)
-                        Communicator.PrintRun("[GatherBuddy] Gathering stopped: your bags are full (fork).");
-                    AbortAutoGather("Inventory is full");
+                    AbortAutoGather(PurchaseRules.BagsFull);
                 }
 
                 return;
@@ -2414,17 +2419,29 @@ namespace GatherBuddy.AutoGather
                 Task.Run(() => _soundHelper.StartHonkSoundTask(3));
             CloseGatheringAddons();
             var stoppedShort = CraftingGatherBridge.IsQueueMode && !CraftingGatherBridge.IsGatheringComplete();
+            var plainLeftover = !CraftingGatherBridge.IsQueueMode && _activeItemList.HasItemsToGather;
             var bagsFull = FreeInventorySlots == 0;
-            if (AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
-                AfterRunRepair.Start(bagsFull ? "gathering stopped, bags full" : "gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
+            if (!plainLeftover && AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
+                AfterRunRepair.Start("gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
             else if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
-                EnqueueActionWithDelay(() => { GoHome(bagsFull ? "bags full" : stoppedShort ? "gathering stopped short" : "done"); });
+                EnqueueActionWithDelay(() => { GoHome(bagsFull ? "bags full" : stoppedShort || plainLeftover ? "gathering stopped short" : "done"); });
             TaskManager.Enqueue(() =>
             {
-                if (!stoppedShort || !CraftingGatherBridge.PauseRunForGatheringStop(detail ?? status))
+                if (plainLeftover)
+                    GatherPause.Start(detail ?? status, StillMissing());
+                else if (!stoppedShort || !CraftingGatherBridge.PauseRunForGatheringStop(detail ?? status))
                     Enabled = false;
                 AutoStatus = status ?? AutoStatus;
             });
+        }
+
+        private List<string> StillMissing()
+        {
+            var lists = _plugin.AutoGatherListsManager;
+            return lists.ActiveItems.Select(i => (i.Item, Missing: lists.Missing(i.Item, i.Quantity)))
+                .Where(i => i.Missing > 0)
+                .Select(i => $"{i.Item.Name[GatherBuddy.Language]} x{i.Missing}")
+                .ToList();
         }
 
         private unsafe void CloseGatheringAddons(bool closeGathering = true)

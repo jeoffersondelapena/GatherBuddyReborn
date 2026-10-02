@@ -32,6 +32,15 @@ namespace GatherBuddy.AutoGather
             }
 
             ImGui.Text($"Status: {GatherBuddy.AutoGather.AutoStatus}");
+            if (GatherPause.Paused)
+            {
+                if (ImGui.Button("Resume##gathering"))
+                    GatherPause.Resume();
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("Gather the rest. Untick Enabled to end the run instead (fork).");
+                return;
+            }
+
             if (!GatherRetainerStage.Paused)
                 return;
 
