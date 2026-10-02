@@ -18,6 +18,24 @@ public class PurchaseRulesTests
         => Assert.DoesNotContain(Buy(new() { [Ore] = 6, [Hide] = 2 }), b => b.ItemId == Ore);
 
     [Fact]
+    public void Buy_instead_of_gathering_buys_what_a_vendor_sells_and_still_leaves_the_rest_to_gathering()
+    {
+        var materials = new Dictionary<uint, int> { [Ore] = 6, [Hide] = 2, [Drop] = 1 };
+        var bought    = PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(true, Gathered.Contains), SoldForGil.Contains, _ => 0);
+        Assert.Equal([Ore, Hide], bought.Select(b => b.ItemId).Order());
+        Assert.DoesNotContain(PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(false, Gathered.Contains), SoldForGil.Contains, _ => 0),
+            b => b.ItemId == Ore);
+    }
+
+    [Fact]
+    public void A_shortfall_is_gathered_instead_only_when_the_list_asks_and_nothing_left_must_be_bought()
+    {
+        Assert.True(PurchaseRules.GatherInstead(true, 0));
+        Assert.False(PurchaseRules.GatherInstead(true, 1));
+        Assert.False(PurchaseRules.GatherInstead(false, 0));
+    }
+
+    [Fact]
     public void A_drop_that_a_gil_vendor_sells_is_bought_and_one_no_vendor_sells_is_left_alone()
         => Assert.Equal([Hide], Buy(new() { [Hide] = 2, [Drop] = 1 }).Select(b => b.ItemId));
 

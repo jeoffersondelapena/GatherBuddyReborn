@@ -21,7 +21,8 @@ internal static class ForkSettingsPage
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("A crafting run first buys, for gil, every material it can neither gather nor fish (vendor items, drops a vendor also "
-              + "sells), only what your bags lack, then gathers and crafts. What it can gather it gathers, and in-between items it crafts.");
+              + "sells), only what your bags lack, then gathers and crafts. What it can gather it gathers (unless the list has Buy Instead of "
+              + "Gathering (fork) on), and in-between items it crafts.");
     }
 
     public static void DrawSprint()
@@ -117,7 +118,7 @@ internal static class ForkSettingsPage
         ImGui.Spacing();
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
         ImGui.BulletText("Skip Logged Items (fork) and Count Items Already Held (fork): on each gathering list, in the Auto-Gather tab.");
-        ImGui.BulletText("Skip Logged Recipes (fork): on each crafting list, in Vulcan's list editor.");
+        ImGui.BulletText("Skip Logged Recipes (fork) and Buy Instead of Gathering (fork): on each crafting list, in Vulcan's list editor.");
         ImGui.BulletText("Restock from Retainers (fork): on each buy list, in the Vendor Buy List window.");
         ImGui.BulletText("Skip Retainers (fork), Skip Buying (fork), Skip Gathering (fork) and Clear Green Marks (fork): in the Craft Status window.");
         ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");

@@ -35,6 +35,7 @@ public class CraftingListDefinition
     public bool Repair { get; set; } = false;
     public int RepairPercent { get; set; } = 50;
     public bool RetainerRestock { get; set; } = false;
+    public bool BuyInsteadOfGathering { get; set; } = false;
     public bool Ephemeral { get; set; } = false;
 
     public bool ShouldApplyQuickSynthAllOverrides(bool isOriginalRecipe)
@@ -100,6 +101,7 @@ public class CraftingListDefinition
             Repair = Repair,
             RepairPercent = RepairPercent,
             RetainerRestock = RetainerRestock,
+            BuyInsteadOfGathering = BuyInsteadOfGathering,
             Ephemeral = Ephemeral,
         };
 

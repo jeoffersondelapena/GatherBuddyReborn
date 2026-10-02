@@ -342,12 +342,15 @@ public static class CraftingGatherBridge
         TryStartBuying();
     }
 
-    private static List<(uint ItemId, uint Target, int Missing)> ToBuy()
+    private static bool InsteadOfGathering
+        => _activeExecutionPlan?.BuyInsteadOfGathering == true;
+
+    private static List<(uint ItemId, uint Target, int Missing)> ToBuy(bool insteadOfGathering)
         => PurchaseRules.BeforeGathering(_afterBuying!,
-            id => PurchaseRules.GatheredWithoutWaiting(
+            PurchaseRules.Gathered(insteadOfGathering, id => PurchaseRules.GatheredWithoutWaiting(
                 GatherBuddy.GameData.Gatherables.TryGetValue(id, out var node) ? node.InternalLocationId : null,
                 GatherBuddy.GameData.Fishes.TryGetValue(id, out var fish) ? fish.InternalLocationId : null,
-                AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
+                AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id))),
             MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
 
     private static List<string> Named(IEnumerable<(uint ItemId, uint Target, int Missing)> targets)
@@ -355,7 +358,7 @@ public static class CraftingGatherBridge
 
     private static void TryStartBuying()
     {
-        var targets = ToBuy();
+        var targets = ToBuy(InsteadOfGathering);
         if (targets.Count == 0)
         {
             FinishBuying();
@@ -377,7 +380,7 @@ public static class CraftingGatherBridge
             _noVendor.AddRange(noVendor.Select(id => $"{ForkTrace.ItemName(id)} (no vendor GatherBuddy can walk to)"));
             var buying = Named(targets.Where(t => !noVendor.Contains(t.ItemId)));
             ForkTrace.Info($"buy before gathering: {string.Join(", ", buying)}{(noVendor.Count == 0 ? "" : $"; no vendor for {string.Join(", ", noVendor.Select(ForkTrace.Named))}")}");
-            ForkChat.List(PurchaseRules.BuyingHeader, buying, tone: Communicator.Tone.Info);
+            ForkChat.List(PurchaseRules.BuyingHeader(InsteadOfGathering), buying, tone: Communicator.Tone.Info);
             return;
         }
 
@@ -391,6 +394,14 @@ public static class CraftingGatherBridge
             or VendorBuyListManager.StartResult.LocationDataLoading;
         if (waiting && DateTime.Now < _buyStartBy)
             return;
+
+        if (result is VendorBuyListManager.StartResult.Empty && PurchaseRules.GatherInstead(InsteadOfGathering, ToBuy(false).Count))
+        {
+            ForkTrace.Info($"buy before gathering: no vendor GatherBuddy can walk to sells {string.Join(", ", Named(targets))}; gathering them instead");
+            Communicator.PrintRun(PurchaseRules.GatheringInstead(targets.Count), tone: Communicator.Tone.Info);
+            FinishBuying();
+            return;
+        }
 
         StopBuyingShort(result switch
         {
@@ -428,14 +439,19 @@ public static class CraftingGatherBridge
                 Communicator.PrintRun(PurchaseRules.AllBought, tone: Communicator.Tone.Info);
                 FinishBuying();
                 return;
+            case VendorBuyListManager.RunPurchaseOutcome.Finished when PurchaseRules.GatherInstead(InsteadOfGathering, ToBuy(false).Count):
+                Communicator.PrintRun(PurchaseRules.GatheringInstead(notBought.Count), tone: Communicator.Tone.Info);
+                ForkChat.List("Gathering instead:", notBought, 12, tone: Communicator.Tone.Info);
+                FinishBuying();
+                return;
             case VendorBuyListManager.RunPurchaseOutcome.Finished:
                 StopBuyingShort(PurchaseRules.NotBought(notBought.Count), notBought);
                 return;
             case VendorBuyListManager.RunPurchaseOutcome.BagsFull:
-                StopBuyingShort(PurchaseRules.BagsFull, Named(ToBuy()));
+                StopBuyingShort(PurchaseRules.BagsFull, Named(ToBuy(InsteadOfGathering)));
                 return;
             default:
-                StopBuyingShort(detail.Length > 0 ? detail : "the vendor run ended early", Named(ToBuy()));
+                StopBuyingShort(detail.Length > 0 ? detail : "the vendor run ended early", Named(ToBuy(InsteadOfGathering)));
                 return;
         }
     }

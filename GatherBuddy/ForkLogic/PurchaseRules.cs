@@ -28,7 +28,17 @@ public static class PurchaseRules
     public static bool GatheredWithoutWaiting(int? nodeLocation, int? fishLocation, bool diademRaw)
         => nodeLocation is <= 0 || fishLocation is <= 0 || diademRaw;
 
-    public const string BuyingHeader = "Buying first what only vendors sell:";
+    public static Func<uint, bool> Gathered(bool insteadOfGathering, Func<uint, bool> gatheredWithoutWaiting)
+        => id => !insteadOfGathering && gatheredWithoutWaiting(id);
+
+    public static bool GatherInstead(bool insteadOfGathering, int mustBuyMissing)
+        => insteadOfGathering && mustBuyMissing == 0;
+
+    public static string BuyingHeader(bool insteadOfGathering)
+        => insteadOfGathering ? "Buying first what vendors sell:" : "Buying first what only vendors sell:";
+
+    public static string GatheringInstead(int count)
+        => $"[GatherBuddy] {count} item(s) could not be bought; the run gathers them instead (fork).";
 
     public const string AllBought = "[GatherBuddy] Bought everything this run needs from vendors (fork).";
 

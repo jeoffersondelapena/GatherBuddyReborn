@@ -696,6 +696,16 @@ public class CraftingListEditor
                 ? "Withdraw needed materials from retainers before generating the gather list. Respects HQ/NQ preferences."
                 : "Requires Allagan Tools to be installed and enabled.");
 
+        ImGuiUtil.Checkbox("Buy Instead of Gathering (fork)##big",
+            "Buy from gil vendors every material they sell, instead of gathering or fishing it. What no vendor sells is still gathered, "
+          + "and what the vendors could not supply is gathered instead. Works with 'Buy From Vendors Before Gathering (fork)' on, "
+          + "on the fork's page in the settings.",
+            _list.BuyInsteadOfGathering, v =>
+            {
+                _list.BuyInsteadOfGathering = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
+
 
         ImGui.Spacing();
 
