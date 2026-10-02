@@ -590,7 +590,9 @@ public class VendorNavigator
 
         PlaceMapFlag(target);
 
-        var shouldForceFreshHousingEntry = ShouldForceFreshHousingEntry(Dalamud.ClientState.TerritoryType, target.TerritoryId);
+        // fork: every ward has the same NPCs and bells, so a trip that starts in the target's ward stays in it
+        var shouldForceFreshHousingEntry = ShouldForceFreshHousingEntry(Dalamud.ClientState.TerritoryType, target.TerritoryId)
+         && Dalamud.ClientState.TerritoryType != target.TerritoryId;
 
         if (!continueCurrentVendorInteraction && shouldForceFreshHousingEntry)
         {
@@ -916,7 +918,7 @@ public class VendorNavigator
          && !Lifestream.IsBusy()
          && TryFindNearestShardInTerritory(_target.TerritoryId, _target.Position, out var shardName, out var shardDistanceToVendor, out var shardDistanceToPlayer))
         {
-            if (shardDistanceToPlayer <= 10f)
+            if (shardDistanceToPlayer <= 10f || WalkIsShorter(pos, shardDistanceToVendor))
             {
                 _attemptedHousingShardTeleport = true;
             }
@@ -937,6 +939,11 @@ public class VendorNavigator
 
         StartVNavmesh(destination, usingLiveNpc, destinationMode);
     }
+
+    private bool WalkIsShorter(Vector3 position, float shardDistanceToTarget)
+        => _target != null
+         && TryGetNearestAethernetSource(out _, out var sourceDistance, out _)
+         && GetHorizontalDistance(position, _target.Position) <= sourceDistance + shardDistanceToTarget + LocalAethernetEstimatedInteractionCost;
 
     private bool HandlePendingHousingShardTeleport()
     {

@@ -14,17 +14,13 @@ internal sealed class BellTravel
 {
     private static readonly TimeSpan ReadLimit   = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan TravelLimit = TimeSpan.FromMinutes(3);
-    private const float ArrivalDistance = 5f;
 
     private readonly VendorNavigator _navigator = new();
     private readonly DateTime _created = DateTime.UtcNow;
     private DateTime _started;
     private BellRules.Bell? _target;
-    private bool _walking;
     private bool _goingHome;
     private DateTime _homeSince = DateTime.MinValue;
-    private int _walkRestarts;
-    private DateTime _nextWalkRestart = DateTime.MinValue;
 
     public string? Failure { get; private set; }
 
@@ -43,17 +39,11 @@ internal sealed class BellTravel
         if (DateTime.UtcNow - _started > TravelLimit)
             return Fail("it took longer than 3 minutes");
 
-        if (_goingHome)
-            return AtHome();
-        return _walking ? Walk(_target!.Value) : Ride();
+        return _goingHome ? AtHome() : Ride();
     }
 
     public void Stop()
-    {
-        _navigator.Stop();
-        if (_walking && VNavmesh.Path.IsRunning())
-            VNavmesh.Path.Stop();
-    }
+        => _navigator.Stop();
 
     private CraftingTasks.TaskResult Begin()
     {
@@ -87,15 +77,11 @@ internal sealed class BellTravel
         var place = row?.PlaceName.ValueNullable?.Name.ExtractText() ?? $"zone {bell.Territory}";
         _target  = bell;
         _started = DateTime.UtcNow;
-        _walking = bell.Territory == territory && IsHousingWard(row);
-        if (_walking)
-            VNavmesh.SimpleMove.PathfindAndMoveTo(bell.Position, false);
-        else
-            _navigator.StartNavigation(new VendorNpcLocation(2000401, "Summoning Bell", bell.Territory, row?.Map.RowId ?? 0, bell.Position,
-                VendorNpcLocationSource.Lgb));
+        _navigator.StartNavigation(new VendorNpcLocation(2000401, "Summoning Bell", bell.Territory, row?.Map.RowId ?? 0, bell.Position,
+            VendorNpcLocationSource.Lgb));
 
         ForkTrace.Info($"bell travel: to {place} ({bell.Territory}) at {bell.Position}"
-          + (_walking ? ", same housing ward, walking" : bell.Territory == territory ? ", same zone" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
+          + (bell.Territory == territory ? ", same zone" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
         Communicator.PrintRun($"[GatherBuddy] No summoning bell in sight for your retainers: going to the one in {place} (fork).", tone: Communicator.Tone.Info);
         return CraftingTasks.TaskResult.Retry;
     }
@@ -136,28 +122,6 @@ internal sealed class BellTravel
             return Fail("the way there failed");
         return _navigator.IsReadyToPurchase ? CraftingTasks.TaskResult.Done : CraftingTasks.TaskResult.Retry;
     }
-
-    private CraftingTasks.TaskResult Walk(BellRules.Bell target)
-    {
-        var player = Dalamud.Objects.LocalPlayer?.Position ?? Vector3.Zero;
-        if (player != Vector3.Zero && Vector3.Distance(player, target.Position) <= ArrivalDistance)
-        {
-            Stop();
-            return CraftingTasks.TaskResult.Done;
-        }
-
-        if (VNavmesh.Path.IsRunning() || DateTime.UtcNow < _nextWalkRestart)
-            return CraftingTasks.TaskResult.Retry;
-        if (++_walkRestarts > 5)
-            return Fail("no path to it");
-
-        _nextWalkRestart = DateTime.UtcNow.AddSeconds(1);
-        VNavmesh.SimpleMove.PathfindAndMoveTo(target.Position, false);
-        return CraftingTasks.TaskResult.Retry;
-    }
-
-    private static bool IsHousingWard(TerritoryType? zone)
-        => zone?.TerritoryIntendedUse.RowId == 13 || zone?.Bg.ExtractText().Contains("/hou/") == true;
 
     private CraftingTasks.TaskResult Fail(string why)
     {
