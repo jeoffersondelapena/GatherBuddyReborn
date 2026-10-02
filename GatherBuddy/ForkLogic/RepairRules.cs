@@ -49,16 +49,15 @@ public static class RepairRules
     public static bool AfterRun(bool enabled, bool partOfCraftingRun, bool boundByDuty)
         => enabled && !partOfCraftingRun && !boundByDuty;
 
-    // the preferred mender in Vulcan's settings wins; otherwise a mender is picked as a summoning bell is
+    // same rule as summoning bells, with the preferred mender in place of the chosen bell town
     public static Mender? Choose(IReadOnlyList<Mender> menders, uint preferredId, uint territory, Vector3 position, Func<Mender, TripRules.Trip?> trip)
     {
-        if (preferredId != 0)
-            foreach (var mender in menders.Where(m => m.Id == preferredId))
-                return mender;
+        var places    = menders.Select(m => new BellRules.Bell(m.Territory, m.Position)).ToList();
+        var preferred = preferredId != 0 ? menders.FirstOrDefault(m => m.Id == preferredId) : default;
+        if (BellRules.Pick(territory, position, places, place => trip(menders[places.IndexOf(place)]), preferred.Territory) is not { } picked)
+            return null;
 
-        var places = menders.Select(m => new BellRules.Bell(m.Territory, m.Position)).ToList();
-        return BellRules.Pick(territory, position, places, place => trip(menders[places.IndexOf(place)])) is { } picked
-            ? menders[places.IndexOf(picked)]
-            : null;
+        var mender = menders[places.IndexOf(picked)];
+        return preferred.Territory != BellRules.Automatic && mender.Territory == preferred.Territory && mender.Territory != territory ? preferred : mender;
     }
 }

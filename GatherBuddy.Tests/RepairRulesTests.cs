@@ -52,7 +52,7 @@ public class RepairRulesTests
     }
 
     [Fact]
-    public void The_preferred_mender_wins_then_the_nearest_in_this_zone_then_the_cheapest_trip()
+    public void The_nearest_in_this_zone_wins_then_the_preferred_mender_then_the_cheapest_trip()
     {
         var uldah   = new Mender(1, 130, Vector3.Zero);
         var limsa   = new Mender(2, 129, Vector3.Zero);
@@ -61,7 +61,8 @@ public class RepairRulesTests
         var menders = new[] { uldah, limsa, farHere, near };
         TripRules.Trip? Trip(Mender m) => m.Territory switch { 130 => new(500, true), 129 => new(0, true), _ => null };
 
-        Assert.Equal(uldah, RepairRules.Choose(menders, preferredId: 1, territory: 641, Vector3.Zero, Trip));
+        Assert.Equal(near, RepairRules.Choose(menders, preferredId: 1, territory: 641, Vector3.Zero, Trip));
+        Assert.Equal(uldah, RepairRules.Choose(menders, preferredId: 1, territory: 655, Vector3.Zero, Trip));
         Assert.Equal(near, RepairRules.Choose(menders, preferredId: 0, territory: 641, Vector3.Zero, Trip));
         Assert.Equal(limsa, RepairRules.Choose(menders, preferredId: 0, territory: 655, Vector3.Zero, Trip));
         Assert.Equal(limsa, RepairRules.Choose(menders, preferredId: 99, territory: 655, Vector3.Zero, Trip));

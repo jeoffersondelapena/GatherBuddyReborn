@@ -21,7 +21,6 @@ public static unsafe class AfterRunRepair
 {
     private const string WaitStep = "wait for the run to end";
     private const uint   RepairService = 720915;
-    private const float  MenderInSight = 30f;
 
     private static readonly Queue<(string Name, int Seconds, Func<TaskResult> Run)> Steps = new();
 
@@ -213,7 +212,7 @@ public static unsafe class AfterRunRepair
     // fork: a mender in sight, a town's or one hired into the home (which the game data places nowhere), is used where it stands
     private static RepairNPCData? InSight()
     {
-        if (!RepairManager.RepairNPCNearby(out var npc, MenderInSight) || npc == null)
+        if (!RepairManager.RepairNPCNearby(out var npc, float.MaxValue) || npc == null)
             return null;
 
         var services = Dalamud.GameData.GetExcelSheet<ENpcBase>().GetRowOrDefault(npc.BaseId)?.ENpcData.Select(d => d.RowId).ToList();
