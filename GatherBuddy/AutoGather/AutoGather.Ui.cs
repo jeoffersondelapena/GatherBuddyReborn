@@ -41,16 +41,16 @@ namespace GatherBuddy.AutoGather
                 return;
             }
 
-            if (!GatherRetainerStage.Paused)
+            if (!Crafting.RetainerStage.Gathering.Paused)
                 return;
 
             if (ImGui.Button("Resume##retainers"))
-                GatherRetainerStage.Resume();
+                Crafting.RetainerStage.Gathering.Resume();
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Try taking from your retainers again (fork).");
             ImGui.SameLine();
             if (ImGui.Button(ForkLogic.TextRules.SkipRetainers))
-                GatherRetainerStage.Skip();
+                Crafting.RetainerStage.Gathering.Skip();
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Go on without what your retainers hold: the run gathers the full amounts into your bags instead.");
         }

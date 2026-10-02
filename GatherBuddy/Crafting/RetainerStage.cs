@@ -1,46 +1,55 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using GatherBuddy.AutoGather.Lists;
-using GatherBuddy.Crafting;
 using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 
-namespace GatherBuddy.AutoGather;
+namespace GatherBuddy.Crafting;
 
-// fork: Allagan Tools' record decides; a record that knows no retainers still sends the run to a bell, as crafting runs do
-internal static class GatherRetainerStage
+// fork: one retainer part for gathering runs and buy runs, so both pause the same way
+internal sealed class RetainerStage(string run, string instead, Func<KeepRules.Run?> keepRun)
 {
+    public static readonly RetainerStage Gathering = new(TextRules.Gathering, "this run gathers the full amounts into your bags instead",
+        () => GatherBuddy.AutoGather.KeepRun);
+
+    public static readonly RetainerStage BuyList = new(TextRules.BuyList, "this run buys the full amounts instead",
+        () => GatherBuddy.VendorBuyListManager.KeepRun);
+
     private enum Step { Off, Check, Travel, Walk, Withdraw, Paused }
 
-    private static Step                    _step = Step.Off;
-    private static Dictionary<uint, int>   _targets = new();
-    private static bool                    _travelTried;
-    private static BellTravel?             _travel;
-    private static RetainerBellNavigator?  _walk;
-    private static RetainerTaskExecutor?   _executor;
+    private Step                   _step = Step.Off;
+    private Dictionary<uint, int>  _targets = new();
+    private bool                   _travelTried;
+    private BellTravel?            _travel;
+    private RetainerBellNavigator? _walk;
+    private RetainerTaskExecutor?  _executor;
 
-    public static bool Skipped { get; private set; }
+    private string Name
+        => $"{TextRules.RunName(run)} run";
 
-    public static bool Paused
+    public bool Skipped { get; private set; }
+
+    public bool Active
+        => _step != Step.Off;
+
+    public bool Paused
         => _step == Step.Paused;
 
-    public static string? Reason { get; private set; }
+    public string? Reason { get; private set; }
 
-    public static void Begin(AutoGatherListsManager lists)
+    public void Begin(Dictionary<uint, int> targets)
     {
         Reset();
-        if (!GatherBuddy.Config.AutoGatherConfig.CheckRetainers || !AllaganTools.Enabled)
+        if (!AllaganTools.Enabled)
             return;
 
-        _targets = lists.ActiveItems.Where(i => lists.UsesRetainerInventory(i.Item))
-            .GroupBy(i => i.Item.ItemId)
-            .ToDictionary(g => g.Key, g => (int)System.Math.Min(g.Sum(i => (long)i.Quantity), int.MaxValue));
+        _targets = targets.Where(t => t.Value > 0).ToDictionary(t => t.Key, t => t.Value);
         if (_targets.Count > 0)
             _step = Step.Check;
     }
 
-    public static void Reset()
+    public void Reset()
     {
         _travel?.Stop();
         _walk?.Stop();
@@ -53,7 +62,7 @@ internal static class GatherRetainerStage
         Reason       = null;
     }
 
-    public static bool Hold(out string status)
+    public bool Hold(out string status)
     {
         status = "Taking from your retainers...";
         switch (_step)
@@ -95,7 +104,7 @@ internal static class GatherRetainerStage
                         Pause(executor.FullBags ? PurchaseRules.BagsFull : "the summoning bell or the retainer window did not respond");
                     else
                     {
-                        ForkTrace.Info("gathering run: took what the lists count from your retainers");
+                        ForkTrace.Info($"{Name}: took what it counts from your retainers");
                         _step = Step.Off;
                     }
                 }
@@ -105,11 +114,12 @@ internal static class GatherRetainerStage
         return false;
     }
 
-    private static void Check()
+    private void Check()
     {
+        // null: Allagan Tools knows no retainers yet, so the bell visit finds out
         if (RetainerTaskExecutor.WouldTakeAnything(_targets, new Dictionary<uint, IngredientQualityDemand>(), []) == false)
         {
-            ForkTrace.Info("gathering run: Allagan Tools shows nothing these lists count in your retainers, so no bell");
+            ForkTrace.Info($"{Name}: Allagan Tools shows nothing it counts in your retainers, so no bell");
             _step = Step.Off;
             return;
         }
@@ -141,37 +151,36 @@ internal static class GatherRetainerStage
         _step     = Step.Withdraw;
     }
 
-    private static void Pause(string why)
+    private void Pause(string why)
     {
         _step  = Step.Paused;
         Reason = why;
-        Communicator.PrintRun(TextRules.StoppedShort(TextRules.Retainers, why, gatheringRun: true));
-        ForkTrace.Info($"gathering run paused in its retainer part: {why}");
+        Communicator.PrintRun(TextRules.StoppedShort(TextRules.Retainers, why, run));
+        ForkTrace.Info($"{Name} paused in its retainer part: {why}");
         if (RetainerTaskExecutor.WouldTake(_targets, new Dictionary<uint, IngredientQualityDemand>(), []) is { Count: > 0 } held)
             ForkChat.List("Your retainers hold for this run:", held.Select(kv => $"{ForkTrace.ItemName(kv.Key)} x{kv.Value}").ToList(), 12);
-        KeepMarks.MarkPause(GatherBuddy.AutoGather.KeepRun, []);
+        KeepMarks.MarkPause(keepRun(), []);
         PauseHome.Request("retainer");
     }
 
-    public static void Resume()
+    public void Resume()
     {
         if (_step != Step.Paused)
             return;
 
-        ForkTrace.Info("gathering run: retainer part resumed");
+        ForkTrace.Info($"{Name}: retainer part resumed");
         _travelTried = false;
         Reason       = null;
         _step        = Step.Check;
     }
 
-    public static void Skip()
+    public void Skip()
     {
         if (_step != Step.Paused)
             return;
 
-        ForkTrace.Info("gathering run: retainer part skipped; the lists now count only your bags");
-        Communicator.PrintRun("[GatherBuddy] Skipping your retainers: this run gathers the full amounts into your bags instead (fork).",
-            tone: Communicator.Tone.Info);
+        ForkTrace.Info($"{Name}: retainer part skipped; it now counts only your bags");
+        Communicator.PrintRun($"[GatherBuddy] Skipping your retainers: {instead} (fork).", tone: Communicator.Tone.Info);
         Skipped = true;
         Reason  = null;
         _step   = Step.Off;

@@ -30,12 +30,28 @@ public static class TextRules
     public const string SkipBuying    = "Skip Buying (fork)";
     public const string SkipGathering = "Skip Gathering (fork)";
 
-    public static string StoppedShort(string part, string? why, bool gatheringRun = false)
+    public static string StoppedShort(string part, string? why, string run = Crafting)
     {
         var (what, resume, button, next) = Part(part);
-        return $"[GatherBuddy] {what} for this {(gatheringRun ? "gathering" : "crafting")} run stopped: {Why(why)}. Fix the cause and press Resume to "
-          + $"{resume}, or press {button} in the {(gatheringRun ? "Auto-Gather tab" : "Craft Status window")} to {next} (fork).";
+        return $"[GatherBuddy] {what} for this {RunName(run)} run stopped: {Why(why)}. Fix the cause and press Resume to "
+          + $"{resume}, or press {button} in the {RunWindow(run)} to {next} (fork).";
     }
+
+    public static string RunName(string run)
+        => run switch
+        {
+            Gathering => "gathering",
+            BuyList   => "buy",
+            _         => "crafting",
+        };
+
+    private static string RunWindow(string run)
+        => run switch
+        {
+            Gathering => "Auto-Gather tab",
+            BuyList   => "Vendor Buy List window",
+            _         => "Craft Status window",
+        };
 
     public static string GatheringRunStopped(string? why)
         => $"[GatherBuddy] This gathering run stopped: {Why(why)}. Fix the cause and press Resume in the Auto-Gather tab to gather the rest, "

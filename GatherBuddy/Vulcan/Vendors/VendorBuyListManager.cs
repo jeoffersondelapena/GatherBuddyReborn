@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using GatherBuddy.AutoGather.Collectables;
+using GatherBuddy.Crafting;
 using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
@@ -60,6 +61,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     private bool     _homeAfterRun;
     private KeepRules.Run? _keepRun;
     private bool           _divided;
+    private bool           _retainerPart;
     private bool     _homePending;
     private DateTime _homePendingSince;
     private bool     _isRunning;
@@ -132,6 +134,9 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     public bool LastRunHitScripReserveLimit { get; private set; }
 
+    internal KeepRules.Run? KeepRun
+        => _keepRun;
+
     public void Dispose()
     {
         Stop();
@@ -143,6 +148,18 @@ public sealed partial class VendorBuyListManager : IDisposable
         EnsureVendorCachesAvailable();
         if (_homePending)
             UpdateHomeTrip();
+        if (_retainerPart && _isRunning && !_waitingForShopClose)
+        {
+            if (RetainerStage.BuyList.Hold(out var retainerStatus))
+            {
+                _statusText = retainerStatus;
+                return;
+            }
+
+            _retainerPart = false;
+            TryStartNextEntry();
+            return;
+        }
         if (!_waitingForShopClose)
             return;
 
@@ -454,6 +471,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             _runningListId = activeList.Id;
             _keepRun ??= BeginKeep(activeList);
             Divide(activeList.Name);
+            BeginRetainers(activeList);
             _statusText = $"Leaving the previous vendor interaction for '{activeList.Name}'.";
             return StartResult.WaitingForPreviousInteraction;
         }
@@ -497,6 +515,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         _runningListId = activeList.Id;
         _keepRun ??= BeginKeep(activeList);
         Divide(activeList.Name);
+        BeginRetainers(activeList);
         _waitingForCancelledPurchase = false;
         _statusText = $"Starting vendor list '{activeList.Name}'...";
         TryStartNextEntry();
@@ -508,6 +527,17 @@ public sealed partial class VendorBuyListManager : IDisposable
         => ReferenceEquals(list, _runList)
             ? null
             : KeepMarks.BeginRun(list.Name, "bought", list.Entries.Where(e => e.Enabled).Select(e => (e.ItemId, (int)Math.Min(e.TargetQuantity, int.MaxValue))));
+
+    // fork: only a run started from its window; a crafting run's own buying and collectable scrip buys never visit a bell
+    private void BeginRetainers(VendorBuyListDefinition list)
+    {
+        RetainerStage.BuyList.Begin(_homeAfterRun && list.RetainerRestock
+            ? list.Entries.Where(e => GetRemainingQuantity(e) > 0)
+                .GroupBy(e => e.ItemId)
+                .ToDictionary(g => g.Key, g => (int)Math.Min(g.Max(e => (long)e.TargetQuantity), int.MaxValue))
+            : new());
+        _retainerPart = RetainerStage.BuyList.Active;
+    }
 
     // gil shops only: a run never spends seals or scrips on its own
     public StartResult StartForRun(string name, IReadOnlyList<VendorTargetRequest> targets, out List<uint> noVendor)
@@ -697,6 +727,8 @@ public sealed partial class VendorBuyListManager : IDisposable
             NoteRunPurchase(RunPurchaseOutcome.Stopped);
         KeepMarks.EndRun(_keepRun);
         _keepRun = null;
+        RetainerStage.BuyList.Reset();
+        _retainerPart = false;
         if (_divided)
             RunChat.End();
         _divided = false;
@@ -1402,7 +1434,7 @@ public sealed partial class VendorBuyListManager : IDisposable
 
     private void TryStartNextEntry()
     {
-        if (!_isRunning)
+        if (!_isRunning || _retainerPart)
             return;
 
         var list = GetExecutionList();

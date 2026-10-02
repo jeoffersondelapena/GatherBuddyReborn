@@ -155,7 +155,10 @@ public class TextRulesTests
             TextRules.StoppedShort(TextRules.Retainers, "no summoning bell could be reached (no path to it)"));
         Assert.Equal("[GatherBuddy] Taking from your retainers for this gathering run stopped: your bags are full. "
           + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Auto-Gather tab to go on without them (fork).",
-            TextRules.StoppedShort(TextRules.Retainers, "your bags are full", gatheringRun: true));
+            TextRules.StoppedShort(TextRules.Retainers, "your bags are full", TextRules.Gathering));
+        Assert.Equal("[GatherBuddy] Taking from your retainers for this buy run stopped: your bags are full. "
+          + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Vendor Buy List window to go on without them (fork).",
+            TextRules.StoppedShort(TextRules.Retainers, "your bags are full", TextRules.BuyList));
         Assert.Equal("[GatherBuddy] This gathering run stopped: Inventory is full. Fix the cause and press Resume in the Auto-Gather tab to gather "
           + "the rest, or untick Enabled there to end the run (fork).", TextRules.GatheringRunStopped("Inventory is full"));
         Assert.Contains(TextRules.SkipRetainers, TextRules.StoppedShortReason(TextRules.Retainers, "x"));

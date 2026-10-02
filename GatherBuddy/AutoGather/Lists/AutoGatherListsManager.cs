@@ -71,7 +71,15 @@ public partial class AutoGatherListsManager : IDisposable
         => _fallbackItems.AsReadOnly();
 
     internal bool UsesRetainerInventory(IGatherable item)
-        => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item) && !GatherRetainerStage.Skipped;
+        => CountsRetainers(item) && !Crafting.RetainerStage.Gathering.Skipped;
+
+    private bool CountsRetainers(IGatherable item)
+        => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item);
+
+    internal Dictionary<uint, int> RetainerTargets()
+        => _activeItems.Where(i => CountsRetainers(i.Item))
+            .GroupBy(i => i.Item.ItemId)
+            .ToDictionary(g => g.Key, g => (int)Math.Min(g.Sum(i => (long)i.Quantity), int.MaxValue));
 
     // fork: an on-top item's baseline is the bags alone, so retainer stock never counts for it
     private readonly HashSet<IGatherable> _onTopActiveItems = [];

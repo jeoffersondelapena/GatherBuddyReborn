@@ -10,4 +10,5 @@ public sealed class VendorBuyListDefinition
     public string FolderPath { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public List<VendorBuyListEntry> Entries { get; set; } = new();
+    public bool RetainerRestock { get; set; }
 }

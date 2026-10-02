@@ -270,6 +270,24 @@ public sealed partial class VendorBuyListWindow : Window
         ImGui.Spacing();
     }
 
+    // fork: the same two choices a crafting or gathering run offers when its retainer part stops short
+    private static void DrawRetainerPause()
+    {
+        if (!Crafting.RetainerStage.BuyList.Paused)
+            return;
+
+        ImGui.SameLine();
+        if (ImGui.Button("Resume##buyRetainers"))
+            Crafting.RetainerStage.BuyList.Resume();
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Try taking from your retainers again (fork).");
+        ImGui.SameLine();
+        if (ImGui.Button($"{ForkLogic.TextRules.SkipRetainers}##buyRetainers"))
+            Crafting.RetainerStage.BuyList.Skip();
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Go on without what your retainers hold: the run buys the full amounts instead.");
+    }
+
     private void DrawActiveListPanel(VendorBuyListManager manager, VendorBuyListDefinition activeList)
     {
         var entries = manager.Entries.ToList();
@@ -315,6 +333,8 @@ public sealed partial class VendorBuyListWindow : Window
             manager.Stop();
         }
 
+        DrawRetainerPause();
+
         ImGui.SameLine();
         using (ImRaii.Disabled(entries.Count == 0 || manager.IsBusy))
         {
@@ -324,6 +344,19 @@ public sealed partial class VendorBuyListWindow : Window
 
         ImGui.SameLine();
         KeepMarkButton.DrawGreen();
+
+        using (ImRaii.Disabled(manager.IsBusy))
+        {
+            var restock = activeList.RetainerRestock;
+            if (ImGui.Checkbox("Restock from Retainers (fork)", ref restock))
+            {
+                activeList.RetainerRestock = restock;
+                GatherBuddy.Config.Save();
+            }
+        }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip("Before buying, take what this list still lacks from your retainers (by Allagan Tools' record), "
+              + "then buy only the rest. Saved with this list.");
 
         if (entries.Count > 0)
         {

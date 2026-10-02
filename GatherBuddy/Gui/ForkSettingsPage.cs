@@ -116,10 +116,12 @@ internal static class ForkSettingsPage
     {
         ImGui.Spacing();
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
-        ImGui.BulletText("Skip Logged Items (fork): on each gathering list, in the Auto-Gather tab.");
+        ImGui.BulletText("Skip Logged Items (fork) and Count Items Already Held (fork): on each gathering list, in the Auto-Gather tab.");
         ImGui.BulletText("Skip Logged Recipes (fork): on each crafting list, in Vulcan's list editor.");
+        ImGui.BulletText("Restock from Retainers (fork): on each buy list, in the Vendor Buy List window.");
         ImGui.BulletText("Skip Retainers (fork), Skip Buying (fork), Skip Gathering (fork) and Clear Green Marks (fork): in the Craft Status window.");
-        ImGui.BulletText("Clear Green Marks (fork): in the buy-list window.");
+        ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");
+        ImGui.BulletText("Clear Green Marks (fork): in the Vendor Buy List window.");
         ImGui.BulletText("Clear Green Marks (fork): in the right-click menu of an item marked green.");
         ImGui.BulletText("Retry skipped (fork): in Vulcan's Crafting Lists tab.");
     }

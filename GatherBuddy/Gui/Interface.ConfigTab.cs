@@ -95,7 +95,8 @@ public partial class Interface
 
         public static void DrawCheckRetainersBox()
         {
-            DrawCheckbox("Check Retainer Inventories", "Use Allagan Tools to check retainer inventories when doing inventory calculations",
+            DrawCheckbox("Check Retainer Inventories", "Use Allagan Tools to check retainer inventories when doing inventory calculations.\n"
+              + "A gathering run then first takes from your retainers what its lists count (fork).",
                 GatherBuddy.Config.AutoGatherConfig.CheckRetainers, b => GatherBuddy.Config.AutoGatherConfig.CheckRetainers = b);
             ImGui.SameLine();
             ImGuiEx.PluginAvailabilityIndicator([new("InventoryTools", "Allagan Tools")]);
