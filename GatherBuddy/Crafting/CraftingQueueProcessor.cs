@@ -47,7 +47,7 @@ public class CraftingQueueProcessor
     private BellTravel? _bellTravel;
     private bool _bellTravelTried;
     private bool _retainersHeld;
-    private DateTime _nextNeededMark = DateTime.MinValue;
+    private (int Bags, int Index) _neededMarkedAt = (-1, -1);
 
     private bool _paused = false;
     private bool _pausedDuringGather = false;
@@ -117,7 +117,7 @@ public class CraftingQueueProcessor
         _retainerBellNavigator = null;
         _bellTravel = null;
         _bellTravelTried = false;
-        _nextNeededMark = DateTime.MinValue;
+        _neededMarkedAt = (-1, -1);
         var hasRetainerWork = _retainerRestock && AllaganTools.Enabled
             && (MaterialTargets.Count > 0 || RetainerPrecraftTargets.Count > 0);
 
@@ -1834,10 +1834,11 @@ public class CraftingQueueProcessor
 
     private void MarkNeededFromBags()
     {
-        if (DateTime.Now < _nextNeededMark || _currentState is QueueState.Idle or QueueState.Complete)
+        var at = (KeepMarks.BagChanges, _currentQueueIndex);
+        if (at == _neededMarkedAt || _currentState is QueueState.Idle or QueueState.Complete)
             return;
 
-        _nextNeededMark = DateTime.Now.AddSeconds(2);
+        _neededMarkedAt = at;
         KeepMarks.MarkNeeded(CraftingGatherBridge.KeepRun, StillNeededFromBags());
     }
 

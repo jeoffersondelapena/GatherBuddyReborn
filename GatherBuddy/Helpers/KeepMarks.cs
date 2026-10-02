@@ -52,9 +52,12 @@ public static unsafe class KeepMarks
     public static void Stop()
         => Dalamud.GameInventory.InventoryChanged -= OnInventoryChanged;
 
+    public static int BagChanges { get; private set; }
+
     // green follows the bags as items arrive, so a crash or a reload mid-run keeps what the run had made
     private static void OnInventoryChanged(IReadOnlyCollection<InventoryEventArgs> events)
     {
+        BagChanges++;
         if (Open.Count == 0)
             return;
 
@@ -114,12 +117,6 @@ public static unsafe class KeepMarks
           + (none.Count == 0 ? "" : $"; none held: {string.Join(", ", none.Select(id => $"{ForkTrace.Named(id)} (target {before[id]})"))}"));
         if (counted.Count > 0)
             Communicator.PrintRun(KeepRules.EndSummary(counted.Count), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label), Communicator.Tone.Good);
-    }
-
-    public static void ClearNeeded()
-    {
-        ForkTrace.Info($"keep marks: {_needed.Count} orange cleared by the player");
-        _needed = new Dictionary<uint, KeepRules.Mark>();
     }
 
     public static void ClearMade()

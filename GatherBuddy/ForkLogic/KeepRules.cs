@@ -118,7 +118,7 @@ public static class KeepRules
     }
 
     public static string PauseSummary(int needed, int made)
-        => $"[GatherBuddy] Marked in your bags: {needed} item(s) this run still needs, in orange until the run ends"
+        => $"[GatherBuddy] Marked in your bags: {needed} item(s) this run still needs, in orange"
           + (made > 0 ? $"; {made} item(s) its list counts toward its targets, in green" : "") + ". Hover one to see how many (fork).";
 
     public static string EndSummary(int made)

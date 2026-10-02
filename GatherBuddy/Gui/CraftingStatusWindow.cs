@@ -205,7 +205,7 @@ public class CraftingStatusWindow : Window
                 CraftingGatherBridge.StopQueue();
             }
 
-            KeepMarkButton.DrawBoth();
+            KeepMarkButton.DrawGreen();
             
             ImGui.Spacing();
             ImGui.Separator();
