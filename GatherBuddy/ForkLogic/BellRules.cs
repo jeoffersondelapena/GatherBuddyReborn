@@ -11,7 +11,6 @@ public static class BellRules
     public readonly record struct Bell(uint Territory, Vector3 Position);
 
     public const uint Automatic = 0;
-    public const uint Home      = uint.MaxValue;
 
     // cost is null for a bell the character cannot teleport to
     public static Bell? Pick(uint territory, Vector3 position, IEnumerable<Bell> bells, Func<Bell, int?> cost, uint chosen = Automatic)

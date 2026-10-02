@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Numerics;
-using GatherBuddy.Automation;
 using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
@@ -19,14 +18,12 @@ internal sealed class BellTravel
     private readonly DateTime _created = DateTime.UtcNow;
     private DateTime _started;
     private BellRules.Bell? _target;
-    private bool _goingHome;
-    private DateTime _homeSince = DateTime.MinValue;
 
     public string? Failure { get; private set; }
 
     public CraftingTasks.TaskResult Tick()
     {
-        if (_target == null && !_goingHome)
+        if (_target == null)
             return Begin();
 
         if (RetainerTaskExecutor.FindNearestBellForNavigation() != null)
@@ -39,7 +36,7 @@ internal sealed class BellTravel
         if (DateTime.UtcNow - _started > TravelLimit)
             return Fail("it took longer than 3 minutes");
 
-        return _goingHome ? AtHome() : Ride();
+        return Ride();
     }
 
     public void Stop()
@@ -55,8 +52,6 @@ internal sealed class BellTravel
         // inside an inn room or a house a usable bell would already be in sight, so one the files list there is not one to walk to
         if (Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(territory)?.TerritoryIntendedUse.RowId is 2 or 14)
             bells.RemoveAll(b => b.Territory == territory);
-        if (chosen == BellRules.Home && !bells.Exists(b => b.Territory == territory))
-            return GoHome();
 
         var routes = new Dictionary<uint, uint>();
         uint Route(BellRules.Bell bell)
@@ -84,35 +79,6 @@ internal sealed class BellTravel
           + (bell.Territory == territory ? ", same zone" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
         Communicator.PrintRun($"[GatherBuddy] No summoning bell in sight for your retainers: going to the one in {place} (fork).", tone: Communicator.Tone.Info);
         return CraftingTasks.TaskResult.Retry;
-    }
-
-    // house bells are furniture, not in the zone files: go home instead
-    private CraftingTasks.TaskResult GoHome()
-    {
-        if (!HomeNavigationHelper.TryStartReturnHome(out var error, "to the bell at home"))
-            return error != null
-                ? Fail(error.TrimEnd('.').ToLowerInvariant())
-                : DateTime.UtcNow - _created > ReadLimit ? Fail("Lifestream stayed busy") : CraftingTasks.TaskResult.Retry;
-
-        _goingHome = true;
-        _started   = DateTime.UtcNow;
-        Communicator.PrintRun("[GatherBuddy] No summoning bell in sight for your retainers: going home to the one in your house (fork).", tone: Communicator.Tone.Info);
-        return CraftingTasks.TaskResult.Retry;
-    }
-
-    private CraftingTasks.TaskResult AtHome()
-    {
-        if (!HomeNavigationHelper.IsReturnComplete() || !GenericHelpers.IsScreenReady())
-        {
-            _homeSince = DateTime.MinValue;
-            return CraftingTasks.TaskResult.Retry;
-        }
-
-        if (_homeSince == DateTime.MinValue)
-            _homeSince = DateTime.UtcNow;
-        return DateTime.UtcNow - _homeSince < TimeSpan.FromSeconds(3)
-            ? CraftingTasks.TaskResult.Retry
-            : Fail("no summoning bell is in sight at home");
     }
 
     private CraftingTasks.TaskResult Ride()

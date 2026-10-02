@@ -59,7 +59,7 @@ internal static class BellLocations
 
     private static uint[]? Wanted(uint territory, uint chosen)
         => _towns is { } towns
-            ? towns.Append(territory).Concat(chosen is BellRules.Automatic or BellRules.Home ? [] : [chosen]).Distinct().ToArray()
+            ? towns.Append(territory).Concat(chosen == BellRules.Automatic ? [] : [chosen]).Distinct().ToArray()
             : null;
 
     private static void StartScan(uint territory, uint chosen)
@@ -81,7 +81,7 @@ internal static class BellLocations
             _towns ??= sheet.Where(t => t.TerritoryIntendedUse.RowId == 0 && !t.Bg.ExtractText().Contains("/hou/")).Select(t => t.RowId).ToArray();
             _wards ??= sheet.Where(t => t.TerritoryIntendedUse.RowId == 13).Select(t => t.RowId).ToArray();
             foreach (var id in _towns.Concat(_wards).Append(territory).Append(chosen).Distinct())
-                if (id is not (BellRules.Automatic or BellRules.Home) && !Read.ContainsKey(id))
+                if (id != BellRules.Automatic && !Read.ContainsKey(id))
                     Read[id] = sheet.TryGetRow(id, out var row) ? ReadZone(row) : [];
             ForkTrace.Info($"bell travel: read {Read.Values.Sum(b => b.Length)} summoning bells in {Read.Count(r => r.Value.Length > 0)} of {Read.Count} zones");
         }

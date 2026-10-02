@@ -32,14 +32,13 @@ internal static class ForkSettingsPage
             => zone switch
             {
                 BellRules.Automatic => "Automatic: the town cheapest to teleport to",
-                BellRules.Home      => "Home: a summoning bell you placed in your house",
                 _                   => zones.FirstOrDefault(z => z.Territory == zone).Name ?? $"zone {zone}",
             };
 
         ImGui.SetNextItemWidth(VulcanUiScaling.Scaled(320f));
         if (ImGui.BeginCombo("Summoning Bell (per character, fork)", Label(chosen)))
         {
-            foreach (var zone in new[] { BellRules.Automatic, BellRules.Home }.Concat(zones.Select(z => z.Territory)))
+            foreach (var zone in zones.Select(z => z.Territory).Prepend(BellRules.Automatic))
                 if (ImGui.Selectable(Label(zone), zone == chosen))
                     CharacterSettings.BellZone = zone;
             if (zones.Count == 0)
@@ -48,8 +47,7 @@ internal static class ForkSettingsPage
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Where a crafting run goes to take from your retainers when no summoning bell is in sight and the zone it is in has none. "
-              + "Automatic picks the town that is cheapest to teleport to. Home takes the trip home, for a bell you placed in your house. Saved for the "
-              + "character that is logged in.");
+              + "Automatic picks the town that is cheapest to teleport to. Saved for the character that is logged in.");
     }
 
     public static void DrawBellTest()
