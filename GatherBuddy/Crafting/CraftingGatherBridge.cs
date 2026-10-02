@@ -361,6 +361,18 @@ public static class CraftingGatherBridge
             return;
         }
 
+        var slotsShort = PurchaseRules.SlotsShort(targets.Select(t =>
+        {
+            var stackSize = BagRoom.StackSize(t.ItemId);
+            return (t.Missing, stackSize, BagRoom.Room(t.ItemId, stackSize));
+        }), BagRoom.FreeSlots());
+        if (slotsShort > 0)
+        {
+            StopBuyingShort(PurchaseRules.NoRoom(slotsShort), Named(targets));
+            FullBagsHome.Request("buying");
+            return;
+        }
+
         var requests = targets.Select(t => new VendorBuyListManager.VendorTargetRequest(t.ItemId, t.Target)).ToList();
         var result   = GatherBuddy.VendorBuyListManager!.StartForRun(_activeExecutionPlan?.ListName ?? "crafting run", requests, out var noVendor);
         if (result is VendorBuyListManager.StartResult.Started or VendorBuyListManager.StartResult.WaitingForPreviousInteraction)
@@ -424,6 +436,7 @@ public static class CraftingGatherBridge
                 return;
             case VendorBuyListManager.RunPurchaseOutcome.BagsFull:
                 StopBuyingShort("your bags are full", Named(ToBuy()));
+                FullBagsHome.Request("buying");
                 return;
             default:
                 StopBuyingShort(detail.Length > 0 ? detail : "the vendor run ended early", Named(ToBuy()));

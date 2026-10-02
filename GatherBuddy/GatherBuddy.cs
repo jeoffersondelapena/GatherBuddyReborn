@@ -324,6 +324,7 @@ public partial class GatherBuddy : IDalamudPlugin
             AfterRunRepair.Update();
             BellTravelTest.Update();
             Helpers.Sprint.Update();
+            Helpers.FullBagsHome.Update();
             VendorNavigator.Update();
             VendorPurchaseManager.Update();
             VendorBuyListManager.Update();

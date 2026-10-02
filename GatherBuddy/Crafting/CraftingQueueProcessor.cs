@@ -166,12 +166,12 @@ public class CraftingQueueProcessor
 
     public void Update()
     {
+        MarkNeededFromBags();
         if (_paused)
         {
             return;
         }
 
-        MarkNeededFromBags();
         ProcessTasks();
         
         switch (_currentState)
@@ -1827,6 +1827,7 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
         Communicator.PrintRun("[GatherBuddy] Run paused: your bags are full. Make room, then press Resume in the Craft Status window (fork).");
         Pause(pauseReason);
+        FullBagsHome.Request("crafting");
     }
 
     private void MarkStillNeeded()
