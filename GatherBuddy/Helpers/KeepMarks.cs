@@ -119,6 +119,13 @@ public static unsafe class KeepMarks
             Communicator.PrintRun(KeepRules.EndSummary(counted.Count), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label), Communicator.Tone.Good);
     }
 
+    // orange belongs to a crafting run that is going; with none going, any left over is dropped
+    public static void DropNeeded()
+    {
+        ForkTrace.Info($"keep marks: {_needed.Count} orange dropped, no crafting run is going");
+        _needed = new Dictionary<uint, KeepRules.Mark>();
+    }
+
     public static void ClearMade()
     {
         ForkTrace.Info($"keep marks: {_made.Count} green cleared by the player");

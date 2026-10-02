@@ -50,6 +50,22 @@ public static class CraftingGatherBridge
         _plugin = plugin;
     }
 
+    // fork: a run's plan and marks belong to the character that started it, so logging out ends it
+    internal static void HookLogout()
+        => Dalamud.ClientState.Logout += OnLogout;
+
+    internal static void UnhookLogout()
+        => Dalamud.ClientState.Logout -= OnLogout;
+
+    private static void OnLogout(int type, int code)
+    {
+        if (!_isQueueMode)
+            return;
+
+        ForkTrace.Info("crafting run stopped by the logout");
+        StopQueue();
+    }
+
     private static int RoundUpToBatchSize(int quantity, int batchSize)
         => batchSize <= 1
             ? quantity
@@ -179,6 +195,9 @@ public static class CraftingGatherBridge
     
     public static void Update()
     {
+        if (_keepRun == null && KeepMarks.NeededCount > 0)
+            KeepMarks.DropNeeded();
+
         if (_isQueueMode && _queueProcessor != null)
         {
             UpdateCollectablesHomeReturnBeforeResume();

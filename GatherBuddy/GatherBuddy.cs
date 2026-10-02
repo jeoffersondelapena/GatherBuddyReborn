@@ -194,6 +194,7 @@ public partial class GatherBuddy : IDalamudPlugin
             NativeItemTooltipBridge = new Gui.NativeItemTooltipBridge();
             KeepMarkTooltip = new Gui.KeepMarkTooltip();
             Helpers.KeepMarks.Start();
+            CraftingGatherBridge.HookLogout();
             WindowSystem.AddWindow(Interface);
             WindowSystem.AddWindow(new GatherWindow(this));
             WindowSystem.AddWindow(new FishTimerWindow(FishRecorder));
@@ -371,6 +372,7 @@ public partial class GatherBuddy : IDalamudPlugin
         KeepMarkTooltip?.Dispose();
         KeepMarkTooltip = null;
         Helpers.KeepMarks.Stop();
+        CraftingGatherBridge.UnhookLogout();
         //Wotsit?.Dispose();
         Interface?.Dispose();
         WindowSystem?.RemoveAllWindows();
