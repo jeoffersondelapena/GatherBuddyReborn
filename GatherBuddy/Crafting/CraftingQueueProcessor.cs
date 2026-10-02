@@ -35,6 +35,15 @@ public class CraftingQueueProcessor
     }
 
     private QueueState _currentState = QueueState.Idle;
+
+    // fork: whether this run went anywhere or crafted anything yet; until it has, a pause stays where the run was started
+    private bool _setOut;
+
+    internal bool SetOut
+        => _setOut;
+
+    internal void NoteSetOut(bool setOut)
+        => _setOut |= setOut;
     private CraftingExecutionPlan? _executionPlan = null;
     private int _currentQueueIndex = 0;
     private List<Func<CraftingTasks.TaskResult>> _tasks = new();
@@ -117,6 +126,7 @@ public class CraftingQueueProcessor
         _retainerBellNavigator = null;
         _bellTravel = null;
         _bellTravelTried = false;
+        _setOut = false;
         _neededMarkedAt = (-1, -1);
         var hasRetainerWork = _retainerRestock && AllaganTools.Enabled
             && (MaterialTargets.Count > 0 || RetainerPrecraftTargets.Count > 0);
@@ -674,6 +684,7 @@ public class CraftingQueueProcessor
         _lastCraftWasQuickSynth = useQuickSynthesis;
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Starting craft {_currentQueueIndex + 1}/{QueueItems.Count}: {recipe.Value.ItemResult.Value.Name} x{craftQuantity}");
         CraftingGameInterop.StartCraft(recipe.Value, craftQuantity, useQuickSynthesis);
+        _setOut       = true;
         _currentState = QueueState.Crafting;
         StateChanged?.Invoke(_currentState);
     }
@@ -1275,6 +1286,7 @@ public class CraftingQueueProcessor
         if (bell == null && !_bellTravelTried)
         {
             _bellTravelTried = true;
+            _setOut          = true;
             var travel = _bellTravel = new BellTravel();
             _tasks.Add(travel.Tick);
             _tasks.Add(() =>
@@ -1303,6 +1315,8 @@ public class CraftingQueueProcessor
             QueueRetainerWithdrawalTasks();
             return;
         }
+
+        _setOut = true;
 
         _tasks.Add(() =>
         {
@@ -1795,8 +1809,12 @@ public class CraftingQueueProcessor
         if (missing.Count > 0)
             ForkChat.List(part == TextRules.Retainers ? "Your retainers hold for this run:" : "Still missing:", missing, 12);
         Pause(TextRules.StoppedShortReason(part, reason));
-        if (part != TextRules.Gathering)
+        if (part == TextRules.Gathering)
+            return;
+        if (_setOut)
             PauseHome.Request(what);
+        else
+            ForkTrace.Info($"crafting run paused in its {what} part before it went anywhere, so it stays where it was started");
     }
 
     public void SkipBuying()
@@ -1831,7 +1849,10 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
         Communicator.PrintRun("[GatherBuddy] Run paused: your bags are full. Make room, then press Resume in the Craft Status window (fork).");
         Pause(pauseReason);
-        PauseHome.Request("crafting");
+        if (_setOut)
+            PauseHome.Request("crafting");
+        else
+            ForkTrace.Info("crafting run paused before it went anywhere, so it stays where it was started");
     }
 
     private void MarkStillNeeded()

@@ -63,6 +63,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     private bool           _divided;
     private bool           _retainerPart;
     private string?        _pausedFor;
+    private bool           _setOut;
     private bool     _homePending;
     private DateTime _homePendingSince;
     private bool     _isRunning;
@@ -138,6 +139,10 @@ public sealed partial class VendorBuyListManager : IDisposable
     internal KeepRules.Run? KeepRun
         => _keepRun;
 
+    // fork: whether this run started a purchase or walked to a bell; until it has, it ends or pauses where it was started
+    internal bool SetOut
+        => _setOut;
+
     public bool BuyingPaused
         => _pausedFor != null;
 
@@ -158,7 +163,9 @@ public sealed partial class VendorBuyListManager : IDisposable
             UpdateHomeTrip();
         if (_retainerPart && _isRunning && !_waitingForShopClose)
         {
-            if (RetainerStage.BuyList.Hold(out var retainerStatus))
+            var holding = RetainerStage.BuyList.Hold(out var retainerStatus);
+            _setOut |= RetainerStage.BuyList.Moved;
+            if (holding)
             {
                 _statusText = retainerStatus;
                 return;
@@ -460,6 +467,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             return StartResult.AlreadyRunning;
         _homeAfterRun = homeAfterRun;
         _homePending  = false;
+        _setOut       = false;
         if (!VendorAutomationRequirements.IsAvailable)
         {
             _statusText = VendorAutomationRequirements.UnavailableStatusText;
@@ -560,6 +568,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         noVendor = new List<uint>();
         if (IsBusy)
             return StartResult.AlreadyRunning;
+        _setOut = false;
         if (!VendorShopResolver.IsInitialized)
         {
             EnsureVendorCachesAvailable();
@@ -827,7 +836,10 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (missing.Count > 0)
             ForkChat.List("Still missing:", missing, 12);
         KeepMarks.MarkPause(_keepRun, []);
-        PauseHome.Request("buying");
+        if (_setOut)
+            PauseHome.Request("buying");
+        else
+            ForkTrace.Info("buy run paused before it went anywhere, so it stays where it was started");
         Dalamud.ToastGui.ShowNormal($"GatherBuddy: buy run paused, {why}");
         if (closeShop)
             BeginShopCloseTransition($"Paused: {why}");
@@ -876,6 +888,13 @@ public sealed partial class VendorBuyListManager : IDisposable
     {
         if (!_homeAfterRun || !GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
             return;
+
+        if (!_setOut)
+        {
+            ForkTrace.Info("buy run: it never set out, so it stays where it was started");
+            _homeAfterRun = false;
+            return;
+        }
 
         _homeAfterRun     = false;
         _homePending      = true;
@@ -1441,7 +1460,10 @@ public sealed partial class VendorBuyListManager : IDisposable
         GatherBuddy.VendorPurchaseManager.StartPurchase(liveEntry, vendor, location, remainingQuantity, continueCurrentVendorInteraction,
             _purchaseConstraints);
         if (GatherBuddy.VendorPurchaseManager.IsRunning)
+        {
+            _setOut = true;
             return true;
+        }
 
         _activeEntryId = null;
         if (!continueCurrentVendorInteraction)

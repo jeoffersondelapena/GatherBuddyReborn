@@ -165,7 +165,10 @@ internal sealed class RetainerStage(string run, string instead, Func<KeepRules.R
         if (RetainerTaskExecutor.WouldTake(_targets, new Dictionary<uint, IngredientQualityDemand>(), []) is { Count: > 0 } held)
             ForkChat.List("Your retainers hold for this run:", held.Select(kv => $"{ForkTrace.ItemName(kv.Key)} x{kv.Value}").ToList(), 12);
         KeepMarks.MarkPause(keepRun(), []);
-        PauseHome.Request("retainer");
+        if (Moved)
+            PauseHome.Request("retainer");
+        else
+            ForkTrace.Info($"{Name} paused before it went anywhere, so it stays where it was started");
     }
 
     public void Resume()

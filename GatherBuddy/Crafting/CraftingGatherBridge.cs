@@ -21,6 +21,9 @@ public static class CraftingGatherBridge
     private static global::GatherBuddy.GatherBuddy? _plugin;
     private static uint _recipeIdToCraft = 0;
     private static bool _waitingForGatherComplete = false;
+    private static bool _homeBeforeCrafting;
+    private static DateTime? _homeBeforeCraftingAt;
+    private static DateTime _homeBeforeCraftingUntil;
     private static DateTime _jobSwitchTime = DateTime.MinValue;
     private static bool _waitingForJobSwitch = false;
     private static CraftingQueueProcessor? _queueProcessor = null;
@@ -202,6 +205,8 @@ public static class CraftingGatherBridge
         {
             UpdateCollectablesHomeReturnBeforeResume();
             TryStartCollectablesInterruption();
+            if (_homeBeforeCrafting)
+                UpdateHomeBeforeCrafting();
             UpdateBuying();
             if (_queueProcessor == null)
                 return;
@@ -410,6 +415,7 @@ public static class CraftingGatherBridge
             return;
 
         var (outcome, detail, notBought) = manager.TakeRunPurchase();
+        _queueProcessor?.NoteSetOut(manager.SetOut);
         notBought.AddRange(_noVendor);
         ForkTrace.Info($"buy before gathering: {outcome}{(detail.Length > 0 ? $" ({detail})" : "")}; not bought: {(notBought.Count == 0 ? "none" : string.Join(", ", notBought))}");
         switch (outcome)
@@ -540,7 +546,7 @@ public static class CraftingGatherBridge
                 if (IsGatheringComplete())
                 {
                     GatherBuddy.Log.Debug($"[CraftingGatherBridge] Gather list created but all items already in inventory, proceeding directly to crafting");
-                    OnGatherComplete();
+                    CraftAfterGoingHome();
                 }
                 else
                 {
@@ -552,7 +558,7 @@ public static class CraftingGatherBridge
             else
             {
                 GatherBuddy.Log.Debug($"[CraftingGatherBridge] No gatherable items needed, proceeding directly to crafting");
-                OnGatherComplete();
+                CraftAfterGoingHome();
             }
         }
         catch (Exception ex)
@@ -561,6 +567,64 @@ public static class CraftingGatherBridge
         }
     }
     
+    // fork: the gathering part's end is what takes a run home before crafting; with nothing to gather, crafting would start wherever the
+    // retainer or buy part left the character
+    private static void CraftAfterGoingHome()
+    {
+        if (_queueProcessor?.SetOut != true || !GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone || PauseHome.AtHome())
+        {
+            OnGatherComplete();
+            return;
+        }
+
+        ForkTrace.Info("crafting run: nothing to gather, so it goes home before crafting");
+        _waitingForGatherComplete = false;
+        _homeBeforeCrafting       = true;
+        _homeBeforeCraftingAt     = null;
+        _homeBeforeCraftingUntil  = DateTime.Now.AddMinutes(3);
+    }
+
+    private static void UpdateHomeBeforeCrafting()
+    {
+        if (DateTime.Now > _homeBeforeCraftingUntil)
+        {
+            ForkTrace.Info("go home (before crafting): not home within three minutes, crafting here");
+            CraftAfterHomeTrip();
+            return;
+        }
+
+        if (_homeBeforeCraftingAt == null)
+        {
+            if (PauseHome.Blocker() != null)
+                return;
+
+            if (!HomeNavigationHelper.TryStartReturnHome(out var error, "before crafting"))
+            {
+                if (error == null)
+                    return;
+
+                ForkTrace.Info($"go home (before crafting): {error}");
+                CraftAfterHomeTrip();
+                return;
+            }
+
+            _homeBeforeCraftingAt = DateTime.Now.AddSeconds(2);
+            return;
+        }
+
+        if (DateTime.Now < _homeBeforeCraftingAt || !HomeNavigationHelper.IsReturnComplete())
+            return;
+
+        ForkTrace.Info($"go home (before crafting): Lifestream finished, now in territory {Dalamud.ClientState.TerritoryType}");
+        CraftAfterHomeTrip();
+    }
+
+    private static void CraftAfterHomeTrip()
+    {
+        _homeBeforeCrafting = false;
+        OnGatherComplete();
+    }
+
     public static void OnGatherComplete()
     {
         if (_isQueueMode && _queueProcessor != null)
@@ -992,6 +1056,7 @@ public static class CraftingGatherBridge
             if (_afterBuying != null)
                 GatherBuddy.VendorBuyListManager?.CancelRunPurchase();
             ClearBuying();
+            _homeBeforeCrafting = false;
             CraftingGameInterop.CancelCurrentCraft();
             DeleteTemporaryGatherList();
             _queueProcessor.Reset();

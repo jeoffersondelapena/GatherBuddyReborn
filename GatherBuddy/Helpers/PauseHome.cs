@@ -28,7 +28,7 @@ internal static class PauseHome
         if (_part == null)
             return;
 
-        if (Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(Dalamud.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId == HousingInterior)
+        if (AtHome())
         {
             ForkTrace.Info($"go home (paused while {_part}): already home");
             _part = null;
@@ -37,12 +37,12 @@ internal static class PauseHome
 
         if (DateTime.UtcNow - _since > TimeSpan.FromMinutes(1))
         {
-            ForkTrace.Info($"go home (paused while {_part}): {Busy() ?? "nothing"} kept the character here for a minute, staying put");
+            ForkTrace.Info($"go home (paused while {_part}): {Blocker() ?? "nothing"} kept the character here for a minute, staying put");
             _part = null;
             return;
         }
 
-        if (Busy() != null)
+        if (Blocker() != null)
             return;
 
         if (HomeNavigationHelper.TryStartReturnHome(out var error, $"paused while {_part}"))
@@ -54,7 +54,10 @@ internal static class PauseHome
         }
     }
 
-    private static string? Busy()
+    public static bool AtHome()
+        => Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(Dalamud.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId == HousingInterior;
+
+    internal static string? Blocker()
     {
         var c = Dalamud.Conditions;
         return VendorInteractionHelper.GetVendorExitBlocker() != null ? "a vendor window"
