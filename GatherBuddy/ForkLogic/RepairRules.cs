@@ -1,6 +1,8 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 namespace GatherBuddy.ForkLogic;
 
@@ -20,7 +22,7 @@ public static class RepairRules
 
     public readonly record struct Piece(Category Category, int Percent, bool Repairable);
 
-    public readonly record struct Mender(uint Id, uint Territory);
+    public readonly record struct Mender(uint Id, uint Territory, Vector3 Position);
 
     public static int Percent(ushort condition)
         => condition / 300;
@@ -47,15 +49,16 @@ public static class RepairRules
     public static bool AfterRun(bool enabled, bool partOfCraftingRun, bool boundByDuty)
         => enabled && !partOfCraftingRun && !boundByDuty;
 
-    public static Mender? Choose(IReadOnlyList<Mender> menders, uint preferredId, uint territory)
+    // the preferred mender in Vulcan's settings wins; otherwise a mender is picked as a summoning bell is
+    public static Mender? Choose(IReadOnlyList<Mender> menders, uint preferredId, uint territory, Vector3 position, Func<Mender, TripRules.Trip?> trip)
     {
         if (preferredId != 0)
             foreach (var mender in menders.Where(m => m.Id == preferredId))
                 return mender;
 
-        foreach (var mender in menders.Where(m => m.Territory == territory))
-            return mender;
-
-        return menders.Count > 0 ? menders[0] : null;
+        var places = menders.Select(m => new BellRules.Bell(m.Territory, m.Position)).ToList();
+        return BellRules.Pick(territory, position, places, place => trip(menders[places.IndexOf(place)])) is { } picked
+            ? menders[places.IndexOf(picked)]
+            : null;
     }
 }

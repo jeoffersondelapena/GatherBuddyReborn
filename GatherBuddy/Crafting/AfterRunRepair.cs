@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.UI;
@@ -9,6 +10,7 @@ using GatherBuddy.Automation;
 using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
+using GatherBuddy.Vulcan.Vendors;
 using Lumina.Excel.Sheets;
 using TaskResult = GatherBuddy.Crafting.CraftingTasks.TaskResult;
 
@@ -18,6 +20,8 @@ namespace GatherBuddy.Crafting;
 public static unsafe class AfterRunRepair
 {
     private const string WaitStep = "wait for the run to end";
+    private const uint   RepairService = 720915;
+    private const float  MenderInSight = 30f;
 
     private static readonly Queue<(string Name, int Seconds, Func<TaskResult> Run)> Steps = new();
 
@@ -43,6 +47,7 @@ public static unsafe class AfterRunRepair
     private static string?        _stepName;
     private static DateTime       _nextAt;
     private static RepairNPCData? _mender;
+    private static VendorNavigator? _walk;
     private static string?        _waitingOn;
 
     public static bool Busy
@@ -113,6 +118,8 @@ public static unsafe class AfterRunRepair
 
         Steps.Clear();
         CraftingTasks.StopNavigation();
+        _walk?.Stop();
+        _walk = null;
         CraftingTasks.ResetRepairState();
         if (_locked)
             YesAlready.Unlock();
@@ -165,27 +172,28 @@ public static unsafe class AfterRunRepair
             return TaskResult.Done;
         }
 
-        var known  = RepairNPCHelper.RepairNPCs;
-        var choice = RepairRules.Choose(known.Select(n => new RepairRules.Mender(n.DataId, n.TerritoryType)).ToList(),
-            GatherBuddy.Config.VulcanRepairConfig.PreferredRepairNPCDataId, Dalamud.ClientState.TerritoryType);
-        _mender = choice is { } chosen ? known.First(n => n.DataId == chosen.Id) : null;
+        var inSight = InSight();
+        _mender = inSight ?? Choose();
         if (_mender == null)
         {
-            Communicator.PrintRun("[GatherBuddy] After-run repair: no mender is known; pick one under Preferred Repair NPC in Vulcan's settings (fork).", _label);
-            ForkTrace.Info($"after-run repair ({_reason}): no mender known ({known.Count} listed)");
+            Communicator.PrintRun("[GatherBuddy] After-run repair: no mender is known or within reach; pick one under Preferred Repair NPC in Vulcan's settings (fork).", _label);
+            ForkTrace.Info($"after-run repair ({_reason}): no mender known or within reach ({RepairNPCHelper.RepairNPCs.Count} listed)");
             if (_homeWithoutTrip)
                 Steps.Enqueue(("go home", 120, GoHome));
             return TaskResult.Done;
         }
 
         ForkTrace.Info($"after-run repair ({_reason}): {string.Join(", ", worn)} below {threshold}%; "
-          + $"mender {_mender.Name} ({_mender.DataId}) in territory {_mender.TerritoryType}, now in {Dalamud.ClientState.TerritoryType}");
+          + $"mender {_mender.Name} ({_mender.DataId}) {(inSight != null ? "in sight" : $"in territory {_mender.TerritoryType}")}, now in {Dalamud.ClientState.TerritoryType}");
         _gilBefore = Gil();
         YesAlready.Lock();
         _locked = true;
         CraftingTasks.ResetRepairState();
         var mender = _mender;
-        Steps.Enqueue(("go to the mender", 150, () => CraftingTasks.TaskNavigateToRepairNPC(mender)));
+        if (inSight != null)
+            Steps.Enqueue(("walk to the mender", 60, () => WalkTo(mender)));
+        else
+            Steps.Enqueue(("go to the mender", 150, () => CraftingTasks.TaskNavigateToRepairNPC(mender)));
         Steps.Enqueue(("talk to the mender", 10, CraftingTasks.TaskInteractWithRepairNPC));
         Steps.Enqueue(("open repairs", 15, CraftingTasks.TaskSelectRepairFromMenu));
         foreach (var category in worn)
@@ -200,6 +208,67 @@ public static unsafe class AfterRunRepair
         if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
             Steps.Enqueue(("go home", 120, GoHome));
         return TaskResult.Done;
+    }
+
+    // fork: a mender in sight, a town's or one hired into the home (which the game data places nowhere), is used where it stands
+    private static RepairNPCData? InSight()
+    {
+        if (!RepairManager.RepairNPCNearby(out var npc, MenderInSight) || npc == null)
+            return null;
+
+        var services = Dalamud.GameData.GetExcelSheet<ENpcBase>().GetRowOrDefault(npc.BaseId)?.ENpcData.Select(d => d.RowId).ToList();
+        return new RepairNPCData
+        {
+            DataId        = npc.BaseId,
+            Name          = npc.Name.TextValue,
+            Position      = npc.Position,
+            TerritoryType = Dalamud.ClientState.TerritoryType,
+            RepairIndex   = Math.Max(0, services?.IndexOf(RepairService) ?? 0),
+        };
+    }
+
+    private static RepairNPCData? Choose()
+    {
+        var known  = RepairNPCHelper.RepairNPCs;
+        var routes = new Dictionary<uint, uint>();
+        uint Route(RepairRules.Mender mender)
+        {
+            if (!routes.TryGetValue(mender.Territory, out var aetheryte))
+                routes[mender.Territory] = aetheryte = VendorNavigator.GetPrimaryRouteAetheryteId(mender.Territory, mender.Position);
+            return aetheryte;
+        }
+
+        TripRules.Trip? Trip(RepairRules.Mender mender)
+            => TeleportCosts.Trip(mender.Territory, () => TeleportCosts.For(Route(mender)));
+
+        var choice = RepairRules.Choose(known.Select(n => new RepairRules.Mender(n.DataId, n.TerritoryType, n.Position)).ToList(),
+            GatherBuddy.Config.VulcanRepairConfig.PreferredRepairNPCDataId, Dalamud.ClientState.TerritoryType,
+            Dalamud.Objects.LocalPlayer?.Position ?? Vector3.Zero, Trip);
+        return choice is { } chosen ? known.First(n => n.DataId == chosen.Id) : null;
+    }
+
+    private static TaskResult WalkTo(RepairNPCData mender)
+    {
+        if (_walk == null)
+        {
+            if (RepairManager.RepairNPCNearby(out _))
+                return TaskResult.Done;
+
+            var map = Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(mender.TerritoryType)?.Map.RowId ?? 0;
+            _walk = new VendorNavigator();
+            _walk.StartNavigation(new VendorNpcLocation(mender.DataId, mender.Name, mender.TerritoryType, map, mender.Position,
+                VendorNpcLocationSource.Override));
+            return TaskResult.Retry;
+        }
+
+        _walk.Update();
+        if (!_walk.IsFailed && !_walk.IsReadyToPurchase)
+            return TaskResult.Retry;
+
+        var failed = _walk.IsFailed;
+        _walk.Stop();
+        _walk = null;
+        return failed ? TaskResult.Abort : TaskResult.Done;
     }
 
     private static TaskResult Show(RepairRules.Category category)
@@ -277,6 +346,12 @@ public static unsafe class AfterRunRepair
     {
         if (!_homeStarted)
         {
+            if (PauseHome.AtHome())
+            {
+                ForkTrace.Info("go home (after repair): already home");
+                return TaskResult.Done;
+            }
+
             if (!HomeNavigationHelper.TryStartReturnHome(out var error, "after repair"))
             {
                 if (error == null)

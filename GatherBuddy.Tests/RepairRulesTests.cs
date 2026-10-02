@@ -1,3 +1,4 @@
+using System.Numerics;
 using GatherBuddy.ForkLogic;
 using Xunit;
 using Category = GatherBuddy.ForkLogic.RepairRules.Category;
@@ -51,14 +52,19 @@ public class RepairRulesTests
     }
 
     [Fact]
-    public void The_preferred_mender_wins_then_one_in_this_zone_then_the_first_known()
+    public void The_preferred_mender_wins_then_the_nearest_in_this_zone_then_the_cheapest_trip()
     {
-        var menders = new[] { new Mender(1, 129), new Mender(2, 641), new Mender(3, 628) };
+        var uldah   = new Mender(1, 130, Vector3.Zero);
+        var limsa   = new Mender(2, 129, Vector3.Zero);
+        var farHere = new Mender(3, 641, new Vector3(50, 0, 0));
+        var near    = new Mender(4, 641, new Vector3(5, 0, 0));
+        var menders = new[] { uldah, limsa, farHere, near };
+        TripRules.Trip? Trip(Mender m) => m.Territory switch { 130 => new(500, true), 129 => new(0, true), _ => null };
 
-        Assert.Equal(new Mender(3, 628), RepairRules.Choose(menders, preferredId: 3, territory: 641));
-        Assert.Equal(new Mender(2, 641), RepairRules.Choose(menders, preferredId: 0, territory: 641));
-        Assert.Equal(new Mender(2, 641), RepairRules.Choose(menders, preferredId: 99, territory: 641));
-        Assert.Equal(new Mender(1, 129), RepairRules.Choose(menders, preferredId: 0, territory: 400));
-        Assert.Null(RepairRules.Choose(System.Array.Empty<Mender>(), preferredId: 3, territory: 641));
+        Assert.Equal(uldah, RepairRules.Choose(menders, preferredId: 1, territory: 641, Vector3.Zero, Trip));
+        Assert.Equal(near, RepairRules.Choose(menders, preferredId: 0, territory: 641, Vector3.Zero, Trip));
+        Assert.Equal(limsa, RepairRules.Choose(menders, preferredId: 0, territory: 655, Vector3.Zero, Trip));
+        Assert.Equal(limsa, RepairRules.Choose(menders, preferredId: 99, territory: 655, Vector3.Zero, Trip));
+        Assert.Null(RepairRules.Choose([farHere, near], preferredId: 0, territory: 655, Vector3.Zero, Trip));
     }
 }

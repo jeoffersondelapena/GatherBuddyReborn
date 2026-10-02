@@ -74,8 +74,9 @@ internal static class ForkSettingsPage
             GatherBuddy.Config.Save();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("When a crafting run or a gathering run is over, visit a mender (the preferred one in Vulcan's settings, else one in "
-              + "the current zone, else the first one known), repair every gear category including the armoury chest and bags, then go home.");
+            ImGui.SetTooltip("When a crafting run or a gathering run is over, visit a mender (one in sight, such as one hired into your home, else the "
+              + "preferred one in Vulcan's settings, else the nearest in the current zone, else the one cheapest to teleport to), repair every gear "
+              + "category including the armoury chest and bags, then go home unless already there.");
     }
 
     public static void DrawAfterRunThreshold()

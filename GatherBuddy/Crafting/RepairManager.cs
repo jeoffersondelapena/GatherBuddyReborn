@@ -86,11 +86,12 @@ public static unsafe class RepairManager
         return false;
     }
 
-    public static bool RepairNPCNearby(out IGameObject? npc)
+    public static bool RepairNPCNearby(out IGameObject? npc, float range = 7)
     {
         npc = null;
         if (Dalamud.Objects.LocalPlayer != null)
         {
+            var nearest = float.MaxValue;
             foreach (var obj in Dalamud.Objects.Where(x => x.ObjectKind == ObjectKind.EventNpc))
             {
                 var enpcsheet = Dalamud.GameData.Excel.GetSheet<ENpcBase>();
@@ -99,16 +100,16 @@ public static unsafe class RepairManager
                     if (enpc.ENpcData.Any(x => x.RowId == 720915))
                     {
                         var npcDistance = Vector3.Distance(obj.Position, Dalamud.Objects.LocalPlayer.Position);
-                        if (npcDistance > 7)
+                        if (npcDistance > range || npcDistance >= nearest)
                             continue;
 
-                        npc = obj;
-                        return true;
+                        nearest = npcDistance;
+                        npc     = obj;
                     }
                 }
             }
         }
-        return false;
+        return npc != null;
     }
 
     public static int GetNPCRepairPrice()
