@@ -489,6 +489,7 @@ namespace GatherBuddy.AutoGather
                     RetainerStage.Gathering.Begin(GatherBuddy.Config.AutoGatherConfig.CheckRetainers ? _plugin.AutoGatherListsManager.RetainerTargets() : new());
                 }
                 WentHome = true; //Prevents going home right after enabling auto-gather
+                SetOut   = false;
                 if (AutoHook.Enabled)
                 {
                     AutoHook.SetPluginState(false);
@@ -621,6 +622,11 @@ namespace GatherBuddy.AutoGather
             if (!Crafting.CraftingGatherBridge.IsQueueMode && RetainerStage.Gathering.Hold(out var retainerStatus))
             {
                 AutoStatus = retainerStatus;
+                if (RetainerStage.Gathering.Moved)
+                {
+                    WentHome = false;
+                    SetOut   = true;
+                }
                 return;
             }
 
@@ -1387,6 +1393,7 @@ namespace GatherBuddy.AutoGather
                 Lifestream.Abort();
 
             WentHome = false;
+            SetOut   = true;
             
             var isInSameCityPair = (territoryId is 128 or 129 && targetTerritoryId is 128 or 129)
                                 || (territoryId is 132 or 133 && targetTerritoryId is 132 or 133)
@@ -2363,6 +2370,8 @@ namespace GatherBuddy.AutoGather
                 Communicator.PrintRun($"[GatherBuddy] Gathering stopped: {outOfReach} (fork).");
             else if (left > 0)
                 Communicator.PrintRun($"[GatherBuddy] Gathering stopped: {left} item(s) on your lists have no node GatherBuddy can use right now (fork).");
+            else if (_plugin.AutoGatherListsManager.ActiveItems.Count == 0)
+                Communicator.PrintRun("[GatherBuddy] Run finished: nothing on the enabled lists was left to gather (fork).", tone: Communicator.Tone.Info);
             else
                 Communicator.PrintRun($"[GatherBuddy] Run finished: all {_plugin.AutoGatherListsManager.ActiveItems.Count} item(s) gathered (fork).",
                     tone: Communicator.Tone.Good);
@@ -2431,7 +2440,10 @@ namespace GatherBuddy.AutoGather
             var stoppedShort = CraftingGatherBridge.IsQueueMode && !CraftingGatherBridge.IsGatheringComplete();
             var plainLeftover = !CraftingGatherBridge.IsQueueMode && _activeItemList.HasItemsToGather;
             var bagsFull = FreeInventorySlots == 0;
-            if (!plainLeftover && AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
+            // fork: a crafting run's gathering part always hands over, since the crafting run decides where crafting starts
+            if (!CraftingGatherBridge.IsQueueMode && !SetOut)
+                ForkTrace.Info("gathering run: it never set out, so it stays where it was started: no repair check, no trip home");
+            else if (!plainLeftover && AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
                 AfterRunRepair.Start("gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
             else if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
                 EnqueueActionWithDelay(() => { GoHome(!stoppedShort && !plainLeftover ? "done" : bagsFull ? "bags full" : "gathering stopped short"); });

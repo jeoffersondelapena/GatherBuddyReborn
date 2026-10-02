@@ -174,6 +174,8 @@ namespace GatherBuddy.AutoGather
         public  int         LastIntegrity      = 0;
         private bool LuckUsed;
         private bool        WentHome;
+        // fork: whether this run went anywhere or gathered anything; one that did neither ends where it was started
+        private bool        SetOut;
 
         internal IEnumerable<GatherTarget> ItemsToGather
             => _activeItemList;

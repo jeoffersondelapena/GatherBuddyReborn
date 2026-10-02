@@ -1025,7 +1025,8 @@ public class CraftingQueueProcessor
         QueueCompleted?.Invoke();
         KeepMarks.EndRun(CraftingGatherBridge.KeepRun);
         RunChat.End();
-        if (_currentQueueIndex >= QueueItems.Count && AfterRunRepair.Wanted(false))
+        // fork: a run with nothing left to craft went nowhere, so it does no after-run trip
+        if (QueueItems.Count > 0 && _currentQueueIndex >= QueueItems.Count && AfterRunRepair.Wanted(false))
             AfterRunRepair.Start("crafting run done", false);
     }
 

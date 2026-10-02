@@ -30,6 +30,8 @@ internal sealed class RetainerStage(string run, string instead, Func<KeepRules.R
 
     public bool Skipped { get; private set; }
 
+    public bool Moved { get; private set; }
+
     public bool Active
         => _step != Step.Off;
 
@@ -59,6 +61,7 @@ internal sealed class RetainerStage(string run, string instead, Func<KeepRules.R
         _travelTried = false;
         _step        = Step.Off;
         Skipped      = false;
+        Moved        = false;
         Reason       = null;
     }
 
@@ -130,6 +133,7 @@ internal sealed class RetainerStage(string run, string instead, Func<KeepRules.R
             _travelTried = true;
             _travel      = new BellTravel();
             _step        = Step.Travel;
+            Moved        = true;
             return;
         }
 
@@ -143,6 +147,7 @@ internal sealed class RetainerStage(string run, string instead, Func<KeepRules.R
         if (_walk.StartNavigation(bell))
         {
             _step = Step.Walk;
+            Moved = true;
             return;
         }
 
