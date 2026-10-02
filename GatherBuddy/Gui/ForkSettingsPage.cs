@@ -34,8 +34,7 @@ internal static class ForkSettingsPage
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Use Sprint whenever the game allows it on a walk GatherBuddy drives: to a vendor, a summoning bell or a mender, "
-              + "or between gathering spots on foot. Skipped on walks under 30 yalms, while mounted, and while Sprint, Peloton or Jog is "
-              + "already active.");
+              + "or between gathering spots on foot. Skipped on walks under 30 yalms and while mounted. Your own movement is never touched.");
     }
 
     public static void DrawBellZone()

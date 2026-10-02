@@ -11,10 +11,6 @@ public static class SprintRules
     // a walk this short gains under a second, while the 60-second recast may leave the next long walk without it
     public const float ShortestWalk = 30f;
 
-    public const uint SprintStatus = 50, PelotonStatus = 1199, JogStatus = 4209;
-
-    public static readonly uint[] AlreadyFaster = [SprintStatus, PelotonStatus, JogStatus];
-
     public static float Left(Vector3 from, IReadOnlyList<Vector3> waypoints)
     {
         var left = 0f;
@@ -27,6 +23,7 @@ public static class SprintRules
         return left;
     }
 
-    public static bool Now(bool walking, bool mounted, bool faster, bool ready, float left)
-        => walking && !mounted && !faster && ready && left >= ShortestWalk;
+    // Sprint (+30%) replaces the slower Jog and Peloton (+20%), and Jog is what Sprint leaves behind, so neither is a reason to wait
+    public static bool Now(bool walking, bool mounted, bool ready, float left)
+        => walking && !mounted && ready && left >= ShortestWalk;
 }

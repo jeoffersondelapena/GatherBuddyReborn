@@ -1,5 +1,4 @@
 using System;
-using System.Linq;
 using Dalamud.Game.ClientState.Conditions;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using GatherBuddy.Crafting;
@@ -23,10 +22,9 @@ internal static unsafe class Sprint
             return;
 
         var actions = ActionManager.Instance();
-        var faster  = player.StatusList.Any(s => SprintRules.AlreadyFaster.Contains(s.StatusId));
         var ready   = actions != null && actions->GetActionStatus(ActionType.GeneralAction, SprintRules.GeneralActionId) == 0;
         var left    = SprintRules.Left(player.Position, VNavmesh.Path.ListWaypoints());
-        if (!SprintRules.Now(true, Dalamud.Conditions[ConditionFlag.Mounted], faster, ready, left))
+        if (!SprintRules.Now(true, Dalamud.Conditions[ConditionFlag.Mounted], ready, left))
             return;
 
         if (actions->UseAction(ActionType.GeneralAction, SprintRules.GeneralActionId))
