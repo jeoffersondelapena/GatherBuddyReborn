@@ -266,6 +266,7 @@ public static class CraftingGatherBridge
         RunChat.Begin(TextRules.KindLabel(TextRules.Crafting, executionPlan.ListName));
         _isQueueMode = true;
         _ephemeralListId = ephemeralListId;
+        _gatheredInstead.Clear();
         _activeExecutionPlan = executionPlan;
         _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted", CraftingTargets(executionPlan));
         ResetCollectablesInterruptionState();
@@ -345,6 +346,11 @@ public static class CraftingGatherBridge
     private static bool InsteadOfGathering
         => _activeExecutionPlan?.BuyInsteadOfGathering == true;
 
+    private static readonly List<string> _gatheredInstead = new();
+
+    internal static IReadOnlyList<string> GatheredInstead
+        => _gatheredInstead;
+
     private static List<(uint ItemId, uint Target, int Missing)> ToBuy(bool insteadOfGathering)
         => PurchaseRules.BeforeGathering(_afterBuying!,
             PurchaseRules.Gathered(insteadOfGathering, id => PurchaseRules.GatheredWithoutWaiting(
@@ -399,6 +405,7 @@ public static class CraftingGatherBridge
         {
             ForkTrace.Info($"buy before gathering: no vendor GatherBuddy can walk to sells {string.Join(", ", Named(targets))}; gathering them instead");
             Communicator.PrintRun(PurchaseRules.GatheringInstead(targets.Count), tone: Communicator.Tone.Info);
+            _gatheredInstead.AddRange(targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} (no vendor GatherBuddy can walk to)"));
             FinishBuying();
             return;
         }
@@ -442,6 +449,7 @@ public static class CraftingGatherBridge
             case VendorBuyListManager.RunPurchaseOutcome.Finished when PurchaseRules.GatherInstead(InsteadOfGathering, ToBuy(false).Count):
                 Communicator.PrintRun(PurchaseRules.GatheringInstead(notBought.Count), tone: Communicator.Tone.Info);
                 ForkChat.List("Gathering instead:", notBought, 12, tone: Communicator.Tone.Info);
+                _gatheredInstead.AddRange(notBought);
                 FinishBuying();
                 return;
             case VendorBuyListManager.RunPurchaseOutcome.Finished:

@@ -1009,6 +1009,8 @@ public class CraftingQueueProcessor
     {
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
         AnnounceRunEnd();
+        if (CraftingGatherBridge.GatheredInstead is { Count: > 0 } gatheredInstead)
+            ForkChat.List($"{gatheredInstead.Count} item(s) could not be bought, so the run gathered them instead:", gatheredInstead, 12);
         if (SkippedRecipes.LockedThisRun.Count > 0)
             ForkChat.List($"Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet:", SkippedRecipes.LockedThisRun, 10,
                 tone: Communicator.Tone.Info);
