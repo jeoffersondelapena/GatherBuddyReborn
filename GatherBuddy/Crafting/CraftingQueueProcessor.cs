@@ -1788,11 +1788,13 @@ public class CraftingQueueProcessor
     public void PauseStoppedShort(string part, string? reason, IReadOnlyList<string> missing)
     {
         Communicator.PrintRun(TextRules.StoppedShort(part, reason));
-        ForkTrace.Info($"crafting run paused in its {(part == TextRules.BuyList ? "buying" : "gathering")} part: {reason}; still missing: "
-          + (missing.Count == 0 ? "nothing" : string.Join(", ", missing)));
+        var what = part switch { TextRules.BuyList => "buying", TextRules.Retainers => "retainer", _ => "gathering" };
+        ForkTrace.Info($"crafting run paused in its {what} part: {reason}; still missing: " + (missing.Count == 0 ? "nothing" : string.Join(", ", missing)));
         if (missing.Count > 0)
             ForkChat.List(part == TextRules.Retainers ? "Your retainers hold for this run:" : "Still missing:", missing, 12);
         Pause(TextRules.StoppedShortReason(part, reason));
+        if (part != TextRules.Gathering)
+            PauseHome.Request(what);
     }
 
     public void SkipBuying()
@@ -1827,7 +1829,7 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] {pauseReason}");
         Communicator.PrintRun("[GatherBuddy] Run paused: your bags are full. Make room, then press Resume in the Craft Status window (fork).");
         Pause(pauseReason);
-        FullBagsHome.Request("crafting");
+        PauseHome.Request("crafting");
     }
 
     private void MarkStillNeeded()

@@ -1,14 +1,13 @@
 using System;
 using Dalamud.Game.ClientState.Conditions;
-using GatherBuddy.Crafting;
 using GatherBuddy.Plugin;
 using GatherBuddy.Vulcan.Vendors;
 using Lumina.Excel.Sheets;
 
 namespace GatherBuddy.Helpers;
 
-// fork: a crafting run paused on full bags goes home to make room, as a finished run does, unless a summoning bell is in sight
-internal static class FullBagsHome
+// fork: a run waiting on the player waits at home, not among other players
+internal static class PauseHome
 {
     private const uint HousingInterior = 14;
 
@@ -20,20 +19,6 @@ internal static class FullBagsHome
         if (!GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
             return;
 
-        if (RetainerTaskExecutor.FindNearestBellForNavigation() != null)
-        {
-            ForkTrace.Info($"go home (full bags, {part}): a summoning bell is in sight, staying put");
-            Communicator.PrintRun("[GatherBuddy] Staying here: a summoning bell is in sight, so your retainers can take what you want to keep (fork).",
-                tone: Communicator.Tone.Info);
-            return;
-        }
-
-        if (Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(Dalamud.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId == HousingInterior)
-        {
-            ForkTrace.Info($"go home (full bags, {part}): already inside a home, staying put");
-            return;
-        }
-
         _part  = part;
         _since = DateTime.UtcNow;
     }
@@ -43,9 +28,16 @@ internal static class FullBagsHome
         if (_part == null)
             return;
 
+        if (Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(Dalamud.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId == HousingInterior)
+        {
+            ForkTrace.Info($"go home (paused while {_part}): already home");
+            _part = null;
+            return;
+        }
+
         if (DateTime.UtcNow - _since > TimeSpan.FromMinutes(1))
         {
-            ForkTrace.Info($"go home (full bags, {_part}): {Busy() ?? "nothing"} kept the character here for a minute, staying put");
+            ForkTrace.Info($"go home (paused while {_part}): {Busy() ?? "nothing"} kept the character here for a minute, staying put");
             _part = null;
             return;
         }
@@ -53,11 +45,11 @@ internal static class FullBagsHome
         if (Busy() != null)
             return;
 
-        if (HomeNavigationHelper.TryStartReturnHome(out var error, $"full bags, {_part}"))
+        if (HomeNavigationHelper.TryStartReturnHome(out var error, $"paused while {_part}"))
             _part = null;
         else if (error != null)
         {
-            ForkTrace.Info($"go home (full bags, {_part}): {error}");
+            ForkTrace.Info($"go home (paused while {_part}): {error}");
             _part = null;
         }
     }

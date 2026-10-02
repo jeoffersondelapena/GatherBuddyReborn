@@ -733,7 +733,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         GatherBuddy.Log.Debug($"[VendorBuyListManager] Deferring the remaining target for {entry.ItemName} until a future vendor-list run after a partial purchase: {message}");
     }
 
-    private static unsafe bool BagsFull()
+    internal static unsafe bool BagsFull()
     {
         var inventory = FFXIVClientStructs.FFXIV.Client.Game.InventoryManager.Instance();
         return inventory != null && inventory->GetEmptySlotsInBag() == 0;

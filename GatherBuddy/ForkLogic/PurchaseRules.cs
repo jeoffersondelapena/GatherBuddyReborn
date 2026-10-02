@@ -33,20 +33,5 @@ public static class PurchaseRules
 
     public const string StoppedWhileBuying = "[GatherBuddy] Run stopped while buying from vendors (fork).";
 
-    // a purchase first tops up the matching stacks already in the bags; only the rest takes free slots
-    public static int SlotsShort(IEnumerable<(int Missing, int StackSize, int Room)> buys, int freeSlots)
-    {
-        var needed = 0;
-        foreach (var (missing, stackSize, room) in buys)
-        {
-            var stack = Math.Max(stackSize, 1);
-            if (missing > room)
-                needed += (missing - room + stack - 1) / stack;
-        }
-
-        return Math.Max(0, needed - freeSlots);
-    }
-
-    public static string NoRoom(int slots)
-        => $"your bags need {slots} more free slot(s) for what it buys";
+    public const string BagsFull = "your bags are full";
 }
