@@ -569,6 +569,9 @@ public static class CraftingGatherBridge
     
     // fork: the gathering part's end is what takes a run home before crafting; with nothing to gather, crafting would start wherever the
     // retainer or buy part left the character
+    internal static void NoteSetOut()
+        => _queueProcessor?.NoteSetOut(true);
+
     private static void CraftAfterGoingHome()
     {
         if (_queueProcessor?.SetOut != true || !GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone || PauseHome.AtHome())

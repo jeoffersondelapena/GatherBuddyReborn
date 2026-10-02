@@ -1394,6 +1394,8 @@ namespace GatherBuddy.AutoGather
 
             WentHome = false;
             SetOut   = true;
+            if (CraftingGatherBridge.IsQueueMode)
+                CraftingGatherBridge.NoteSetOut();
             
             var isInSameCityPair = (territoryId is 128 or 129 && targetTerritoryId is 128 or 129)
                                 || (territoryId is 132 or 133 && targetTerritoryId is 132 or 133)

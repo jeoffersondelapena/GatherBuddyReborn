@@ -36,7 +36,7 @@ public class CraftingQueueProcessor
 
     private QueueState _currentState = QueueState.Idle;
 
-    // fork: whether this run went anywhere or crafted anything yet; until it has, a pause stays where the run was started
+    // fork: whether this run went anywhere (bell, vendor, gathering) or crafted anything yet; until it has, a pause stays where the run was started
     private bool _setOut;
 
     internal bool SetOut
