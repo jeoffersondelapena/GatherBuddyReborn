@@ -904,6 +904,9 @@ public class AutoHookPresetBuilder
         };
     }
 
+    // fork: lets a run notice when the bait its preset forces runs out, since AutoHook then stops casting
+    internal static (string Preset, uint Bait)? LastForcedBait { get; private set; }
+
     private static void ConfigureExtraCfg(AHCustomPresetConfig preset, uint? baitId)
     {
         if (baitId == null)
@@ -918,6 +921,7 @@ public class AutoHookPresetBuilder
             ForceBaitSwap = true,
             ForcedBaitId = baitId.Value
         };
+        LastForcedBait = (preset.PresetName, baitId.Value);
     }
     
     private static void ConfigureAutoCasts(AHCustomPresetConfig preset, Fish[] fishList, ConfigPreset? gbrPreset)

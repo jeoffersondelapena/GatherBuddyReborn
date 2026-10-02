@@ -16,6 +16,7 @@ public partial class AutoGather
     private GatherTarget? _currentAutoHookTarget;
     private string? _currentAutoHookPresetName;
     private string? _currentAutoHookTargetPresetName;
+    private uint? _currentAutoHookBait;
     private bool _isCurrentPresetUserOwned;
     private bool _isUsingAutoHookGlobalPreset;
     private bool? _autoHookPluginStateBeforeAutoGig;
@@ -91,6 +92,7 @@ public partial class AutoGather
                 _currentAutoHookTarget = target;
                 _currentAutoHookPresetName = AutoHookGlobalPresetDisplayName;
                 _currentAutoHookTargetPresetName = null;
+                _currentAutoHookBait = null;
                 _isCurrentPresetUserOwned = false;
                 _isUsingAutoHookGlobalPreset = true;
 
@@ -208,6 +210,10 @@ public partial class AutoGather
 
             _currentAutoHookTarget = target;
             _currentAutoHookPresetName = presetName;
+            _currentAutoHookBait = !isUserPreset && AutoHookPresetBuilder.LastForcedBait is { } forced
+             && forced.Preset.StartsWith(presetName.Replace("_Predators", ""), StringComparison.Ordinal)
+                    ? forced.Bait
+                    : null;
             _isCurrentPresetUserOwned = isUserPreset;
             _isUsingAutoHookGlobalPreset = false;
             
@@ -321,6 +327,7 @@ public partial class AutoGather
             _currentAutoHookTarget = null;
             _currentAutoHookPresetName = null;
             _currentAutoHookTargetPresetName = null;
+            _currentAutoHookBait = null;
             _isCurrentPresetUserOwned = false;
             _isUsingAutoHookGlobalPreset = false;
             _autoHookPluginStateBeforeAutoGig = null;

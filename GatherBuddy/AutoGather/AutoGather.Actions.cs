@@ -253,6 +253,9 @@ namespace GatherBuddy.AutoGather
         {
             LureSuccess = false;
 
+            if (OutOfBait(target))
+                return;
+
             SetupAutoHookForFishing(target);
 
             if (GatherBuddy.Config.AutoGatherConfig.UseAutoHook && AutoHook.Enabled)
@@ -290,6 +293,37 @@ namespace GatherBuddy.AutoGather
 
                 return;
             }
+        }
+
+        private const uint VersatileLureId = 29717;
+
+        // fork: AutoHook stops casting once its preset's bait is gone; a rebuilt preset takes what is held, as one built at the start would
+        private bool OutOfBait(GatherTarget target)
+        {
+            if (_currentAutoHookBait is not { } bait || GetInventoryItemCount(bait) > 0)
+                return false;
+
+            var fish = target.Item.Name[GatherBuddy.Language];
+            var own  = target.Fish?.InitialBait.Id ?? 0;
+            var next = own != 0 && GetInventoryItemCount(own) > 0 ? own
+                : GetInventoryItemCount(VersatileLureId) > 0      ? VersatileLureId
+                                                                  : 0u;
+            if (next != 0)
+            {
+                ForkTrace.Info($"fishing: out of {ForkTrace.ItemName(bait)} for {fish}, rebuilding the preset with {ForkTrace.ItemName(next)}");
+                Communicator.PrintRun($"[GatherBuddy] Out of {ForkTrace.ItemName(bait)}; fishing for {fish} goes on with {ForkTrace.ItemName(next)} (fork).",
+                    tone: Communicator.Tone.Info);
+                CleanupAutoHook();
+                return false;
+            }
+
+            var why = own != 0 && own != VersatileLureId
+                ? $"out of bait for {fish}: no {ForkTrace.ItemName(own)} or Versatile Lure left"
+                : $"out of bait for {fish}: no Versatile Lure left";
+            ForkTrace.Info($"fishing: {why}");
+            QueueQuitFishingTasks();
+            TaskManager.Enqueue(() => AbortAutoGather(why, why));
+            return true;
         }
 
         private bool NeedsIdenticalCast(GatherTarget target)
