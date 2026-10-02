@@ -408,6 +408,17 @@ public partial class AutoGatherListsManager
             SetActiveItems(true);
     }
 
+    public void SetSkipIfEnough(AutoGatherList list, bool value)
+    {
+        if (list.SkipIfEnough == value)
+            return;
+
+        list.SkipIfEnough = value;
+        Save();
+        if (list.Enabled && !list.Fallback && list.Items.Count > 0)
+            SetActiveItems(true);
+    }
+
     public void SetSkipLoggedItems(AutoGatherList list, bool value)
     {
         if (list.SkipLoggedItems == value)
@@ -429,7 +440,7 @@ public partial class AutoGatherListsManager
             if (!list.EnabledItems.TryGetValue(item, out var itemEnabled) || !itemEnabled)
                 continue;
             var totalCount = item.GetTotalCount(list.UsesRetainerInventory);
-            if (!list.Quantities.TryGetValue(item, out var quantity) || totalCount < quantity)
+            if (!list.Quantities.TryGetValue(item, out var quantity) || (list.SkipIfEnough ? totalCount < quantity : StillNeeded(item, quantity)))
                 continue;
 
             var index = list.Items.IndexOf(item);
@@ -477,7 +488,7 @@ public partial class AutoGatherListsManager
                     continue;
 
                 var totalCount = item.GetTotalCount(list.UsesRetainerInventory);
-                if (totalCount < quantity)
+                if (list.SkipIfEnough ? totalCount < quantity : StillNeeded(item, quantity))
                     continue;
 
                 GatherBuddy.Log.Debug(

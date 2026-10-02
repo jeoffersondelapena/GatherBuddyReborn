@@ -1421,9 +1421,10 @@ public class CraftingQueueProcessor
         {
             if (_retainerExecutor?.IsAborted == true)
             {
+                var bagsFull = _retainerExecutor.FullBags;
                 _retainerExecutor = null;
                 _currentState     = QueueState.NavigatingToRetainerBell;
-                PauseRetainersStoppedShort("the summoning bell or the retainer window did not respond");
+                PauseRetainersStoppedShort(bagsFull ? PurchaseRules.BagsFull : "the summoning bell or the retainer window did not respond");
             }
             else
             {

@@ -389,6 +389,9 @@ namespace GatherBuddy.AutoGather
 
         private KeepRules.Run? _keepRun;
 
+        internal KeepRules.Run? KeepRun
+            => _keepRun;
+
         public unsafe bool Enabled
         {
             get => _enabled;
@@ -403,6 +406,8 @@ namespace GatherBuddy.AutoGather
                         RunChat.End();
                     KeepMarks.EndRun(_keepRun);
                     _keepRun   = null;
+                    GatherRetainerStage.Reset();
+                    _plugin.AutoGatherListsManager.ForgetHeldAtStart();
                     AutoStatus = "Idle...";
                     TaskManager.Abort();
                     YesAlready.Unlock();
@@ -468,6 +473,7 @@ namespace GatherBuddy.AutoGather
         else
             {
                 // fork: Skip Logged Items is decided when the lists are refreshed, which may be a login or days ago
+                _plugin.AutoGatherListsManager.ForgetHeldAtStart();
                 _plugin.AutoGatherListsManager.SetActiveItems();
                 if (!ValidateActiveItemsPerception())
                 {
@@ -479,6 +485,7 @@ namespace GatherBuddy.AutoGather
                     RunChat.Begin(TextRules.KindLabel(TextRules.Gathering, RunLabel.GatherLists()));
                     _keepRun = KeepMarks.BeginRun(RunLabel.GatherLists(), "gathered",
                         _plugin.AutoGatherListsManager.ActiveItems.Select(i => (i.Item.ItemId, (int)Math.Min(i.Quantity, int.MaxValue))));
+                    GatherRetainerStage.Begin(_plugin.AutoGatherListsManager);
                 }
                 WentHome = true; //Prevents going home right after enabling auto-gather
                 if (AutoHook.Enabled)
@@ -607,6 +614,12 @@ namespace GatherBuddy.AutoGather
 
             if (!Enabled)
             {
+                return;
+            }
+
+            if (!Crafting.CraftingGatherBridge.IsQueueMode && GatherRetainerStage.Hold(out var retainerStatus))
+            {
+                AutoStatus = retainerStatus;
                 return;
             }
 

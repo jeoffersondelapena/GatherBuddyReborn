@@ -107,6 +107,8 @@ public class KeepRulesTests
         Assert.Contains("9 item(s) this run still needs, in orange", KeepRules.PauseSummary(9, 0));
         Assert.DoesNotContain("green", KeepRules.PauseSummary(9, 0));
         Assert.Contains("2 item(s) its list counts toward its targets, in green", KeepRules.PauseSummary(9, 2));
+        Assert.DoesNotContain("orange", KeepRules.PauseSummary(0, 4));
+        Assert.Contains("4 item(s) its list counts toward its targets, in green", KeepRules.PauseSummary(0, 4));
         Assert.StartsWith("[GatherBuddy] Marked in green in your bags: 12 item(s) this list counts toward its targets.", KeepRules.EndSummary(12));
         Assert.Contains("Clear Green Marks (fork)", KeepRules.EndSummary(12));
     }

@@ -153,6 +153,9 @@ public class TextRulesTests
         Assert.Equal("[GatherBuddy] Taking from your retainers for this crafting run stopped: no summoning bell could be reached (no path to it). "
           + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Craft Status window to go on without them (fork).",
             TextRules.StoppedShort(TextRules.Retainers, "no summoning bell could be reached (no path to it)"));
+        Assert.Equal("[GatherBuddy] Taking from your retainers for this gathering run stopped: your bags are full. "
+          + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Auto-Gather tab to go on without them (fork).",
+            TextRules.StoppedShort(TextRules.Retainers, "your bags are full", gatheringRun: true));
         Assert.Contains(TextRules.SkipRetainers, TextRules.StoppedShortReason(TextRules.Retainers, "x"));
     }
 }

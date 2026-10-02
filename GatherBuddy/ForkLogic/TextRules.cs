@@ -30,11 +30,11 @@ public static class TextRules
     public const string SkipBuying    = "Skip Buying (fork)";
     public const string SkipGathering = "Skip Gathering (fork)";
 
-    public static string StoppedShort(string part, string? why)
+    public static string StoppedShort(string part, string? why, bool gatheringRun = false)
     {
         var (what, resume, button, next) = Part(part);
-        return $"[GatherBuddy] {what} for this crafting run stopped: {Why(why)}. Fix the cause and press Resume to {resume}, or press {button} "
-          + $"in the Craft Status window to {next} (fork).";
+        return $"[GatherBuddy] {what} for this {(gatheringRun ? "gathering" : "crafting")} run stopped: {Why(why)}. Fix the cause and press Resume to "
+          + $"{resume}, or press {button} in the {(gatheringRun ? "Auto-Gather tab" : "Craft Status window")} to {next} (fork).";
     }
 
     public static string StoppedShortReason(string part, string? why)

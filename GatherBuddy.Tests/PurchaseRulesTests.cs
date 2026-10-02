@@ -37,16 +37,6 @@ public class PurchaseRulesTests
         => Assert.Empty(Buy(new() { [Hide] = 0 }));
 
     [Fact]
-    public void Buying_into_full_bags_counts_only_what_the_stacks_already_there_cannot_take()
-    {
-        Assert.Equal(0, PurchaseRules.SlotsShort([(10, 999, 989)], 0));
-        Assert.Equal(1, PurchaseRules.SlotsShort([(10, 999, 5)], 0));
-        Assert.Equal(0, PurchaseRules.SlotsShort([(10, 999, 5)], 1));
-        Assert.Equal(2, PurchaseRules.SlotsShort([(2, 999, 0), (1500, 999, 0)], 1));
-        Assert.Equal(0, PurchaseRules.SlotsShort([], 0));
-    }
-
-    [Fact]
     public void A_timed_node_or_a_windowed_fish_counts_as_not_gathered_so_a_vendor_that_sells_it_is_used()
     {
         Assert.True(PurchaseRules.GatheredWithoutWaiting(0, null, false));

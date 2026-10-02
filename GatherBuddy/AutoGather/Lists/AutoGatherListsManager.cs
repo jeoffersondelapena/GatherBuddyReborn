@@ -1,5 +1,6 @@
 using Dalamud.Plugin.Services;
 using GatherBuddy.Classes;
+using GatherBuddy.AutoGather.Extensions;
 using GatherBuddy.ForkLogic;
 using FFXIVClientStructs.FFXIV.Client.Game;
 using ElliLib.Filesystem;
@@ -70,7 +71,26 @@ public partial class AutoGatherListsManager : IDisposable
         => _fallbackItems.AsReadOnly();
 
     internal bool UsesRetainerInventory(IGatherable item)
-        => !_localInventoryActiveItems.Contains(item);
+        => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item) && !GatherRetainerStage.Skipped;
+
+    // fork: an on-top item's baseline is the bags alone, so retainer stock never counts for it
+    private readonly HashSet<IGatherable> _onTopActiveItems = [];
+    private readonly Dictionary<uint, int> _heldAtStart = new();
+
+    internal void ForgetHeldAtStart()
+        => _heldAtStart.Clear();
+
+    internal int? HeldAtStart(IGatherable item)
+    {
+        if (!_onTopActiveItems.Contains(item))
+            return null;
+        if (!_heldAtStart.TryGetValue(item.ItemId, out var held))
+            _heldAtStart[item.ItemId] = held = item.GetInventoryCount();
+        return held;
+    }
+
+    internal bool StillNeeded(IGatherable item, uint quantity)
+        => GatherRules.StillNeeded(item.GetTotalCount(UsesRetainerInventory(item)), HeldAtStart(item), quantity);
 
     public AutoGatherListsManager()
     {
@@ -247,18 +267,20 @@ public partial class AutoGatherListsManager : IDisposable
         _activeItems.Clear();
         _fallbackItems.Clear();
         _localInventoryActiveItems.Clear();
+        _onTopActiveItems.Clear();
 
         var items = _fileSystem.Root.GetAllDescendants(SortMode)
             .OfType<FileSystem<AutoGatherList>.Leaf>()
             .Select(leaf => leaf.Value)
             .Where(l => l.Enabled)
-            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems)))
+            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.SkipIfEnough)))
             .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && SkipAsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
-            .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory)));
+            .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory),
+                OnTop: x.Any(g => !g.SkipIfEnough)));
 
         ReportSkippedAsLogged();
-        foreach (var (item, quantity, fallback, usesRetainerInventory) in items)
+        foreach (var (item, quantity, fallback, usesRetainerInventory, onTop) in items)
         {
             if (fallback)
             {
@@ -268,6 +290,8 @@ public partial class AutoGatherListsManager : IDisposable
             {
                 if (!usesRetainerInventory)
                     _localInventoryActiveItems.Add(item);
+                if (onTop)
+                    _onTopActiveItems.Add(item);
                 _activeItems.Add((item, quantity));
             }
         }

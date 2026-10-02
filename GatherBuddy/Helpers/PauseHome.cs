@@ -62,6 +62,7 @@ internal static class PauseHome
             : c[ConditionFlag.Gathering] ? "a gathering node"
             : c[ConditionFlag.BetweenAreas] || c[ConditionFlag.BetweenAreas51] ? "a zone change"
             : c[ConditionFlag.OccupiedInQuestEvent] ? "a dialogue"
+            : c[ConditionFlag.OccupiedSummoningBell] ? "a summoning bell"
             : c[ConditionFlag.Casting] ? "a cast"
             : Dalamud.Objects.LocalPlayer == null ? "loading"
             : null;

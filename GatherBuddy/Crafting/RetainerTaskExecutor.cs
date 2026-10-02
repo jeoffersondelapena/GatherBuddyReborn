@@ -75,7 +75,10 @@ internal unsafe class RetainerTaskExecutor
     private bool _withdrawalPlanBuilt;
 
     public bool IsComplete => _phase == Phase.Complete;
-    public bool IsAborted  => _phase == Phase.Aborted;
+    public bool IsAborted  => _phase == Phase.Aborted || FullBags;
+
+    // fork: the game refuses a retrieve into full bags while the plan counts it as taken, so the withdrawal stops and says so
+    public bool FullBags { get; private set; }
 
     public RetainerTaskExecutor(
         Dictionary<uint, int> materials,
@@ -363,7 +366,7 @@ internal unsafe class RetainerTaskExecutor
 
     private CraftingTasks.TaskResult TickSelectRetainer()
     {
-        if (_retainerVisitIndex >= _retainersToVisit.Count)
+        if (FullBags || _retainerVisitIndex >= _retainersToVisit.Count)
         {
             _phase = Phase.CloseRetainerList;
             return CraftingTasks.TaskResult.Retry;
@@ -567,6 +570,16 @@ internal unsafe class RetainerTaskExecutor
 
         var target = _currentRetainerItems[_currentItemIndex];
         int wantQty = _lookingForHQ ? target.RemainingHQ : target.RemainingNQ;
+
+        var inventory = InventoryManager.Instance();
+        if (inventory != null && inventory->GetEmptySlotsInBag() == 0)
+        {
+            GatherBuddy.Log.Warning($"[RetainerTaskExecutor] Bags are full before retrieving item {target.ItemId}; closing the retainer windows");
+            FullBags = true;
+            ClearFoundSlot();
+            _phase = Phase.CloseRetainerInventory;
+            return CraftingTasks.TaskResult.Retry;
+        }
 
         if (_foundSlotRequiresQuantityInput)
         {

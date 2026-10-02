@@ -296,6 +296,12 @@ public partial class Interface
         ImGuiUtil.Checkbox("Skip Logged Items (fork)##list",
             "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
             list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
+        ImGui.SameLine();
+        ImGuiUtil.Checkbox("Skip If Already Have Enough (fork)##list",
+            "On: an item is done once your bags (and retainers, with Check Retainers on) hold its amount, as GatherBuddy always did; a run first takes "
+          + "what your retainers hold. Off: the run gathers the amount on top of what your bags held when it started, so a log list still gathers "
+          + "an item you have not logged though you hold some.",
+            list.SkipIfEnough, (v) => _plugin.AutoGatherListsManager.SetSkipIfEnough(list, v));
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
         {
             _autoGatherListsCache.ItemFilterList = list;

@@ -363,16 +363,6 @@ public static class CraftingGatherBridge
             return;
         }
 
-        var slotsShort = PurchaseRules.SlotsShort(targets.Select(t =>
-        {
-            var stackSize = BagRoom.StackSize(t.ItemId);
-            return (t.Missing, stackSize, BagRoom.Room(t.ItemId, stackSize));
-        }), BagRoom.FreeSlots());
-        if (slotsShort > 0)
-        {
-            StopBuyingShort(PurchaseRules.NoRoom(slotsShort), Named(targets));
-            return;
-        }
 
         var requests = targets.Select(t => new VendorBuyListManager.VendorTargetRequest(t.ItemId, t.Target)).ToList();
         var result   = GatherBuddy.VendorBuyListManager!.StartForRun(_activeExecutionPlan?.ListName ?? "crafting run", requests, out var noVendor);

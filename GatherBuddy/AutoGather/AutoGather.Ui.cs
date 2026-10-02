@@ -32,6 +32,18 @@ namespace GatherBuddy.AutoGather
             }
 
             ImGui.Text($"Status: {GatherBuddy.AutoGather.AutoStatus}");
+            if (!GatherRetainerStage.Paused)
+                return;
+
+            if (ImGui.Button("Resume##retainers"))
+                GatherRetainerStage.Resume();
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Try taking from your retainers again (fork).");
+            ImGui.SameLine();
+            if (ImGui.Button(ForkLogic.TextRules.SkipRetainers))
+                GatherRetainerStage.Skip();
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip("Go on without what your retainers hold: the run gathers the full amounts into your bags instead.");
         }
 
 

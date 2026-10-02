@@ -182,7 +182,7 @@ namespace GatherBuddy.AutoGather
                     return (true, crystal);
             }
 
-            if (target != null && target.Item.GetTotalCount(_plugin.AutoGatherListsManager.UsesRetainerInventory(gatherTarget.Item)) < gatherTarget.Quantity)
+            if (target != null && _plugin.AutoGatherListsManager.StillNeeded(target.Item, gatherTarget.Quantity))
             {
                 //The target item is found in the node, would not overcap and we need to gather more of it
                 return (!target.IsCollectable, target);
