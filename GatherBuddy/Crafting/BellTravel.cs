@@ -10,8 +10,6 @@ using Lumina.Excel.Sheets;
 
 namespace GatherBuddy.Crafting;
 
-// fork: goes to a bell the zone files place (BellRules) until one is in sight, then the usual walk takes over; a bell in the
-// same zone is walked to, since the vendor route would leave a housing ward and come back in through the city
 internal sealed class BellTravel
 {
     private static readonly TimeSpan ReadLimit   = TimeSpan.FromSeconds(30);
@@ -89,7 +87,7 @@ internal sealed class BellTravel
         var place = row?.PlaceName.ValueNullable?.Name.ExtractText() ?? $"zone {bell.Territory}";
         _target  = bell;
         _started = DateTime.UtcNow;
-        _walking = bell.Territory == territory;
+        _walking = bell.Territory == territory && IsHousingWard(row);
         if (_walking)
             VNavmesh.SimpleMove.PathfindAndMoveTo(bell.Position, false);
         else
@@ -97,7 +95,7 @@ internal sealed class BellTravel
                 VendorNpcLocationSource.Lgb));
 
         ForkTrace.Info($"bell travel: to {place} ({bell.Territory}) at {bell.Position}"
-          + (_walking ? ", same zone, walking" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
+          + (_walking ? ", same housing ward, walking" : bell.Territory == territory ? ", same zone" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
         Communicator.PrintRun($"[GatherBuddy] No summoning bell in sight for your retainers: going to the one in {place} (fork).", tone: Communicator.Tone.Info);
         return CraftingTasks.TaskResult.Retry;
     }
@@ -157,6 +155,9 @@ internal sealed class BellTravel
         VNavmesh.SimpleMove.PathfindAndMoveTo(target.Position, false);
         return CraftingTasks.TaskResult.Retry;
     }
+
+    private static bool IsHousingWard(TerritoryType? zone)
+        => zone?.TerritoryIntendedUse.RowId == 13 || zone?.Bg.ExtractText().Contains("/hou/") == true;
 
     private CraftingTasks.TaskResult Fail(string why)
     {
