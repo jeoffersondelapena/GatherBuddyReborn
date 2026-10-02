@@ -645,7 +645,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (vendor == null)
             return false;
 
-        location = VendorNpcLocationCache.TryGetFirstLocation(vendor.NpcId);
+        location = VendorNpcLocationCache.TryGetFirstLocation(vendor.NpcId) ?? WhereItStands(vendor);
         if (location == null)
         {
             var fallbackVendor = VendorPreferenceHelper.ResolvePreferredNpc(resolvedLiveEntry, supportedVendors)
@@ -654,11 +654,22 @@ public sealed partial class VendorBuyListManager : IDisposable
             if (fallbackVendor != null)
             {
                 vendor   = fallbackVendor;
-                location = VendorNpcLocationCache.TryGetFirstLocation(vendor.NpcId);
+                location = VendorNpcLocationCache.TryGetFirstLocation(vendor.NpcId) ?? WhereItStands(vendor);
             }
         }
 
         return true;
+    }
+
+    // fork: a vendor hired into a house is placed nowhere in the game data, but one in sight can still be walked to
+    private static VendorNpcLocation? WhereItStands(VendorNpc vendor)
+    {
+        if (!LiveNpcs.TryGet(vendor.NpcId, out var position))
+            return null;
+
+        var territory = Dalamud.ClientState.TerritoryType;
+        var map       = Dalamud.GameData.GetExcelSheet<Lumina.Excel.Sheets.TerritoryType>().GetRowOrDefault(territory)?.Map.RowId ?? 0;
+        return new VendorNpcLocation(vendor.NpcId, vendor.Name, territory, map, position, VendorNpcLocationSource.Unknown);
     }
 
     public static int GetCurrentInventoryAndArmoryCount(uint itemId)

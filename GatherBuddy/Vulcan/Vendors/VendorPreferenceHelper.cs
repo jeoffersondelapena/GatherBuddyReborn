@@ -63,9 +63,11 @@ public static class VendorPreferenceHelper
         if (!Dalamud.Framework.IsInFrameworkUpdateThread || Dalamud.Objects.LocalPlayer is not { } player)
             return null;
 
-        var places = npcs.Select(npc => VendorNpcLocationCache.TryGetFirstLocation(npc.NpcId) is { } at
-                ? new VendorRules.Place(at.TerritoryId, at.Position, TeleportCosts.ToZone(at.TerritoryId))
-                : (VendorRules.Place?)null)
+        var places = npcs.Select(npc => LiveNpcs.TryGet(npc.NpcId, out var here)
+                ? new VendorRules.Place(Dalamud.ClientState.TerritoryType, here, null)
+                : VendorNpcLocationCache.TryGetFirstLocation(npc.NpcId) is { } at
+                    ? new VendorRules.Place(at.TerritoryId, at.Position, TeleportCosts.ToZone(at.TerritoryId))
+                    : (VendorRules.Place?)null)
             .ToList();
         var pick = VendorRules.Pick(places, Dalamud.ClientState.TerritoryType, player.Position);
         return pick >= 0 ? npcs[pick] : null;

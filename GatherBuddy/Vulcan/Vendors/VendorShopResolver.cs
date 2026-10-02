@@ -434,6 +434,29 @@ public static class VendorShopResolver
                 else if (inclusionShopIds.Contains(id))AddToMap(inclusionMap, id, npc.RowId);
             }
         }
+
+        // fork: a vendor hired into a house reaches its shops through a PreHandler, which the loop above does not follow
+        var preHandlers = Dalamud.GameData.GetExcelSheet<PreHandler>();
+        var hired       = Dalamud.GameData.GetSubrowExcelSheet<HousingEmploymentNpcList>();
+        if (preHandlers != null && hired != null)
+        {
+            foreach (var npcId in hired.SelectMany(row => row).SelectMany(npc => new[] { npc.MaleENpcBase.RowId, npc.FemaleENpcBase.RowId }).Where(id => id != 0).Distinct())
+            {
+                if (!eNpcBaseSheet.TryGetRow(npcId, out var npc))
+                    continue;
+
+                foreach (var dataEntry in npc.ENpcData)
+                {
+                    if (!preHandlers.TryGetRow(dataEntry.RowId, out var preHandler))
+                        continue;
+
+                    var target = preHandler.Target.RowId;
+                    if (gilShopIds.Contains(target))          AddToMap(gilMap,     target, npcId);
+                    else if (specialShopIds.Contains(target)) AddToMap(specialMap, target, npcId);
+                }
+            }
+        }
+
         return (gilMap, specialMap, gcMap, inclusionMap);
     }
 
