@@ -1,5 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
+using GatherBuddy.ForkLogic;
+using GatherBuddy.Helpers;
+using GatherBuddy.Plugin;
 
 namespace GatherBuddy.Vulcan.Vendors;
 
@@ -54,6 +57,20 @@ public static class VendorPreferenceHelper
     public static VendorNpc? ResolvePreferredNpc(VendorBuyListEntry entry, IReadOnlyList<VendorNpc> npcs)
         => ResolvePreferredNpc(npcs, entry.ShopType, entry.ItemId, entry.CurrencyItemId, entry.Cost);
 
+    // fork: with no saved choice, a vendor in the player's zone, else the cheapest teleport, rather than the game data's first
+    private static VendorNpc? CheapestFirst(IReadOnlyList<VendorNpc> npcs)
+    {
+        if (!Dalamud.Framework.IsInFrameworkUpdateThread || Dalamud.Objects.LocalPlayer is not { } player)
+            return null;
+
+        var places = npcs.Select(npc => VendorNpcLocationCache.TryGetFirstLocation(npc.NpcId) is { } at
+                ? new VendorRules.Place(at.TerritoryId, at.Position, TeleportCosts.ToZone(at.TerritoryId))
+                : (VendorRules.Place?)null)
+            .ToList();
+        var pick = VendorRules.Pick(places, Dalamud.ClientState.TerritoryType, player.Position);
+        return pick >= 0 ? npcs[pick] : null;
+    }
+
     private static VendorNpc? ResolvePreferredNpc(IReadOnlyList<VendorNpc> npcs, VendorShopType shopType, uint itemId, uint currencyId, uint cost)
     {
         var selectableNpcs = VendorDevExclusions.GetSelectableNpcs(npcs, "resolving preferred vendors");
@@ -71,6 +88,8 @@ public static class VendorPreferenceHelper
         var preferredNpc   = selectableNpcs.FirstOrDefault(npc => npc.NpcId == preferredNpcId);
         if (preferredNpc != null)
             return preferredNpc;
+        if (CheapestFirst(selectableNpcs) is { } nearest)
+            return nearest;
         foreach (var npc in selectableNpcs)
             if (VendorNpcLocationCache.TryGetFirstLocation(npc.NpcId) != null)
                 return npc;

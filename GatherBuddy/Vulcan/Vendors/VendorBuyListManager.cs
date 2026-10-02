@@ -35,7 +35,8 @@ public sealed partial class VendorBuyListManager : IDisposable
         int PriorityBucket,
         float DistanceSquared,
         uint RouteAetheryteId,
-        int ListIndex);
+        int ListIndex,
+        int TeleportCost);
     private readonly record struct VendorOrderingContext(uint TerritoryId, Vector3 Position, bool HasPosition, uint RouteAetheryteId);
     private enum PurchaseContextResolutionResult
     {
@@ -1223,8 +1224,9 @@ public sealed partial class VendorBuyListManager : IDisposable
             var routeAetheryteId = VendorNavigator.GetPrimaryRouteAetheryteId(location.TerritoryId, location.Position);
             var priorityBucket = GetVendorOrderingPriorityBucket(orderingContext, location, routeAetheryteId);
             var distanceSquared = GetVendorOrderingDistanceSquared(orderingContext, location, priorityBucket);
+            var teleportCost = priorityBucket == 3 ? TeleportCosts.For(routeAetheryteId) ?? int.MaxValue : 0;
             var candidate = new PendingEntrySelection(entry, liveEntry, vendor, location, remainingQuantity, priorityBucket, distanceSquared,
-                routeAetheryteId, index);
+                routeAetheryteId, index, teleportCost);
             if (!bestSelection.HasValue || ComparePendingEntrySelections(candidate, bestSelection.Value) < 0)
                 bestSelection = candidate;
         }
@@ -1280,6 +1282,10 @@ public sealed partial class VendorBuyListManager : IDisposable
         var priorityComparison = left.PriorityBucket.CompareTo(right.PriorityBucket);
         if (priorityComparison != 0)
             return priorityComparison;
+
+        var costComparison = left.TeleportCost.CompareTo(right.TeleportCost);
+        if (costComparison != 0)
+            return costComparison;
 
         var distanceComparison = left.DistanceSquared.CompareTo(right.DistanceSquared);
         if (distanceComparison != 0)
