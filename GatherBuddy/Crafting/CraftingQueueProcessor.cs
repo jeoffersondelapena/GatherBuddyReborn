@@ -47,6 +47,7 @@ public class CraftingQueueProcessor
     private BellTravel? _bellTravel;
     private bool _bellTravelTried;
     private bool _retainersHeld;
+    private DateTime _nextNeededMark = DateTime.MinValue;
 
     private bool _paused = false;
     private bool _pausedDuringGather = false;
@@ -116,6 +117,7 @@ public class CraftingQueueProcessor
         _retainerBellNavigator = null;
         _bellTravel = null;
         _bellTravelTried = false;
+        _nextNeededMark = DateTime.MinValue;
         var hasRetainerWork = _retainerRestock && AllaganTools.Enabled
             && (MaterialTargets.Count > 0 || RetainerPrecraftTargets.Count > 0);
 
@@ -169,6 +171,7 @@ public class CraftingQueueProcessor
             return;
         }
 
+        MarkNeededFromBags();
         ProcessTasks();
         
         switch (_currentState)
@@ -1637,7 +1640,6 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Information("[CraftingQueueProcessor] Resuming queue");
         _paused = false;
         _pauseReason = string.Empty;
-        KeepMarks.ResumeRun(CraftingGatherBridge.KeepRun);
         YesAlready.Lock();
 
         if (_retainersHeld)
@@ -1829,6 +1831,15 @@ public class CraftingQueueProcessor
 
     private void MarkStillNeeded()
         => KeepMarks.MarkPause(CraftingGatherBridge.KeepRun, StillNeededFromBags());
+
+    private void MarkNeededFromBags()
+    {
+        if (DateTime.Now < _nextNeededMark || _currentState is QueueState.Idle or QueueState.Complete)
+            return;
+
+        _nextNeededMark = DateTime.Now.AddSeconds(2);
+        KeepMarks.MarkNeeded(CraftingGatherBridge.KeepRun, StillNeededFromBags());
+    }
 
     // What the plan counted as already owned: selling it while paused leaves a later recipe short.
     private unsafe List<(uint ItemId, int Count)> StillNeededFromBags()

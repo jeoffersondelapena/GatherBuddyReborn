@@ -88,13 +88,17 @@ public static unsafe class KeepMarks
             Communicator.PrintRun(KeepRules.PauseSummary(marked, made), TextRules.KindLabel(TextRules.KindOfVerb(r.Verb), r.Label), Communicator.Tone.Needed);
     }
 
-    public static void ResumeRun(KeepRules.Run? run)
+    // orange lasts the whole run, recounted as it goes; the end of the run clears it
+    public static void MarkNeeded(KeepRules.Run? run, IReadOnlyList<(uint ItemId, int Count)> needed)
     {
-        if (run is not { } r || !_needed.Values.Any(m => m.ByRun.ContainsKey(r)))
+        if (run is not { } r || !Open.ContainsKey(r))
             return;
 
-        _needed = KeepRules.WithoutRun(_needed, r);
-        ForkTrace.Info($"keep marks: run {r.Id} went on, its orange marks cleared");
+        var before = _needed.Values.Count(m => m.ByRun.ContainsKey(r));
+        _needed = KeepRules.Merge(_needed, needed, r);
+        var after = _needed.Values.Count(m => m.ByRun.ContainsKey(r));
+        if (after != before)
+            ForkTrace.Info($"keep marks: run {r.Id} needs {after} item(s) from the bags, marked orange");
     }
 
     public static void EndRun(KeepRules.Run? run)

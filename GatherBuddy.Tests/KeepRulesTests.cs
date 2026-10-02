@@ -104,7 +104,7 @@ public class KeepRulesTests
     [Fact]
     public void The_chat_lines_say_which_color_means_what()
     {
-        Assert.Contains("9 item(s) this run still needs, in orange", KeepRules.PauseSummary(9, 0));
+        Assert.Contains("9 item(s) this run still needs, in orange until the run ends", KeepRules.PauseSummary(9, 0));
         Assert.DoesNotContain("green", KeepRules.PauseSummary(9, 0));
         Assert.Contains("2 item(s) its list counts toward its targets, in green", KeepRules.PauseSummary(9, 2));
         Assert.StartsWith("[GatherBuddy] Marked in green in your bags: 12 item(s) this list counts toward its targets.", KeepRules.EndSummary(12));
