@@ -1666,7 +1666,6 @@ public partial class Interface
             new("Buy From Vendors Before Gathering vendor crafting run fork", ForkSettingsPage.DrawBuyBeforeGathering),
             new("Sprint When Walking sprint vnavmesh fork",               ForkSettingsPage.DrawSprint),
             new("Summoning Bell retainer bell per character fork", ForkSettingsPage.DrawBellZone),
-            new("Test Bell Travel summoning bell retainer fork", ForkSettingsPage.DrawBellTest),
             new("Repair All Gear After a Run After-Run Threshold mender fork",
                 layout =>
                 {

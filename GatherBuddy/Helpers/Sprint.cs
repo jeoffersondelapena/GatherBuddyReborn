@@ -36,6 +36,5 @@ internal static unsafe class Sprint
          || CraftingGatherBridge.IsQueueMode
          || GatherBuddy.VendorBuyListManager.IsBusy
          || GatherBuddy.VendorNavigator.IsActive
-         || BellTravelTest.Running
          || AfterRunRepair.Busy;
 }

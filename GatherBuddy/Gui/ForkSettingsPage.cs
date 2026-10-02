@@ -63,21 +63,6 @@ internal static class ForkSettingsPage
               + "Automatic picks the town that is cheapest to teleport to. Saved for the character that is logged in.");
     }
 
-    public static void DrawBellTest()
-    {
-        if (BellTravelTest.Running)
-        {
-            if (ImGui.Button("Stop Bell Travel Test (fork)"))
-                BellTravelTest.Stop();
-            return;
-        }
-
-        if (ImGuiUtil.DrawDisabledButton("Test Bell Travel (fork)", Vector2.Zero,
-                "Temporary: from where you stand, go to a summoning bell the way a crafting run does when your retainers hold something it needs, "
-              + "and stop at the bell. Chat says what it did.", CraftingGatherBridge.IsQueueMode))
-            BellTravelTest.Start();
-    }
-
     public static void DrawRepairAfterRun()
     {
         var config   = GatherBuddy.Config.VulcanRepairConfig;
