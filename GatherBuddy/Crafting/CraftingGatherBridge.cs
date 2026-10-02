@@ -361,9 +361,14 @@ public static class CraftingGatherBridge
             return;
         }
 
-        if (VendorBuyListManager.BagsFull())
+        var slotsShort = PurchaseRules.SlotsShort(targets.Select(t =>
         {
-            StopBuyingShort(PurchaseRules.BagsFull, Named(targets));
+            var stackSize = BagRoom.StackSize(t.ItemId);
+            return (t.Missing, stackSize, BagRoom.Room(t.ItemId, stackSize));
+        }), BagRoom.FreeSlots());
+        if (slotsShort > 0)
+        {
+            StopBuyingShort(PurchaseRules.NoRoom(slotsShort), Named(targets));
             return;
         }
 

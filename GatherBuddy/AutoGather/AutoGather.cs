@@ -2401,10 +2401,9 @@ namespace GatherBuddy.AutoGather
                 Task.Run(() => _soundHelper.StartHonkSoundTask(3));
             CloseGatheringAddons();
             var stoppedShort = CraftingGatherBridge.IsQueueMode && !CraftingGatherBridge.IsGatheringComplete();
-            // fork: full bags wait for the player, so the character goes straight home instead of a mender first
             var bagsFull = FreeInventorySlots == 0;
-            if (!bagsFull && AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
-                AfterRunRepair.Start("gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
+            if (AfterRunRepair.Wanted(CraftingGatherBridge.IsQueueMode))
+                AfterRunRepair.Start(bagsFull ? "gathering stopped, bags full" : "gathering done", GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone);
             else if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
                 EnqueueActionWithDelay(() => { GoHome(bagsFull ? "bags full" : stoppedShort ? "gathering stopped short" : "done"); });
             TaskManager.Enqueue(() =>
