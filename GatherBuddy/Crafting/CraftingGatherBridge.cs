@@ -633,6 +633,9 @@ public static class CraftingGatherBridge
 
     public static bool IsGatheringComplete()
     {
+        // fork: the buy step runs before any gathering list exists, so without this the run read "no list" as "gathered" and crafted mid-trip
+        if (IsBuying)
+            return false;
         if (_gatherList == null)
             return _waitingForGatherComplete;
 
