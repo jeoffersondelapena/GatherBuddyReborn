@@ -44,6 +44,8 @@ public class CraftingQueueProcessor
     private bool _retainerRestock = false;
     private RetainerTaskExecutor? _retainerExecutor = null;
     private RetainerBellNavigator? _retainerBellNavigator = null;
+    private BellTravel? _bellTravel;
+    private bool _bellTravelTried;
 
     private bool _paused = false;
     private bool _pausedDuringGather = false;
@@ -111,6 +113,8 @@ public class CraftingQueueProcessor
         _retainerRestock = executionPlan.RetainerRestock;
         _retainerExecutor = null;
         _retainerBellNavigator = null;
+        _bellTravel = null;
+        _bellTravelTried = false;
         var hasRetainerWork = _retainerRestock && AllaganTools.Enabled
             && (MaterialTargets.Count > 0 || RetainerPrecraftTargets.Count > 0);
 
@@ -1254,7 +1258,30 @@ public class CraftingQueueProcessor
 
     private void QueueRetainerBellNavigationTasks()
     {
+        if (RetainerWithdrawalNeeded() == false)
+        {
+            ForkTrace.Info("retainer stage: Allagan Tools shows nothing this run needs in your retainers, so no bell");
+            TransitionFromRetainerWithdrawComplete();
+            return;
+        }
+
         var bell = RetainerTaskExecutor.FindNearestBellForNavigation();
+        if (bell == null && !_bellTravelTried)
+        {
+            _bellTravelTried = true;
+            var travel = _bellTravel = new BellTravel();
+            _tasks.Add(travel.Tick);
+            _tasks.Add(() =>
+            {
+                _bellTravel = null;
+                if (travel.Failure != null)
+                    Communicator.PrintRun($"[GatherBuddy] Could not get to a summoning bell: {travel.Failure}. This run goes on without your retainers (fork).");
+                QueueRetainerBellNavigationTasks();
+                return CraftingTasks.TaskResult.Done;
+            });
+            return;
+        }
+
         if (bell == null)
         {
             GatherBuddy.Log.Warning("[CraftingQueueProcessor] No retainer bell found in current zone, skipping navigation");
@@ -1300,6 +1327,14 @@ public class CraftingQueueProcessor
         RefreshRetainerRestockPlanForWithdrawal();
         GatherBuddy.Log.Debug($"[CraftingQueueProcessor] Building retainer withdrawal plan ({RetainerPrecraftTargets.Count} craftable pull target(s), {MaterialTargets.Count} leaf material(s))");
 
+        var (combinedItems, qualityTargets) = RetainerWithdrawalTargets();
+        _retainerExecutor = new RetainerTaskExecutor(combinedItems, qualityTargets, RetainerPrecraftTargets.Keys.ToHashSet());
+
+        QueueRetainerWithdrawalExecutionTasks();
+    }
+
+    private (Dictionary<uint, int> Items, Dictionary<uint, IngredientQualityDemand> Quality) RetainerWithdrawalTargets()
+    {
         var combinedItems = new Dictionary<uint, int>(MaterialTargets);
         foreach (var (k, v) in RetainerPrecraftTargets)
         {
@@ -1307,10 +1342,15 @@ public class CraftingQueueProcessor
             else combinedItems[k] = v;
         }
 
-        var qualityTargets = _executionPlan?.BuildQualityTargetsForItems(combinedItems) ?? new Dictionary<uint, IngredientQualityDemand>();
-        _retainerExecutor = new RetainerTaskExecutor(combinedItems, qualityTargets, RetainerPrecraftTargets.Keys.ToHashSet());
+        return (combinedItems, _executionPlan?.BuildQualityTargetsForItems(combinedItems) ?? new Dictionary<uint, IngredientQualityDemand>());
+    }
 
-        QueueRetainerWithdrawalExecutionTasks();
+    // fork: answered from Allagan Tools' record before any bell, on the plan made at Start (planning again repeats its chat lines);
+    // null when the record knows no retainers, and the bell decides as before
+    private bool? RetainerWithdrawalNeeded()
+    {
+        var (items, quality) = RetainerWithdrawalTargets();
+        return RetainerTaskExecutor.WouldTakeAnything(items, quality, RetainerPrecraftTargets.Keys.ToHashSet());
     }
 
     private void RefreshRetainerRestockPlanForWithdrawal()
@@ -1535,6 +1575,9 @@ public class CraftingQueueProcessor
             GatherBuddy.Log.Debug("[CraftingQueueProcessor] Pausing retainer bell navigation");
             _retainerBellNavigator?.Stop();
             _retainerBellNavigator = null;
+            _bellTravel?.Stop();
+            _bellTravel = null;
+            _bellTravelTried = false;
         }
         _tasks.Clear();
         YesAlready.Unlock();
@@ -1623,6 +1666,8 @@ public class CraftingQueueProcessor
         _tasks.Clear();
         _retainerBellNavigator?.Stop();
         _retainerBellNavigator = null;
+        _bellTravel?.Stop();
+        _bellTravel = null;
         YesAlready.Unlock();
         
         GatherBuddy.AutoGather.Enabled = false;
@@ -1671,6 +1716,8 @@ public class CraftingQueueProcessor
         _retainerExecutor = null;
         _retainerBellNavigator?.Stop();
         _retainerBellNavigator = null;
+        _bellTravel?.Stop();
+        _bellTravel = null;
     }
     
     public void TestRepair()

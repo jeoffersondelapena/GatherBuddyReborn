@@ -87,28 +87,26 @@ internal unsafe class RetainerTaskExecutor
         _precraftItemIds = precraftItemIds ?? [];
     }
 
-    private bool BuildWithdrawalPlan()
+    // fork: from Allagan Tools' record alone, before any bell; null when it knows no retainers
+    internal static bool? WouldTakeAnything(Dictionary<uint, int> materials, Dictionary<uint, IngredientQualityDemand> qualityTargets,
+        HashSet<uint> precraftItemIds)
     {
-        _retainersToVisit.Clear();
-        var perRetainerPlan = new Dictionary<ulong, Dictionary<uint, (int NeedHQ, int NeedNQ)>>();
         var retainerIds = RetainerItemQuery.GetOwnedRetainerIds();
-        if (retainerIds.Count == 0)
-            retainerIds = GetRetainerIdsFromManager();
+        return retainerIds.Count == 0 ? null : PlanPerRetainer(materials, qualityTargets, precraftItemIds, retainerIds).Count > 0;
+    }
 
-        if (retainerIds.Count == 0)
+    private static Dictionary<ulong, Dictionary<uint, (int NeedHQ, int NeedNQ)>> PlanPerRetainer(Dictionary<uint, int> materials,
+        Dictionary<uint, IngredientQualityDemand> qualityTargets, HashSet<uint> precraftItemIds, HashSet<ulong> retainerIds)
+    {
+        var perRetainerPlan = new Dictionary<ulong, Dictionary<uint, (int NeedHQ, int NeedNQ)>>();
+        foreach (var (itemId, totalNeeded) in materials)
         {
-            GatherBuddy.Log.Debug("[RetainerTaskExecutor] No retainer ids available to build withdrawal plan yet");
-            return false;
-        }
-
-        foreach (var (itemId, totalNeeded) in _materials)
-        {
-            var demand = _qualityTargets.TryGetValue(itemId, out var qualityDemand)
+            var demand = qualityTargets.TryGetValue(itemId, out var qualityDemand)
                 ? qualityDemand
                 : IngredientQualityDemand.FromPreferHQ(totalNeeded);
 
             IngredientQualityDemand remainingDemand;
-            if (_precraftItemIds.Contains(itemId))
+            if (precraftItemIds.Contains(itemId))
             {
                 GatherBuddy.Log.Debug($"[RetainerTaskExecutor] Precraft item {itemId}: pulling exact retainer amount {demand.Total} (inventory already accounted for in plan)");
                 remainingDemand = demand;
@@ -159,6 +157,24 @@ internal unsafe class RetainerTaskExecutor
                     break;
             }
         }
+
+        return perRetainerPlan;
+    }
+
+    private bool BuildWithdrawalPlan()
+    {
+        _retainersToVisit.Clear();
+        var retainerIds = RetainerItemQuery.GetOwnedRetainerIds();
+        if (retainerIds.Count == 0)
+            retainerIds = GetRetainerIdsFromManager();
+
+        if (retainerIds.Count == 0)
+        {
+            GatherBuddy.Log.Debug("[RetainerTaskExecutor] No retainer ids available to build withdrawal plan yet");
+            return false;
+        }
+
+        var perRetainerPlan = PlanPerRetainer(_materials, _qualityTargets, _precraftItemIds, retainerIds);
 
         _perRetainerPlan = perRetainerPlan;
         if (_perRetainerPlan.Count == 0)

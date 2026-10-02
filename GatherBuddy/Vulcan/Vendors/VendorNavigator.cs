@@ -2685,7 +2685,7 @@ public class VendorNavigator
     }
 
     // Port of Lifestream DataStore.GetTinyAetheryte position logic.
-    private static Vector2? GetAetheryteXZ(Aetheryte shard)
+    internal static Vector2? GetAetheryteXZ(Aetheryte shard)
     {
 
         var mapSheet    = Dalamud.GameData.GetExcelSheet<Map>();
