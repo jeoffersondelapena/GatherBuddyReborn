@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Plugin;
+using GatherBuddy.Vulcan.Vendors;
 using Lumina.Excel.Sheets;
 
 namespace GatherBuddy.Helpers;
@@ -20,6 +22,10 @@ internal static class TeleportCosts
         Refresh();
         return aetheryteId != 0 && Costs.TryGetValue(aetheryteId, out var gil) ? gil : null;
     }
+
+    public static TripRules.Trip? Trip(uint territory, Func<int?> teleport)
+        => VendorNavigator.ByAethernet(Dalamud.ClientState.TerritoryType, territory) ? TripRules.Aethernet
+         : teleport() is { } gil ? new TripRules.Trip(gil, true) : null;
 
     // the cheapest of the zone's own aetherytes, else of the main aetheryte whose aethernet reaches the zone (Steps of Thal, Old Gridania)
     public static int? ToZone(uint territory)

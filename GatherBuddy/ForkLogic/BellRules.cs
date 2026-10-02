@@ -5,19 +5,18 @@ using System.Numerics;
 
 namespace GatherBuddy.ForkLogic;
 
-// a far town never wins on a short walk alone: the zone the run is in comes first, then the cheapest teleport
+// a far town never wins on a short walk alone: the zone the run is in comes first, then the cheapest trip (null: out of reach)
 public static class BellRules
 {
     public readonly record struct Bell(uint Territory, Vector3 Position);
 
     public const uint Automatic = 0;
 
-    // cost is null for a bell the character cannot teleport to
-    public static Bell? Pick(uint territory, Vector3 position, IEnumerable<Bell> bells, Func<Bell, int?> cost, uint chosen = Automatic)
+    public static Bell? Pick(uint territory, Vector3 position, IEnumerable<Bell> bells, Func<Bell, TripRules.Trip?> trip, uint chosen = Automatic)
     {
         Bell? here = null, mine = null, town = null;
         var nearest = float.MaxValue;
-        var cheapest = int.MaxValue;
+        TripRules.Trip cheapest = default;
         foreach (var bell in bells)
         {
             if (bell.Territory == territory)
@@ -31,7 +30,7 @@ public static class BellRules
                 continue;
             }
 
-            if (cost(bell) is not { } gil)
+            if (trip(bell) is not { } way)
                 continue;
 
             if (bell.Territory == chosen)
@@ -40,9 +39,9 @@ public static class BellRules
                 continue;
             }
 
-            if (gil < cheapest || gil == cheapest && town is { } held && bell.Territory < held.Territory)
+            if (town is not { } held || TripRules.Cheaper(way, cheapest) || !TripRules.Cheaper(cheapest, way) && bell.Territory < held.Territory)
             {
-                cheapest = gil;
+                cheapest = way;
                 town     = bell;
             }
         }
@@ -50,7 +49,7 @@ public static class BellRules
         return here ?? mine ?? town;
     }
 
-    public static Bell? NearestTo(Vector2 point, IEnumerable<Bell> bells, uint territory)
+    public static Bell? NearestTo(IReadOnlyCollection<Vector2> landing, IEnumerable<Bell> bells, uint territory)
     {
         Bell? best = null;
         var nearest = float.MaxValue;
@@ -59,11 +58,14 @@ public static class BellRules
             if (bell.Territory != territory)
                 continue;
 
-            var distance = Vector2.DistanceSquared(new Vector2(bell.Position.X, bell.Position.Z), point);
-            if (distance < nearest)
+            foreach (var point in landing)
             {
-                nearest = distance;
-                best    = bell;
+                var distance = Vector2.DistanceSquared(new Vector2(bell.Position.X, bell.Position.Z), point);
+                if (distance < nearest)
+                {
+                    nearest = distance;
+                    best    = bell;
+                }
             }
         }
 

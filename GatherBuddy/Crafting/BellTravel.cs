@@ -61,12 +61,15 @@ internal sealed class BellTravel
             return aetheryte;
         }
 
-        var player = Dalamud.Objects.LocalPlayer?.Position ?? Vector3.Zero;
-        if (BellRules.Pick(territory, player, bells, b => TeleportCosts.For(Route(b)), chosen) is not { } bell)
-            return Fail("none of the towns with a bell is one you can teleport to");
+        TripRules.Trip? Trip(BellRules.Bell bell)
+            => TeleportCosts.Trip(bell.Territory, () => TeleportCosts.For(Route(bell)));
 
-        if (bell.Territory != territory && Arrival(Route(bell), bell.Territory) is { } arrival)
-            bell = BellRules.NearestTo(arrival, bells, bell.Territory) ?? bell;
+        var player = Dalamud.Objects.LocalPlayer?.Position ?? Vector3.Zero;
+        if (BellRules.Pick(territory, player, bells, Trip, chosen) is not { } bell)
+            return Fail("none of the towns with a bell is one you can get to");
+
+        if (bell.Territory != territory && VendorNavigator.LandingPoints(territory, bell.Territory) is { Count: > 0 } landing)
+            bell = BellRules.NearestTo(landing, bells, bell.Territory) ?? bell;
 
         var row   = Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(bell.Territory);
         var place = row?.PlaceName.ValueNullable?.Name.ExtractText() ?? $"zone {bell.Territory}";
@@ -76,7 +79,7 @@ internal sealed class BellTravel
             VendorNpcLocationSource.Lgb));
 
         ForkTrace.Info($"bell travel: to {place} ({bell.Territory}) at {bell.Position}"
-          + (bell.Territory == territory ? ", same zone" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
+          + (bell.Territory == territory ? ", same zone" : Trip(bell) is { Teleport: false } ? ", by aethernet" : $", teleport {TeleportCosts.For(Route(bell))} gil") + (chosen == BellRules.Automatic ? "" : $", chosen zone {chosen}"));
         Communicator.PrintRun($"[GatherBuddy] No summoning bell in sight for your retainers: going to the one in {place} (fork).", tone: Communicator.Tone.Info);
         return CraftingTasks.TaskResult.Retry;
     }
@@ -96,10 +99,4 @@ internal sealed class BellTravel
         ForkTrace.Info($"bell travel: gave up, {why}");
         return CraftingTasks.TaskResult.Done;
     }
-
-    // where a teleport to this aetheryte lands, when that is in the bell's own zone
-    private static Vector2? Arrival(uint aetheryteId, uint territory)
-        => Dalamud.GameData.GetExcelSheet<Aetheryte>().GetRowOrDefault(aetheryteId) is { } aetheryte && aetheryte.Territory.RowId == territory
-            ? VendorNavigator.GetAetheryteXZ(aetheryte)
-            : null;
 }

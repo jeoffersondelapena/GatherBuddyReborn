@@ -16,6 +16,7 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using GatherBuddy.Automation;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.AutoGather.Helpers;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
@@ -763,11 +764,23 @@ public class VendorNavigator
             return;
         }
 
+        var currentTerritoryId = (uint)Dalamud.ClientState.TerritoryType;
+        var shardInView        = TryGetNearestAethernetSource(out _, out _, out _);
         if (aethernetName != null
          && parentTerritoryId != 0
-         && Dalamud.ClientState.TerritoryType == parentTerritoryId)
+         && currentTerritoryId == parentTerritoryId
+         && shardInView)
         {
             QueueLocalAethernetTeleport(aethernetName, parentTerritoryId);
+            return;
+        }
+
+        if (aethernetName == null && !requiresHousingEntry && !requiresFirmamentEntry && shardInView
+         && ByAethernet(currentTerritoryId, _target.TerritoryId)
+         && TryFindNearestShardInTerritory(_target.TerritoryId, _target.Position, out var cityShardName, out _, out _))
+        {
+            GatherBuddy.Log.Debug($"[VendorNavigator] Same city: aethernet to '{cityShardName}' rather than a teleport to aetheryte {aetheryteId}");
+            QueueLocalAethernetTeleport(cityShardName, currentTerritoryId);
             return;
         }
 
@@ -942,8 +955,9 @@ public class VendorNavigator
 
     private bool WalkIsShorter(Vector3 position, float shardDistanceToTarget)
         => _target != null
-         && TryGetNearestAethernetSource(out _, out var sourceDistance, out _)
-         && GetHorizontalDistance(position, _target.Position) <= sourceDistance + shardDistanceToTarget + LocalAethernetEstimatedInteractionCost;
+         && TripRules.WalkInstead(GetHorizontalDistance(position, _target.Position),
+                TryGetNearestAethernetSource(out _, out var sourceDistance, out _) ? sourceDistance : null,
+                shardDistanceToTarget, LocalAethernetEstimatedInteractionCost);
 
     private bool HandlePendingHousingShardTeleport()
     {
@@ -952,8 +966,10 @@ public class VendorNavigator
 
         if (!TryGetNearestAethernetSource(out var sourceAetheryte, out var sourceHorizontalDistance, out var sourceDistance) || sourceAetheryte == null)
         {
-            LogHousingEntryStatus("[VendorNavigator] Waiting for a residential aetheryte or shard source before housing aethernet teleport");
-            return true;
+            GatherBuddy.Log.Debug($"[VendorNavigator] No aethernet shard in view for the ward shard hop to '{_pendingHousingShardTeleportName}'; walking instead");
+            _pendingHousingShardTeleportName     = null;
+            _pendingHousingShardDistanceToVendor = 0f;
+            return false;
         }
 
         var interactionDistance = GetAethernetSourceInteractionDistance(sourceAetheryte);
@@ -1019,7 +1035,8 @@ public class VendorNavigator
 
         if (!TryGetNearestAethernetSource(out var sourceAetheryte, out var sourceHorizontalDistance, out var sourceDistance) || sourceAetheryte == null)
         {
-            LogHousingEntryStatus("[VendorNavigator] Waiting for a city aetheryte or shard source before local aethernet teleport");
+            GatherBuddy.Log.Debug($"[VendorNavigator] No aethernet shard in view for the aethernet to '{_pendingAethernetName}'; going on without it");
+            DropAethernetHop();
             return true;
         }
 
@@ -1093,10 +1110,9 @@ public class VendorNavigator
         if (shardDistanceToPlayer <= LocalAethernetDestinationProximityThreshold)
             return false;
 
-        var sourceDistance         = AetheryteSourceInteractionDistance;
-        var sourceApproachDistance = AetheryteSourceInteractionDistance;
-        if (TryGetNearestAethernetSource(out var sourceAetheryte, out var sourceHorizontalDistance, out sourceDistance) && sourceAetheryte != null)
-            sourceApproachDistance = GetAethernetSourceApproachDistance(sourceAetheryte, sourceHorizontalDistance, sourceDistance);
+        if (!TryGetNearestAethernetSource(out var sourceAetheryte, out var sourceHorizontalDistance, out var sourceDistance) || sourceAetheryte == null)
+            return false;
+        var sourceApproachDistance = GetAethernetSourceApproachDistance(sourceAetheryte, sourceHorizontalDistance, sourceDistance);
         var alreadyAtSource = sourceApproachDistance <= 2f;
         var estimatedInteractionCost = alreadyAtSource ? 0f : LocalAethernetEstimatedInteractionCost;
         var requiredSavings          = alreadyAtSource ? 0f : LocalAethernetMinimumSavings;
@@ -1108,6 +1124,24 @@ public class VendorNavigator
         QueueLocalAethernetTeleport(shardName, _target.TerritoryId);
         GatherBuddy.Log.Debug($"[VendorNavigator] Using local aethernet to '{shardName}' for {_target.NpcName}: direct={directDistanceToVendor:F1}m, sourceApproach={sourceApproachDistance:F1}m, post-teleport={shardDistanceToVendor:F1}m, interactionCost={estimatedInteractionCost:F1}m, estimatedSavings={estimatedSavings:F1}m");
         return true;
+    }
+
+    // fork: within the target's zone the rest is a walk; from elsewhere the trip planner runs again and, with no shard in view, teleports
+    private void DropAethernetHop()
+    {
+        _pendingAethernetName                = null;
+        _pendingAethernetNeedsSourceApproach = false;
+        _pendingAethernetParentTerritoryId   = 0;
+        if (IsEquivalentTerritory(Dalamud.ClientState.TerritoryType, _target!.TerritoryId))
+        {
+            _state          = State.WaitingForZoneLoad;
+            _stateStartTime = DateTime.UtcNow - TimeSpan.FromSeconds(ZoneLoadWait);
+            return;
+        }
+
+        _teleportAttempted = false;
+        _state             = State.Teleporting;
+        _stateStartTime    = DateTime.UtcNow;
     }
 
     private void QueueLocalAethernetTeleport(string aethernetName, uint parentTerritoryId)
@@ -2628,6 +2662,57 @@ public class VendorNavigator
 
     internal static uint GetPrimaryRouteAetheryteId(uint targetTerritoryId, Vector3 npcPosition)
         => FindBestRoute(targetTerritoryId, npcPosition, false).AetheryteId;
+
+    private static readonly Dictionary<uint, HashSet<int>> AethernetGroupsByTerritory = new();
+
+    internal static bool ByAethernet(uint fromTerritoryId, uint toTerritoryId)
+    {
+        if (fromTerritoryId == toTerritoryId || TryGetHousingDistrict(fromTerritoryId, out _) || TryGetHousingDistrict(toTerritoryId, out _)
+         || fromTerritoryId == FirmamentTerritoryId || toTerritoryId == FirmamentTerritoryId)
+            return false;
+
+        var from = AethernetGroups(fromTerritoryId);
+        return AethernetGroups(toTerritoryId).Any(from.Contains);
+    }
+
+    private static HashSet<int> AethernetGroups(uint territoryId)
+    {
+        if (!AethernetGroupsByTerritory.TryGetValue(territoryId, out var groups))
+            AethernetGroupsByTerritory[territoryId] = groups = Dalamud.GameData.GetExcelSheet<Aetheryte>()
+                .Where(a => a.Territory.RowId == territoryId && a.AethernetGroup != 0 && (a.IsAetheryte || a.AethernetName.RowId != 0))
+                .Select(a => (int)a.AethernetGroup)
+                .ToHashSet();
+        return groups;
+    }
+
+    // fork: where a trip into the zone ends, as this navigator travels: a ward's entrance, a shard when the aethernet carries the
+    // character in, else the zone's own aetheryte
+    internal static List<Vector2> LandingPoints(uint fromTerritoryId, uint territoryId)
+    {
+        if (TryGetHousingDistrict(territoryId, out var district))
+            return HousingEntrance(district) is { } entrance ? [entrance] : [];
+
+        var sheet        = Dalamud.GameData.GetExcelSheet<Aetheryte>();
+        var byAethernet  = ByAethernet(fromTerritoryId, territoryId) || !sheet.Any(a => a.IsAetheryte && a.Territory.RowId == territoryId);
+        return sheet.Where(a => a.Territory.RowId == territoryId && (byAethernet ? !a.IsAetheryte && a.AethernetName.RowId != 0 : a.IsAetheryte))
+            .Select(GetAetheryteXZ)
+            .OfType<Vector2>()
+            .ToList();
+    }
+
+    private static Vector2? HousingEntrance(HousingDistrict district)
+    {
+        var housingAethernetSheet = Dalamud.GameData.GetExcelSheet<HousingAethernet>();
+        var mapSheet              = Dalamud.GameData.GetExcelSheet<Map>();
+        foreach (var territoryCandidate in GetHousingDistrictTerritoryCandidates(district))
+        {
+            var first = housingAethernetSheet.Where(a => a.TerritoryType.RowId == territoryCandidate).OrderBy(a => a.Order).FirstOrDefault();
+            if (first.RowId != 0 && GetHousingAetheryteXZ(first, territoryCandidate, mapSheet) is { } entrance)
+                return entrance;
+        }
+
+        return null;
+    }
     private static (uint AetheryteId, string? AethernetName, bool RequiresHousingEntry, bool RequiresFirmamentEntry) FindBestRoute(uint targetTerritoryId, Vector3 npcPosition,
         bool logRouteDiagnostics)
     {

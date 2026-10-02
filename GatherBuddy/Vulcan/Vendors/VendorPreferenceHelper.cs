@@ -66,7 +66,7 @@ public static class VendorPreferenceHelper
         var places = npcs.Select(npc => LiveNpcs.TryGet(npc.NpcId, out var here)
                 ? new VendorRules.Place(Dalamud.ClientState.TerritoryType, here, null)
                 : VendorNpcLocationCache.TryGetFirstLocation(npc.NpcId) is { } at
-                    ? new VendorRules.Place(at.TerritoryId, at.Position, TeleportCosts.ToZone(at.TerritoryId))
+                    ? new VendorRules.Place(at.TerritoryId, at.Position, TeleportCosts.Trip(at.TerritoryId, () => TeleportCosts.ToZone(at.TerritoryId)))
                     : (VendorRules.Place?)null)
             .ToList();
         var pick = VendorRules.Pick(places, Dalamud.ClientState.TerritoryType, player.Position);
