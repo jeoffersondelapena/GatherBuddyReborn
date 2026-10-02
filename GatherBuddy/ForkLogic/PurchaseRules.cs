@@ -28,14 +28,8 @@ public static class PurchaseRules
 
     public const string AllBought = "[GatherBuddy] Bought everything this run needs from vendors (fork).";
 
-    public static string NotBoughtHeader(int count)
-        => $"Could not buy {count} item(s); the run goes on and makes what it can without them:";
-
-    public static string CouldNotBuy(string why)
-        => $"[GatherBuddy] Could not buy from vendors: {why.TrimEnd('.')}. The run goes on without them (fork).";
-
-    public const string BagsFull = "[GatherBuddy] Run paused: your bags are full, so it could not buy everything. Make room, then press Resume "
-      + "in the Craft Status window; it buys only what is still missing (fork).";
+    public static string NotBought(int count)
+        => $"{count} item(s) could not be bought";
 
     public const string StoppedWhileBuying = "[GatherBuddy] Run stopped while buying from vendors (fork).";
 }

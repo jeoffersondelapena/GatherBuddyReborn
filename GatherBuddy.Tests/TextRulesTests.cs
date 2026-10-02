@@ -136,4 +136,19 @@ public class TextRulesTests
         Assert.Equal("[GatherBuddy] ======== Crafting: GSM Lv 1-15 +vendor ENDED (fork) ========", TextRules.DividerEnd(label));
         Assert.Equal(TextRules.DividerEnd(label), TextRules.WithRunLabel(TextRules.DividerEnd(label), label));
     }
+
+    [Fact]
+    public void A_part_that_stops_short_names_its_own_skip_button_in_the_same_words()
+    {
+        var buying = TextRules.StoppedShort(TextRules.BuyList, "Vendor location data is still loading.");
+        Assert.Equal("[GatherBuddy] Buying for this crafting run stopped: Vendor location data is still loading. Fix the cause and press Resume to buy "
+          + "the rest, or press Skip Buying (fork) in the Craft Status window to go on to gathering and crafting without them (fork).", buying);
+        var gathering = TextRules.StoppedShort(TextRules.Gathering, null);
+        Assert.Equal("[GatherBuddy] Gathering for this crafting run stopped: it could not go on. Fix the cause and press Resume to gather the rest, "
+          + "or press Skip Gathering (fork) in the Craft Status window to craft with what is here (fork).", gathering);
+        Assert.Contains(TextRules.SkipBuying, TextRules.StoppedShortReason(TextRules.BuyList, "your bags are full"));
+        Assert.Contains(TextRules.SkipGathering, TextRules.StoppedShortReason(TextRules.Gathering, "your bags are full"));
+        Assert.EndsWith("(fork)", TextRules.SkipBuying);
+        Assert.EndsWith("(fork)", TextRules.SkipGathering);
+    }
 }

@@ -291,7 +291,10 @@ public static class CraftingGatherBridge
     }
 
     public static bool IsBuying
-        => _afterBuying != null && !_buyingPaused;
+        => _afterBuying != null;
+
+    internal static bool BuyingHeld
+        => _afterBuying != null && _buyingPaused;
 
     // fork: a crafting run first buys what it can neither gather nor fish but a gil vendor sells, then gathers the rest
     public static void BeginGathering(Dictionary<uint, int> materials)
@@ -315,12 +318,18 @@ public static class CraftingGatherBridge
         TryStartBuying();
     }
 
-    private static void TryStartBuying()
-    {
-        var targets = PurchaseRules.BeforeGathering(_afterBuying!,
+    private static List<(uint ItemId, uint Target, int Missing)> ToBuy()
+        => PurchaseRules.BeforeGathering(_afterBuying!,
             id => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
              || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id),
             MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
+
+    private static List<string> Named(IEnumerable<(uint ItemId, uint Target, int Missing)> targets)
+        => targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} x{t.Missing}").ToList();
+
+    private static void TryStartBuying()
+    {
+        var targets = ToBuy();
         if (targets.Count == 0)
         {
             FinishBuying();
@@ -329,8 +338,7 @@ public static class CraftingGatherBridge
 
         if (!VendorAutomationRequirements.IsAvailable)
         {
-            Communicator.PrintRun(PurchaseRules.CouldNotBuy(VendorAutomationRequirements.UnavailableStatusText));
-            FinishBuying();
+            StopBuyingShort(VendorAutomationRequirements.UnavailableStatusText, Named(targets));
             return;
         }
 
@@ -340,9 +348,15 @@ public static class CraftingGatherBridge
         {
             _buyStarted = true;
             _noVendor.AddRange(noVendor.Select(id => $"{ForkTrace.ItemName(id)} (no vendor GatherBuddy can walk to)"));
-            var buying = targets.Where(t => !noVendor.Contains(t.ItemId)).Select(t => $"{ForkTrace.ItemName(t.ItemId)} x{t.Missing}").ToList();
+            var buying = Named(targets.Where(t => !noVendor.Contains(t.ItemId)));
             ForkTrace.Info($"buy before gathering: {string.Join(", ", buying)}{(noVendor.Count == 0 ? "" : $"; no vendor for {string.Join(", ", noVendor.Select(ForkTrace.Named))}")}");
             ForkChat.List(PurchaseRules.BuyingHeader, buying, tone: Communicator.Tone.Info);
+            return;
+        }
+
+        if (result is VendorBuyListManager.StartResult.NoPendingEntries)
+        {
+            FinishBuying();
             return;
         }
 
@@ -351,15 +365,12 @@ public static class CraftingGatherBridge
         if (waiting && DateTime.Now < _buyStartBy)
             return;
 
-        ForkTrace.Info($"buy before gathering: could not start ({result})");
-        Communicator.PrintRun(PurchaseRules.CouldNotBuy(result switch
+        StopBuyingShort(result switch
         {
-            VendorBuyListManager.StartResult.Empty            => "no vendor GatherBuddy can walk to sells what is missing",
-            VendorBuyListManager.StartResult.AlreadyRunning   => "another vendor run was still going after a minute",
-            VendorBuyListManager.StartResult.NoPendingEntries => "nothing was missing after all",
-            _                                                 => "the vendor data did not load within a minute",
-        }));
-        FinishBuying();
+            VendorBuyListManager.StartResult.Empty          => "no vendor GatherBuddy can walk to sells what is missing",
+            VendorBuyListManager.StartResult.AlreadyRunning => "another vendor run was still going after a minute",
+            _                                               => "the vendor data did not load within a minute",
+        }, Named(targets));
     }
 
     private static void UpdateBuying()
@@ -381,27 +392,33 @@ public static class CraftingGatherBridge
         ForkTrace.Info($"buy before gathering: {outcome}{(detail.Length > 0 ? $" ({detail})" : "")}; not bought: {(notBought.Count == 0 ? "none" : string.Join(", ", notBought))}");
         switch (outcome)
         {
-            case VendorBuyListManager.RunPurchaseOutcome.BagsFull:
-                Communicator.PrintRun(PurchaseRules.BagsFull);
-                _buyingPaused = true;
-                _queueProcessor.Pause("Your bags filled up while buying from vendors. Make room, then press Resume; it buys only what is still missing (fork).");
-                return;
             case VendorBuyListManager.RunPurchaseOutcome.Stopped:
                 Communicator.PrintRun(PurchaseRules.StoppedWhileBuying);
                 StopQueue();
                 return;
             case VendorBuyListManager.RunPurchaseOutcome.Finished when notBought.Count == 0:
                 Communicator.PrintRun(PurchaseRules.AllBought, tone: Communicator.Tone.Info);
-                break;
+                FinishBuying();
+                return;
             case VendorBuyListManager.RunPurchaseOutcome.Finished:
-                ForkChat.List(PurchaseRules.NotBoughtHeader(notBought.Count), notBought, 12);
-                break;
+                StopBuyingShort(PurchaseRules.NotBought(notBought.Count), notBought);
+                return;
+            case VendorBuyListManager.RunPurchaseOutcome.BagsFull:
+                StopBuyingShort("your bags are full", Named(ToBuy()));
+                return;
             default:
-                Communicator.PrintRun(PurchaseRules.CouldNotBuy(detail.Length > 0 ? detail : "the vendor run ended early"));
-                break;
+                StopBuyingShort(detail.Length > 0 ? detail : "the vendor run ended early", Named(ToBuy()));
+                return;
         }
+    }
 
-        FinishBuying();
+    // fork: like the gathering part, a purchase that falls short pauses the run instead of crafting short
+    private static void StopBuyingShort(string why, IReadOnlyList<string> missing)
+    {
+        _buyingPaused = true;
+        _buyStarted   = false;
+        _noVendor.Clear();
+        _queueProcessor?.PauseStoppedShort(TextRules.BuyList, why, missing);
     }
 
     private static void FinishBuying()
@@ -431,11 +448,21 @@ public static class CraftingGatherBridge
 
     internal static bool ResumeBuying()
     {
-        if (_afterBuying == null || !_buyingPaused)
+        if (!BuyingHeld)
             return false;
 
         _buyingPaused = false;
         StartBuying();
+        return true;
+    }
+
+    internal static bool SkipBuying()
+    {
+        if (!BuyingHeld)
+            return false;
+
+        ForkTrace.Info("buy before gathering: skipped by the player, gathering next");
+        FinishBuying();
         return true;
     }
 

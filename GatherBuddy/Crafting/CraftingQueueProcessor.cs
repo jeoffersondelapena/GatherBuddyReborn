@@ -1558,6 +1558,9 @@ public class CraftingQueueProcessor
     }
 
     public void Resume()
+        => Resume(skipBuying: false);
+
+    private void Resume(bool skipBuying)
     {
         if (!_paused)
             return;
@@ -1585,7 +1588,7 @@ public class CraftingQueueProcessor
             return;
         }
         
-        if (_currentState == QueueState.WaitingForGather && CraftingGatherBridge.ResumeBuying())
+        if (_currentState == QueueState.WaitingForGather && (skipBuying ? CraftingGatherBridge.SkipBuying() : CraftingGatherBridge.ResumeBuying()))
             return;
 
         if (_pausedDuringGather && _currentState == QueueState.WaitingForGather)
@@ -1688,15 +1691,26 @@ public class CraftingQueueProcessor
     public bool PausedInGathering
         => _paused && _pausedDuringGather && _currentState == QueueState.WaitingForGather;
 
-    public unsafe void PauseGatheringStoppedShort(string? reason, IReadOnlyList<string> missing)
+    public bool PausedInBuying
+        => _paused && _currentState == QueueState.WaitingForGather && CraftingGatherBridge.BuyingHeld;
+
+    public void PauseGatheringStoppedShort(string? reason, IReadOnlyList<string> missing)
+        => PauseStoppedShort(TextRules.Gathering, reason, missing);
+
+    public void PauseStoppedShort(string part, string? reason, IReadOnlyList<string> missing)
     {
-        var why = string.IsNullOrWhiteSpace(reason) ? "it could not go on" : reason.TrimEnd('.');
-        Communicator.PrintRun($"[GatherBuddy] Gathering for this crafting run stopped: {why}. Fix the cause and press Resume to gather "
-          + "the rest, or press Craft What I Have (fork) in the Craft Status window to craft with what is here (fork).");
-        ForkTrace.Info($"crafting run paused in its gathering part: {why}; still missing: {(missing.Count == 0 ? "nothing" : string.Join(", ", missing))}");
+        Communicator.PrintRun(TextRules.StoppedShort(part, reason));
+        ForkTrace.Info($"crafting run paused in its {(part == TextRules.BuyList ? "buying" : "gathering")} part: {reason}; still missing: "
+          + (missing.Count == 0 ? "nothing" : string.Join(", ", missing)));
         if (missing.Count > 0)
             ForkChat.List("Still missing:", missing, 12);
-        Pause($"Gathering stopped: {why}. Fix the cause and press Resume to gather the rest, or Craft What I Have (fork).");
+        Pause(TextRules.StoppedShortReason(part, reason));
+    }
+
+    public void SkipBuying()
+    {
+        if (PausedInBuying)
+            Resume(skipBuying: true);
     }
 
     public void CraftWithWhatIsGathered()

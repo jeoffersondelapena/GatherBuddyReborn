@@ -171,13 +171,22 @@ public class CraftingStatusWindow : Window
                     _queueProcessor.Resume();
                 }
 
+                if (_queueProcessor.PausedInBuying)
+                {
+                    ImGui.SameLine();
+                    if (ImGui.Button(ForkLogic.TextRules.SkipBuying))
+                        _queueProcessor.SkipBuying();
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip("Skip the rest of the buying and go on to gathering and crafting; what cannot be made is listed when the run ends.");
+                }
+
                 if (_queueProcessor.PausedInGathering)
                 {
                     ImGui.SameLine();
-                    if (ImGui.Button("Craft What I Have (fork)"))
+                    if (ImGui.Button(ForkLogic.TextRules.SkipGathering))
                         _queueProcessor.CraftWithWhatIsGathered();
                     if (ImGui.IsItemHovered())
-                        ImGui.SetTooltip("Skip the rest of the gathering and craft with what is here; what cannot be made is listed when the run ends.");
+                        ImGui.SetTooltip("Skip the rest of the gathering and go on to crafting with what is here; what cannot be made is listed when the run ends.");
                 }
             }
             
