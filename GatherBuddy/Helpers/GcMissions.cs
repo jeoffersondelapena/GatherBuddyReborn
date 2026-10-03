@@ -98,7 +98,7 @@ internal static unsafe class GcMissions
             GatherBuddy.GameData.Fishes.TryGetValue(itemId, out var fish) ? fish.InternalLocationId : null,
             AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(itemId), soldForGil, Held(itemId), needed);
 
-    // only the quick synth choice survives a refill
+    // a refill resets only the switches that decide whether a held or logged item is made again
     private static void FillCraftingList(List<(Recipe Recipe, int Crafts)> crafted)
     {
         var manager = GatherBuddy.CraftingListManager;
