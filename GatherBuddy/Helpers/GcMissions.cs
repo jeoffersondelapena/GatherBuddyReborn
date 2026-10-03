@@ -88,6 +88,8 @@ internal static unsafe class GcMissions
             list.QuickSynthAllPrecraftsOnly = true;
         }
 
+        // a mission wants the item whatever the log says
+        list.SkipCraftedRecipes = false;
         list.Recipes.Clear();
         foreach (var (recipe, crafts) in crafted)
             list.AddRecipe(recipe.RowId, crafts);
@@ -107,6 +109,7 @@ internal static unsafe class GcMissions
             lists.AddList(list);
         }
 
+        list.SkipLoggedItems = false;
         while (list.Items.Count > 0)
             list.RemoveAt(0);
         foreach (var (item, amount) in gathered)

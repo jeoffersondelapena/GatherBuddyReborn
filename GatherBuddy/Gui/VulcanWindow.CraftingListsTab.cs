@@ -178,7 +178,8 @@ public partial class VulcanWindow
         if (ImGuiUtil.DrawDisabledButton("GC Mission Lists (fork)", VulcanUiScaling.Scaled(170f, 0f),
                 $"Refill the crafting list '{ForkLogic.MissionRules.SupplyList}' and the gathering list '{ForkLogic.MissionRules.ProvisioningList}' "
               + "with today's Grand Company supply and provisioning missions. Open Timers, then Supply & Provisioning Missions, first.\n"
-              + "Each press replaces what the two lists held, so nothing from earlier days piles up; their options stay as set. Not during a run.",
+              + "Each press replaces what the two lists held, so nothing from earlier days piles up. Their options stay as set, except that logged "
+              + "recipes and items are never skipped. Not during a run.",
                 Helpers.GcMissions.Busy))
             Helpers.GcMissions.MakeLists();
 
