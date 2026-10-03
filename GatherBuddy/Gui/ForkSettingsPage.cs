@@ -137,5 +137,6 @@ internal static class ForkSettingsPage
         ImGui.BulletText("Clear Green Marks (fork): in the Vendor Buy List window.");
         ImGui.BulletText("Clear Green Marks (fork): in the right-click menu of an item marked green.");
         ImGui.BulletText("Retry skipped (fork): in Vulcan's Crafting Lists tab.");
+        ImGui.BulletText("GC Mission Lists (fork): also under the game's Supply & Provisioning Missions window (Timers), while it is open.");
     }
 }

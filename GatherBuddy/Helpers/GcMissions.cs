@@ -17,7 +17,7 @@ namespace GatherBuddy.Helpers;
 // fork: the day's Grand Company supply and provisioning missions as one crafting list and one gathering list, refilled on every press
 internal static unsafe class GcMissions
 {
-    private const string Window = "ContentsInfoDetail";
+    public const string Window = "ContentsInfoDetail";
 
     private static readonly Lazy<Dictionary<string, Mission>> Known = new(() =>
     {
@@ -32,6 +32,20 @@ internal static unsafe class GcMissions
 
     public static bool Busy
         => CraftingGatherBridge.IsQueueMode || GatherBuddy.AutoGather.Enabled;
+
+    private static DateTime _looked = DateTime.MinValue;
+    private static bool     _showing;
+
+    // the detail window serves every timer; cached because the overlay asks every frame
+    public static bool WindowShowsMissions(AtkUnitBase* addon)
+    {
+        if (DateTime.UtcNow - _looked < TimeSpan.FromMilliseconds(500))
+            return _showing;
+
+        _looked  = DateTime.UtcNow;
+        _showing = MissionRules.FromNames(Texts(addon), Known.Value).Count > 0;
+        return _showing;
+    }
 
     public static void MakeLists()
     {
@@ -168,6 +182,13 @@ internal static unsafe class GcMissions
         if (!GenericHelpers.TryGetAddonByName<AtkUnitBase>(Window, out var addon) || !addon->IsVisible)
             return null;
 
+        var texts = Texts(addon);
+        ForkTrace.Info($"gc missions: the Timers window holds {addon->AtkValuesCount} value(s), {texts.Count} of them text: {string.Join(" | ", texts.Take(60))}");
+        return MissionRules.FromNames(texts, Known.Value, exact);
+    }
+
+    private static List<string> Texts(AtkUnitBase* addon)
+    {
         var texts = new List<string>();
         for (var i = 0; i < addon->AtkValuesCount; i++)
         {
@@ -176,8 +197,7 @@ internal static unsafe class GcMissions
                 texts.Add(SeString.Parse((byte*)value.String).TextValue);
         }
 
-        ForkTrace.Info($"gc missions: the Timers window holds {addon->AtkValuesCount} value(s), {texts.Count} of them text: {string.Join(" | ", texts.Take(60))}");
-        return MissionRules.FromNames(texts, Known.Value, exact);
+        return texts;
     }
 
     private static string Describe(List<Mission>? missions)

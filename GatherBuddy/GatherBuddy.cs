@@ -251,6 +251,7 @@ public partial class GatherBuddy : IDalamudPlugin
         try
         {
             Gui.KeepMarkFrames.Draw();
+            Gui.GcMissionsButton.Draw();
             WindowSystem.Draw();
         }
         finally
