@@ -76,19 +76,18 @@ public partial class AutoGatherListsManager : IDisposable
     private bool CountsRetainers(IGatherable item)
         => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item);
 
-    // fork: what a gathering run buys first: items only a window gives, a gil vendor sells and every list holding them allows buying
+    // fork: what a gathering run buys first: of items only a window gives and a gil vendor sells, the share of the lists that allow buying
     internal List<(uint ItemId, uint Target)> BuyTargets()
     {
         var targets = new List<(uint, uint)>();
         foreach (var (item, quantity) in _activeItems)
         {
-            var missing = Missing(item, quantity);
-            if (!GatherRules.BuyInstead(!_keptFromBuying.Contains(item),
-                    item is Classes.Gatherable ? item.InternalLocationId : null, item is Classes.Fish ? item.InternalLocationId : null,
-                    Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(item.ItemId), Crafting.MaterialSourceClassifier.IsSoldForGil(item.ItemId), missing))
+            var toBuy = GatherRules.ToBuy(Missing(item, quantity), _keptForGathering.GetValueOrDefault(item));
+            if (!GatherRules.BuyInstead(item is Classes.Gatherable ? item.InternalLocationId : null, item is Classes.Fish ? item.InternalLocationId : null,
+                    Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(item.ItemId), Crafting.MaterialSourceClassifier.IsSoldForGil(item.ItemId), toBuy))
                 continue;
 
-            targets.Add((item.ItemId, (uint)(Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(item.ItemId) + missing)));
+            targets.Add((item.ItemId, (uint)(Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(item.ItemId) + toBuy)));
         }
 
         return targets;
@@ -101,7 +100,7 @@ public partial class AutoGatherListsManager : IDisposable
 
     // fork: an on-top item's baseline is the bags alone, so retainer stock never counts for it
     private readonly HashSet<IGatherable> _onTopActiveItems = [];
-    private readonly HashSet<IGatherable> _keptFromBuying = [];
+    private readonly Dictionary<IGatherable, uint> _keptForGathering = new();
     private readonly Dictionary<uint, int> _heldAtStart = new();
 
     internal void ForgetHeldAtStart()
@@ -298,7 +297,7 @@ public partial class AutoGatherListsManager : IDisposable
         _fallbackItems.Clear();
         _localInventoryActiveItems.Clear();
         _onTopActiveItems.Clear();
-        _keptFromBuying.Clear();
+        _keptForGathering.Clear();
 
         var items = _fileSystem.Root.GetAllDescendants(SortMode)
             .OfType<FileSystem<AutoGatherList>.Leaf>()
@@ -308,10 +307,11 @@ public partial class AutoGatherListsManager : IDisposable
             .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && SkipAsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory),
-                OnTop: x.Any(g => !g.CountHeld), NoBuying: x.Any(g => !g.BuyInsteadOfWaiting)));
+                OnTop: x.Any(g => !g.CountHeld),
+                KeptForGathering: (uint)Math.Min(x.Where(g => !g.BuyInsteadOfWaiting).Sum(g => (long)g.Quantity), uint.MaxValue)));
 
         ReportSkippedAsLogged();
-        foreach (var (item, quantity, fallback, usesRetainerInventory, onTop, noBuying) in items)
+        foreach (var (item, quantity, fallback, usesRetainerInventory, onTop, keptForGathering) in items)
         {
             if (fallback)
             {
@@ -323,8 +323,8 @@ public partial class AutoGatherListsManager : IDisposable
                     _localInventoryActiveItems.Add(item);
                 if (onTop)
                     _onTopActiveItems.Add(item);
-                if (noBuying)
-                    _keptFromBuying.Add(item);
+                if (keptForGathering > 0)
+                    _keptForGathering[item] = keptForGathering;
                 _activeItems.Add((item, quantity));
             }
         }

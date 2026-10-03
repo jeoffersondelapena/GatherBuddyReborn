@@ -15,13 +15,22 @@ public class GatherRulesTests
     }
 
     [Fact]
-    public void An_item_is_bought_instead_only_when_gathering_it_means_waiting_a_vendor_sells_it_and_every_list_allows()
+    public void An_item_is_bought_instead_only_when_gathering_it_means_waiting_and_a_vendor_sells_it()
     {
-        Assert.True(GatherRules.BuyInstead(listsAllow: true, nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, missing: 10));
-        Assert.True(GatherRules.BuyInstead(listsAllow: true, nodeLocation: null, fishLocation: 2, diademRaw: false, soldForGil: true, missing: 1));
-        Assert.False(GatherRules.BuyInstead(listsAllow: false, nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, missing: 10));
-        Assert.False(GatherRules.BuyInstead(listsAllow: true, nodeLocation: 0, fishLocation: null, diademRaw: false, soldForGil: true, missing: 10));
-        Assert.False(GatherRules.BuyInstead(listsAllow: true, nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: false, missing: 10));
-        Assert.False(GatherRules.BuyInstead(listsAllow: true, nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, missing: 0));
+        Assert.True(GatherRules.BuyInstead(nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, toBuy: 10));
+        Assert.True(GatherRules.BuyInstead(nodeLocation: null, fishLocation: 2, diademRaw: false, soldForGil: true, toBuy: 1));
+        Assert.False(GatherRules.BuyInstead(nodeLocation: 0, fishLocation: null, diademRaw: false, soldForGil: true, toBuy: 10));
+        Assert.False(GatherRules.BuyInstead(nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: false, toBuy: 10));
+        Assert.False(GatherRules.BuyInstead(nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, toBuy: 0));
+    }
+
+    [Fact]
+    public void The_share_of_lists_that_do_not_buy_is_left_for_gathering()
+    {
+        Assert.Equal(10, GatherRules.ToBuy(missing: 11, keptForGathering: 1));
+        Assert.Equal(3, GatherRules.ToBuy(missing: 4, keptForGathering: 1));
+        Assert.Equal(4, GatherRules.ToBuy(missing: 4, keptForGathering: 0));
+        Assert.Equal(0, GatherRules.ToBuy(missing: 1, keptForGathering: 1));
+        Assert.Equal(0, GatherRules.ToBuy(missing: 0, keptForGathering: 5));
     }
 }
