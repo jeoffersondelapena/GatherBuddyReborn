@@ -48,17 +48,32 @@ internal static unsafe class GcMissions
 
         var crafted  = new List<(Recipe Recipe, int Crafts)>();
         var gathered = new List<(IGatherable Item, uint Amount)>();
+        var waiting  = new List<string>();
         var neither  = new List<string>();
         foreach (var mission in missions)
         {
+            var name   = ForkTrace.ItemName(mission.ItemId);
+            var amount = Math.Max(1, mission.Requested);
             if (RecipeManager.GetRecipeForItem(mission.ItemId) is { } recipe)
-                crafted.Add((recipe, MissionRules.Crafts(mission.Requested, recipe.AmountResult)));
+            {
+                var crafts = MissionRules.Crafts(amount, recipe.AmountResult);
+                var slow   = Held(mission.ItemId) >= amount
+                    ? []
+                    : RecipeManager.GetResolvedIngredients(recipe).Where(m => Waits(m.Key, m.Value * crafts, MaterialSourceClassifier.IsSoldForGil(m.Key)))
+                        .Select(m => ForkTrace.ItemName(m.Key)).ToList();
+                if (slow.Count > 0)
+                    waiting.Add($"{name} (needs {string.Join(", ", slow)})");
+                else
+                    crafted.Add((recipe, crafts));
+            }
+            else if (Waits(mission.ItemId, amount, false))
+                waiting.Add(name);
             else if (GatherBuddy.GameData.Gatherables.TryGetValue(mission.ItemId, out var gatherable))
-                gathered.Add((gatherable, (uint)Math.Max(1, mission.Requested)));
+                gathered.Add((gatherable, (uint)amount));
             else if (GatherBuddy.GameData.Fishes.TryGetValue(mission.ItemId, out var fish))
-                gathered.Add((fish, (uint)Math.Max(1, mission.Requested)));
+                gathered.Add((fish, (uint)amount));
             else
-                neither.Add(ForkTrace.ItemName(mission.ItemId));
+                neither.Add(name);
         }
 
         FillCraftingList(crafted);
@@ -66,14 +81,24 @@ internal static unsafe class GcMissions
         Dalamud.Chat.Print($"[GatherBuddy] Grand Company mission lists refilled: {crafted.Count} item(s) in the crafting list "
           + $"'{MissionRules.SupplyList}'"
           + (gatheringListed ? $", {gathered.Count} in the gathering list '{MissionRules.ProvisioningList}'" : "") + " (fork).");
-        var waits = gathered.Where(g => g.Item.InternalLocationId > 0).Select(g => g.Item.Name[GatherBuddy.Language]).ToList();
-        if (waits.Count > 0)
-            Dalamud.Chat.Print($"[GatherBuddy] Only up at certain times or in certain weather, so a gathering run waits for: {string.Join(", ", waits)} (fork).");
+        ForkTrace.Info($"gc missions: left out for waiting: {(waiting.Count == 0 ? "none" : string.Join(", ", waiting))}");
+        if (waiting.Count > 0)
+            Dalamud.Chat.PrintError($"[GatherBuddy] Left out, since each would mean waiting for a time or weather window: {string.Join(", ", waiting)} (fork).");
         if (neither.Count > 0)
             Dalamud.Chat.PrintError($"[GatherBuddy] Neither craftable nor gatherable, so on no list: {string.Join(", ", neither)} (fork).");
     }
 
-    // the list's own options are the user's to change once and keep; only its recipes are replaced
+    private static int Held(uint itemId)
+        => Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(itemId);
+
+    // a gathering run never buys, so a vendor only spares the wait for a crafting run's materials
+    private static bool Waits(uint itemId, int needed, bool soldForGil)
+        => MissionRules.Waits(
+            GatherBuddy.GameData.Gatherables.TryGetValue(itemId, out var node) ? node.InternalLocationId : null,
+            GatherBuddy.GameData.Fishes.TryGetValue(itemId, out var fish) ? fish.InternalLocationId : null,
+            AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(itemId), soldForGil, Held(itemId), needed);
+
+    // only the quick synth choice survives a refill
     private static void FillCraftingList(List<(Recipe Recipe, int Crafts)> crafted)
     {
         var manager = GatherBuddy.CraftingListManager;
@@ -81,14 +106,13 @@ internal static unsafe class GcMissions
         if (list == null)
         {
             list                            = manager.CreateNewList(MissionRules.SupplyList);
-            list.SkipIfEnough               = true;
-            list.SkipFinalIfEnough          = true;
             list.QuickSynthAll              = true;
             list.QuickSynthAllPreferNQ      = true;
             list.QuickSynthAllPrecraftsOnly = true;
         }
 
-        // a mission wants the item whatever the log says
+        list.SkipIfEnough       = true;
+        list.SkipFinalIfEnough  = true;
         list.SkipCraftedRecipes = false;
         list.Recipes.Clear();
         foreach (var (recipe, crafts) in crafted)
@@ -109,6 +133,7 @@ internal static unsafe class GcMissions
             lists.AddList(list);
         }
 
+        list.CountHeld       = true;
         list.SkipLoggedItems = false;
         while (list.Items.Count > 0)
             list.RemoveAt(0);

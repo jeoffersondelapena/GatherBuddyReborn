@@ -28,6 +28,17 @@ public class MissionRulesTests
     }
 
     [Fact]
+    public void An_item_waits_only_when_a_window_is_the_one_way_left_to_get_it()
+    {
+        Assert.True(MissionRules.Waits(nodeLocation: 3, fishLocation: null, diademRaw: false, soldForGil: false, held: 0, needed: 10));
+        Assert.True(MissionRules.Waits(nodeLocation: null, fishLocation: 7, diademRaw: false, soldForGil: false, held: 0, needed: 1));
+        Assert.False(MissionRules.Waits(nodeLocation: 0, fishLocation: null, diademRaw: false, soldForGil: false, held: 0, needed: 10));
+        Assert.False(MissionRules.Waits(nodeLocation: 3, fishLocation: null, diademRaw: false, soldForGil: true, held: 0, needed: 10));
+        Assert.False(MissionRules.Waits(nodeLocation: 3, fishLocation: null, diademRaw: false, soldForGil: false, held: 10, needed: 10));
+        Assert.False(MissionRules.Waits(nodeLocation: null, fishLocation: null, diademRaw: false, soldForGil: false, held: 0, needed: 1));
+    }
+
+    [Fact]
     public void A_request_is_rounded_up_to_whole_crafts()
     {
         Assert.Equal(1, MissionRules.Crafts(1, 1));

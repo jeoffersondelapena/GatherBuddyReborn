@@ -174,15 +174,6 @@ public partial class VulcanWindow
                 ? "No recipe is remembered as one the game would not start."
                 : "Recipes the game would not start, kept out of runs until you press this:\n" + string.Join("\n", SkippedRecipes.Names()));
 
-        ImGui.SameLine();
-        if (ImGuiUtil.DrawDisabledButton("GC Mission Lists (fork)", VulcanUiScaling.Scaled(170f, 0f),
-                $"Refill the crafting list '{ForkLogic.MissionRules.SupplyList}' and the gathering list '{ForkLogic.MissionRules.ProvisioningList}' "
-              + "with today's Grand Company supply and provisioning missions. Open Timers, then Supply & Provisioning Missions, first.\n"
-              + "Each press replaces what the two lists held, so nothing from earlier days piles up. Their options stay as set, except that logged "
-              + "recipes and items are never skipped. Not during a run.",
-                Helpers.GcMissions.Busy))
-            Helpers.GcMissions.MakeLists();
-
         ImGui.Spacing();
 
         var avail  = ImGui.GetContentRegionAvail();

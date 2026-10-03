@@ -114,6 +114,17 @@ internal static class ForkSettingsPage
             GeneratedLists.Restore(lists!);
     }
 
+    public static void DrawGcMissionLists()
+    {
+        if (ImGuiUtil.DrawDisabledButton("GC Mission Lists (fork)", Vector2.Zero,
+                $"Refill the crafting list '{MissionRules.SupplyList}' and the gathering list '{MissionRules.ProvisioningList}' with today's Grand "
+              + "Company supply and provisioning missions. Open Timers, then Supply & Provisioning Missions, first.\n"
+              + "Each press replaces what the two lists held, so earlier days never pile up. A mission item already held counts as done, logged "
+              + "recipes and items are never skipped, and what would mean waiting for a time or weather window is left out. Not during a run.",
+                GcMissions.Busy))
+            GcMissions.MakeLists();
+    }
+
     public static void DrawElsewhere()
     {
         ImGui.Spacing();
@@ -125,6 +136,6 @@ internal static class ForkSettingsPage
         ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");
         ImGui.BulletText("Clear Green Marks (fork): in the Vendor Buy List window.");
         ImGui.BulletText("Clear Green Marks (fork): in the right-click menu of an item marked green.");
-        ImGui.BulletText("Retry skipped (fork) and GC Mission Lists (fork): in Vulcan's Crafting Lists tab.");
+        ImGui.BulletText("Retry skipped (fork): in Vulcan's Crafting Lists tab.");
     }
 }

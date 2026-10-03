@@ -29,6 +29,13 @@ public static class MissionRules
         return found;
     }
 
+    // waiting for a window is the only way left when no always-up node, no gil vendor and not the bags supply the item
+    public static bool Waits(int? nodeLocation, int? fishLocation, bool diademRaw, bool soldForGil, int held, int needed)
+        => (nodeLocation != null || fishLocation != null)
+         && !PurchaseRules.GatheredWithoutWaiting(nodeLocation, fishLocation, diademRaw)
+         && !soldForGil
+         && held < needed;
+
     public static int Crafts(int requested, int perCraft)
         => (Math.Max(1, requested) + Math.Max(1, perCraft) - 1) / Math.Max(1, perCraft);
 
