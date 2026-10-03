@@ -125,6 +125,6 @@ internal static class ForkSettingsPage
         ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");
         ImGui.BulletText("Clear Green Marks (fork): in the Vendor Buy List window.");
         ImGui.BulletText("Clear Green Marks (fork): in the right-click menu of an item marked green.");
-        ImGui.BulletText("Retry skipped (fork): in Vulcan's Crafting Lists tab.");
+        ImGui.BulletText("Retry skipped (fork) and GC Mission Lists (fork): in Vulcan's Crafting Lists tab.");
     }
 }
