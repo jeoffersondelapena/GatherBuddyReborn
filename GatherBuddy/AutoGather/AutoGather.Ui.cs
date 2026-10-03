@@ -41,6 +41,20 @@ namespace GatherBuddy.AutoGather
                 return;
             }
 
+            if (GatherBuyStage.Paused)
+            {
+                if (ImGui.Button("Resume##buying"))
+                    GatherBuyStage.Resume();
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("Try buying the rest again (fork).");
+                ImGui.SameLine();
+                if (ImGui.Button(ForkLogic.TextRules.SkipBuying))
+                    GatherBuyStage.Skip();
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip("Go on without buying: the run waits for those items' time or weather windows instead.");
+                return;
+            }
+
             if (!Crafting.RetainerStage.Gathering.Paused)
                 return;
 

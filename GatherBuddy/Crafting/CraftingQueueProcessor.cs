@@ -777,6 +777,13 @@ public class CraftingQueueProcessor
             return;
         }
 
+        if (recipe != null && _executionPlan != null && GatherBuddy.CraftingListManager.GetListByID(_executionPlan.ListId) is { CountOnlyHqFinals: true } list
+         && list.Recipes.Any(r => r.RecipeId == recipe.Value.RowId) && list.NoteTried(recipe.Value.RowId))
+        {
+            ForkTrace.Info($"only HQ counts: {recipe.Value.ItemResult.Value.Name.ExtractText()} has had today's try on '{list.Name}'");
+            GatherBuddy.CraftingListManager.SaveList(list);
+        }
+
         if (!_lastCraftWasQuickSynth)
         {
             GatherBuddy.Log.Debug($"[CraftingQueueProcessor] Normal craft completed, moving to next");

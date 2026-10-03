@@ -39,6 +39,16 @@ public class MissionRulesTests
     }
 
     [Fact]
+    public void A_mission_day_runs_from_one_2000_UTC_reset_to_the_next()
+    {
+        Assert.Equal("2026-10-02", MissionRules.Day(new DateTime(2026, 10, 3, 19, 59, 0)));
+        Assert.Equal("2026-10-03", MissionRules.Day(new DateTime(2026, 10, 3, 20, 0, 0)));
+        Assert.Equal("2026-10-03", MissionRules.Day(new DateTime(2026, 10, 4, 7, 0, 0)));
+        Assert.Equal(new DateTime(2026, 10, 3, 20, 0, 0), MissionRules.NextReset(new DateTime(2026, 10, 3, 8, 23, 0)));
+        Assert.Equal(new DateTime(2026, 10, 4, 20, 0, 0), MissionRules.NextReset(new DateTime(2026, 10, 3, 20, 0, 0)));
+    }
+
+    [Fact]
     public void A_request_is_rounded_up_to_whole_crafts()
     {
         Assert.Equal(1, MissionRules.Crafts(1, 1));

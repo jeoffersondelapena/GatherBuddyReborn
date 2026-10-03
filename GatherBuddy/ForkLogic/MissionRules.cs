@@ -36,6 +36,13 @@ public static class MissionRules
          && !soldForGil
          && held < needed;
 
+    // Grand Company missions turn over at 20:00 UTC, so a day here is one such period, named by the date it began on
+    public static string Day(DateTime utc)
+        => utc.AddHours(-20).ToString("yyyy-MM-dd");
+
+    public static DateTime NextReset(DateTime utc)
+        => utc.AddHours(-20).Date.AddDays(1).AddHours(20);
+
     public static int Crafts(int requested, int perCraft)
         => (Math.Max(1, requested) + Math.Max(1, perCraft) - 1) / Math.Max(1, perCraft);
 

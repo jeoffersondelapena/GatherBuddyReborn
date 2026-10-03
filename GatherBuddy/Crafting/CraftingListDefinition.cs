@@ -36,6 +36,9 @@ public class CraftingListDefinition
     public int RepairPercent { get; set; } = 50;
     public bool RetainerRestock { get; set; } = false;
     public bool BuyInsteadOfGathering { get; set; } = false;
+    public bool CountOnlyHqFinals { get; set; } = false;
+    public string HqTriedDay { get; set; } = string.Empty;
+    public List<uint> HqTried { get; set; } = new();
     public bool Ephemeral { get; set; } = false;
 
     public bool ShouldApplyQuickSynthAllOverrides(bool isOriginalRecipe)
@@ -102,6 +105,9 @@ public class CraftingListDefinition
             RepairPercent = RepairPercent,
             RetainerRestock = RetainerRestock,
             BuyInsteadOfGathering = BuyInsteadOfGathering,
+            CountOnlyHqFinals = CountOnlyHqFinals,
+            HqTriedDay = HqTriedDay,
+            HqTried = new(HqTried),
             Ephemeral = Ephemeral,
         };
 
@@ -143,6 +149,29 @@ public class CraftingListDefinition
 
     public Dictionary<uint, int> ListPrecrafts()
         => new(CreatePlan().Precrafts);
+
+    // fork: an NQ copy of a final item counts again once its recipe has had the day's one try
+    public bool OnlyHqCountsFor(uint recipeId)
+        => ForkLogic.QueueRules.OnlyHqCounts(CountOnlyHqFinals, HqTriedDay, HqTried, recipeId, ForkLogic.MissionRules.Day(DateTime.UtcNow));
+
+    public IReadOnlyList<uint> TriedToday()
+        => HqTriedDay == ForkLogic.MissionRules.Day(DateTime.UtcNow) ? HqTried : [];
+
+    public bool NoteTried(uint recipeId)
+    {
+        var today = ForkLogic.MissionRules.Day(DateTime.UtcNow);
+        if (HqTriedDay != today)
+        {
+            HqTriedDay = today;
+            HqTried.Clear();
+        }
+
+        if (HqTried.Contains(recipeId))
+            return false;
+
+        HqTried.Add(recipeId);
+        return true;
+    }
 
     public void AddRecipe(uint recipeId, int quantity)
     {

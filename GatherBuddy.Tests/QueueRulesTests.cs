@@ -142,4 +142,24 @@ public class QueueRulesTests
         Assert.Equal(663u, QueueRules.PickRecipe(new[] { new Recipe(663, 3, false) }, 2, r => r.Class, _ => throw new InvalidOperationException("not asked"))?.Id);
         Assert.Null(Pick(2));
     }
+
+    [Fact]
+    public void With_only_HQ_counting_an_NQ_copy_is_left_alone_and_the_item_still_counts_as_missing()
+    {
+        Assert.Equal((0, 2, 0), QueueRules.TakeHeld(nq: 2, hq: 0, requested: 1, onlyHq: true));
+        Assert.Equal((1, 2, 0), QueueRules.TakeHeld(nq: 2, hq: 1, requested: 1, onlyHq: true));
+        Assert.Equal((1, 1, 1), QueueRules.TakeHeld(nq: 2, hq: 1, requested: 1, onlyHq: false));
+        Assert.Equal((3, 0, 0), QueueRules.TakeHeld(nq: 2, hq: 1, requested: 5, onlyHq: false));
+        Assert.Equal((0, 2, 1), QueueRules.TakeHeld(nq: 2, hq: 1, requested: 0, onlyHq: false));
+    }
+
+    [Fact]
+    public void A_recipe_gets_one_try_a_day_before_any_copy_counts_again()
+    {
+        uint[] tried = [61];
+        Assert.True(QueueRules.OnlyHqCounts(true, "2026-10-03", tried, 197, "2026-10-03"));
+        Assert.False(QueueRules.OnlyHqCounts(true, "2026-10-03", tried, 61, "2026-10-03"));
+        Assert.True(QueueRules.OnlyHqCounts(true, "2026-10-02", tried, 61, "2026-10-03"));
+        Assert.False(QueueRules.OnlyHqCounts(false, "", [], 61, "2026-10-03"));
+    }
 }

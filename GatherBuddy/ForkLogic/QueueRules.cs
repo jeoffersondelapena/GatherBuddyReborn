@@ -90,4 +90,16 @@ public static class QueueRules
 
         return usable ?? own ?? recipes[0];
     }
+
+    // without the one try a day, a recipe its crafter cannot make HQ would be crafted again on every start
+    public static bool OnlyHqCounts(bool listOption, string triedDay, IEnumerable<uint> tried, uint recipeId, string today)
+        => listOption && !(triedDay == today && tried.Contains(recipeId));
+
+    public static (int Taken, int NQ, int HQ) TakeHeld(int nq, int hq, int requested, bool onlyHq)
+    {
+        var usableNq = onlyHq ? 0 : nq;
+        var taken    = Math.Max(0, Math.Min(requested, usableNq + hq));
+        var fromNq   = Math.Min(taken, usableNq);
+        return (taken, nq - fromNq, hq - (taken - fromNq));
+    }
 }

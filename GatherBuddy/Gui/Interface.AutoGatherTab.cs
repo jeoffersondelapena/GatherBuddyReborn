@@ -302,6 +302,10 @@ public partial class Interface
           + "always did, and a run first takes what your retainers hold. Off: the run gathers the amount on top of what your bags held when it "
           + "started, so a log list still gathers an item you have not logged though you hold some.",
             list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v));
+        ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##list",
+            "On: an item only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead of "
+          + "waiting for the window. Off: it is always gathered, which a log list needs, since an item bought is never logged.",
+            list.BuyInsteadOfWaiting, (v) => _plugin.AutoGatherListsManager.SetBuyInsteadOfWaiting(list, v));
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
         {
             _autoGatherListsCache.ItemFilterList = list;

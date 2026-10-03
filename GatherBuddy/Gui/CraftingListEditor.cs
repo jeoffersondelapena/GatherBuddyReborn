@@ -140,6 +140,33 @@ public class CraftingListEditor
     internal string ListName            => GetPlanningList().Name;
     internal bool SkipIfEnoughEnabled   => GetPlanningList().SkipIfEnough;
     internal bool RetainerRestockEnabled => GetPlanningList().RetainerRestock;
+
+    // fork: the day's tries are shown under the box, or a list that quietly stops recrafting an NQ item would look broken
+    private void DrawCountOnlyHqFinals()
+    {
+        ImGui.Indent();
+        var reset = ForkLogic.MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
+        ImGuiUtil.Checkbox("Count Only HQ Final Crafts (fork)##cohf",
+            "A final craft counts as already made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one.\n"
+          + "Each recipe gets one try a day: once a run has crafted it, any copy counts again until the daily reset (the Grand Company "
+          + $"missions' reset, {reset:HH:mm} here), so a recipe this crafter cannot make HQ is not crafted over and over.",
+            _list.CountOnlyHqFinals, v =>
+            {
+                _list.CountOnlyHqFinals = v;
+                InvalidateQueueCache();
+                InvalidatePresentationCaches();
+                GatherBuddy.CraftingListManager.SaveList(_list);
+                TriggerQueueRegeneration();
+            });
+        if (_list.CountOnlyHqFinals && _list.TriedToday() is { Count: > 0 } tried)
+        {
+            ImGui.PushTextWrapPos();
+            ImGui.TextDisabled($"Tried today, so any copy counts until {reset:HH:mm}: "
+              + string.Join(", ", tried.Select(id => RecipeManager.GetRecipe(id)?.ItemResult.Value.Name.ExtractText() ?? $"recipe {id}")));
+            ImGui.PopTextWrapPos();
+        }
+        ImGui.Unindent();
+    }
     internal CraftingListDefinition PlanningList => GetPlanningList();
     internal long MaterialCacheVersion  => Interlocked.Read(ref _materialCacheVersion);
     
@@ -624,6 +651,8 @@ public class CraftingListEditor
             }
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip("Also reduce final crafts based on how many you already have. Useful for resuming an interrupted list.");
+            if (_list.SkipFinalIfEnough)
+                DrawCountOnlyHqFinals();
             ImGui.Unindent();
         }
 
@@ -1667,6 +1696,7 @@ public class CraftingListEditor
         hashParts.Add($"SkipIfEnough:{planningList.SkipIfEnough}");
         hashParts.Add($"SkipFinalIfEnough:{planningList.SkipFinalIfEnough}");
         hashParts.Add($"RetainerRestock:{planningList.RetainerRestock}");
+        hashParts.Add($"CountOnlyHqFinals:{planningList.CountOnlyHqFinals}:{string.Join(',', planningList.TriedToday())}");
         foreach (var item in planningList.Recipes)
         {
             hashParts.Add($"{item.RecipeId}:{item.Quantity}:{item.Options.Skipping}");

@@ -407,6 +407,7 @@ namespace GatherBuddy.AutoGather
                     KeepMarks.EndRun(_keepRun);
                     _keepRun   = null;
                     RetainerStage.Gathering.Reset();
+                    GatherBuyStage.Reset();
                     GatherPause.Reset();
                     _plugin.AutoGatherListsManager.ForgetHeldAtStart();
                     AutoStatus = "Idle...";
@@ -487,6 +488,7 @@ namespace GatherBuddy.AutoGather
                     _keepRun = KeepMarks.BeginRun(RunLabel.GatherLists(), "gathered",
                         _plugin.AutoGatherListsManager.ActiveItems.Select(i => (i.Item.ItemId, (int)Math.Min(i.Quantity, int.MaxValue))));
                     RetainerStage.Gathering.Begin(GatherBuddy.Config.AutoGatherConfig.CheckRetainers ? _plugin.AutoGatherListsManager.RetainerTargets() : new());
+                    GatherBuyStage.Begin(_plugin.AutoGatherListsManager);
                 }
                 WentHome = true; //Prevents going home right after enabling auto-gather
                 SetOut   = false;
@@ -623,6 +625,17 @@ namespace GatherBuddy.AutoGather
             {
                 AutoStatus = retainerStatus;
                 if (RetainerStage.Gathering.Moved)
+                {
+                    WentHome = false;
+                    SetOut   = true;
+                }
+                return;
+            }
+
+            if (!Crafting.CraftingGatherBridge.IsQueueMode && GatherBuyStage.Hold(out var buyStatus))
+            {
+                AutoStatus = buyStatus;
+                if (GatherBuyStage.Moved)
                 {
                     WentHome = false;
                     SetOut   = true;

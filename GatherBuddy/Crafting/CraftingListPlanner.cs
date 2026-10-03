@@ -157,12 +157,13 @@ public static class CraftingListPlanner
 
             if (_list.SkipIfEnough && _list.SkipFinalIfEnough && _consumeFinalAvailability)
             {
-                var consumedInventory = _availability.ConsumeInventory(resultItemId, remainingItemCount);
+                var onlyHq = _list.OnlyHqCountsFor(item.RecipeId);
+                var consumedInventory = _availability.ConsumeInventory(resultItemId, remainingItemCount, onlyHq);
                 remainingItemCount -= consumedInventory;
                 var consumedRetainers = 0;
                 if (_useRetainers)
                 {
-                    consumedRetainers = _availability.ConsumeRetainers(resultItemId, remainingItemCount);
+                    consumedRetainers = _availability.ConsumeRetainers(resultItemId, remainingItemCount, onlyHq);
                     remainingItemCount -= consumedRetainers;
                 }
 
@@ -331,8 +332,8 @@ public static class CraftingListPlanner
             return consumed;
         }
 
-        public int ConsumeInventory(uint itemId, int requested)
-            => ConsumeTotal(_inventoryAvailable, itemId, requested, GetInventorySplitCounts);
+        public int ConsumeInventory(uint itemId, int requested, bool onlyHq = false)
+            => ConsumeTotal(_inventoryAvailable, itemId, requested, GetInventorySplitCounts, onlyHq);
 
         public IngredientQualityDemand ConsumePlanned(uint itemId, IngredientQualityDemand demand)
         {
@@ -360,9 +361,9 @@ public static class CraftingListPlanner
                 ? ConsumeSplit(_retainerAvailable, itemId, demand, GetRetainerSplitCounts)
                 : demand;
 
-        public int ConsumeRetainers(uint itemId, int requested)
+        public int ConsumeRetainers(uint itemId, int requested, bool onlyHq = false)
             => _useRetainers
-                ? ConsumeTotal(_retainerAvailable, itemId, requested, GetRetainerSplitCounts)
+                ? ConsumeTotal(_retainerAvailable, itemId, requested, GetRetainerSplitCounts, onlyHq)
                 : 0;
 
         public void AddPlanned(uint itemId, int amount, PlannedOutputQuality outputQuality = PlannedOutputQuality.Unknown)
@@ -388,7 +389,8 @@ public static class CraftingListPlanner
             Dictionary<uint, (int NQ, int HQ)> ledger,
             uint itemId,
             int requested,
-            Func<uint, (int NQ, int HQ)> valueFactory)
+            Func<uint, (int NQ, int HQ)> valueFactory,
+            bool onlyHq = false)
         {
             if (requested <= 0)
                 return 0;
@@ -399,16 +401,7 @@ public static class CraftingListPlanner
                 ledger[itemId] = available;
             }
 
-            var totalAvailable = available.NQ + available.HQ;
-            if (totalAvailable <= 0)
-                return 0;
-
-            var consumed = Math.Min(requested, totalAvailable);
-            var remainingNQ = available.NQ;
-            var remainingHQ = available.HQ;
-            var consumeNQ = Math.Min(consumed, remainingNQ);
-            remainingNQ -= consumeNQ;
-            remainingHQ = Math.Max(0, remainingHQ - (consumed - consumeNQ));
+            var (consumed, remainingNQ, remainingHQ) = ForkLogic.QueueRules.TakeHeld(available.NQ, available.HQ, requested, onlyHq);
             ledger[itemId] = (remainingNQ, remainingHQ);
             return consumed;
         }

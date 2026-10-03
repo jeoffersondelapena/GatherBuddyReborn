@@ -36,6 +36,7 @@ public class AutoGatherList
     public bool   RemoveCompletedItems { get; set; } = false;
     public bool   SkipLoggedItems      { get; set; } = false;
     public bool   CountHeld            { get; set; } = true;
+    public bool   BuyInsteadOfWaiting  { get; set; } = true;
     internal bool UsesRetainerInventory { get; set; } = true;
 
     private List<IGatherable>                  items              = [];
@@ -59,6 +60,7 @@ public class AutoGatherList
             RemoveCompletedItems = RemoveCompletedItems,
             SkipLoggedItems      = SkipLoggedItems,
             CountHeld            = CountHeld,
+            BuyInsteadOfWaiting  = BuyInsteadOfWaiting,
             UsesRetainerInventory = UsesRetainerInventory
         };
 
@@ -182,6 +184,7 @@ public class AutoGatherList
         public bool                   RemoveCompletedItems = list.RemoveCompletedItems;
         public bool                   SkipLoggedItems      = list.SkipLoggedItems;
         public bool?                  CountHeld            = list.CountHeld;
+        public bool?                  BuyInsteadOfWaiting  = list.BuyInsteadOfWaiting;
 
         internal readonly string ToBase64()
         {
@@ -243,6 +246,7 @@ public class AutoGatherList
             SkipLoggedItems      = cfg.SkipLoggedItems,
             // fork: a list saved without this key (older, shared or upstream) keeps counting what is held
             CountHeld            = cfg.CountHeld ?? true,
+            BuyInsteadOfWaiting  = cfg.BuyInsteadOfWaiting ?? true,
             items              = new(cfg.ItemIds.Length),
             quantities         = new(cfg.ItemIds.Length),
             preferredLocations = new(cfg.PrefferedLocations.Count),

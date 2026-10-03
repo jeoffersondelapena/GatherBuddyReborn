@@ -76,6 +76,24 @@ public partial class AutoGatherListsManager : IDisposable
     private bool CountsRetainers(IGatherable item)
         => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item);
 
+    // fork: what a gathering run buys first: items only a window gives, a gil vendor sells and every list holding them allows buying
+    internal List<(uint ItemId, uint Target)> BuyTargets()
+    {
+        var targets = new List<(uint, uint)>();
+        foreach (var (item, quantity) in _activeItems)
+        {
+            var missing = Missing(item, quantity);
+            if (!GatherRules.BuyInstead(!_keptFromBuying.Contains(item),
+                    item is Classes.Gatherable ? item.InternalLocationId : null, item is Classes.Fish ? item.InternalLocationId : null,
+                    Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(item.ItemId), Crafting.MaterialSourceClassifier.IsSoldForGil(item.ItemId), missing))
+                continue;
+
+            targets.Add((item.ItemId, (uint)(Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(item.ItemId) + missing)));
+        }
+
+        return targets;
+    }
+
     internal Dictionary<uint, int> RetainerTargets()
         => _activeItems.Where(i => CountsRetainers(i.Item))
             .GroupBy(i => i.Item.ItemId)
@@ -83,6 +101,7 @@ public partial class AutoGatherListsManager : IDisposable
 
     // fork: an on-top item's baseline is the bags alone, so retainer stock never counts for it
     private readonly HashSet<IGatherable> _onTopActiveItems = [];
+    private readonly HashSet<IGatherable> _keptFromBuying = [];
     private readonly Dictionary<uint, int> _heldAtStart = new();
 
     internal void ForgetHeldAtStart()
@@ -279,19 +298,20 @@ public partial class AutoGatherListsManager : IDisposable
         _fallbackItems.Clear();
         _localInventoryActiveItems.Clear();
         _onTopActiveItems.Clear();
+        _keptFromBuying.Clear();
 
         var items = _fileSystem.Root.GetAllDescendants(SortMode)
             .OfType<FileSystem<AutoGatherList>.Leaf>()
             .Select(leaf => leaf.Value)
             .Where(l => l.Enabled)
-            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.CountHeld)))
+            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.CountHeld, l.BuyInsteadOfWaiting)))
             .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && SkipAsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory),
-                OnTop: x.Any(g => !g.CountHeld)));
+                OnTop: x.Any(g => !g.CountHeld), NoBuying: x.Any(g => !g.BuyInsteadOfWaiting)));
 
         ReportSkippedAsLogged();
-        foreach (var (item, quantity, fallback, usesRetainerInventory, onTop) in items)
+        foreach (var (item, quantity, fallback, usesRetainerInventory, onTop, noBuying) in items)
         {
             if (fallback)
             {
@@ -303,6 +323,8 @@ public partial class AutoGatherListsManager : IDisposable
                     _localInventoryActiveItems.Add(item);
                 if (onTop)
                     _onTopActiveItems.Add(item);
+                if (noBuying)
+                    _keptFromBuying.Add(item);
                 _activeItems.Add((item, quantity));
             }
         }

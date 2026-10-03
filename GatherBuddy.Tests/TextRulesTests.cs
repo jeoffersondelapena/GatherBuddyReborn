@@ -159,6 +159,9 @@ public class TextRulesTests
         Assert.Equal("[GatherBuddy] Taking from your retainers for this buy run stopped: your bags are full. "
           + "Fix the cause and press Resume to try again, or press Skip Retainers (fork) in the Vendor Buy List window to go on without them (fork).",
             TextRules.StoppedShort(TextRules.Retainers, "your bags are full", TextRules.BuyList));
+        Assert.Equal("[GatherBuddy] Buying for this gathering run stopped: 1 item(s) could not be bought. Fix the cause and press Resume to buy the rest, "
+          + "or press Skip Buying (fork) in the Auto-Gather tab to wait for their time or weather windows instead (fork).",
+            TextRules.StoppedShort(TextRules.BuyList, "1 item(s) could not be bought", TextRules.Gathering));
         Assert.Equal("[GatherBuddy] This gathering run stopped: Inventory is full. Fix the cause and press Resume in the Auto-Gather tab to gather "
           + "the rest, or untick Enabled there to end the run (fork).", TextRules.RunStopped(TextRules.Gathering, "Inventory is full"));
         Assert.Equal("[GatherBuddy] This buy run stopped: your bags are full. Fix the cause and press Resume in the Vendor Buy List window to buy "

@@ -33,6 +33,8 @@ public static class TextRules
     public static string StoppedShort(string part, string? why, string run = Crafting)
     {
         var (what, resume, button, next) = Part(part);
+        if (part == BuyList && run == Gathering)
+            next = "wait for their time or weather windows instead";
         return $"[GatherBuddy] {what} for this {RunName(run)} run stopped: {Why(why)}. Fix the cause and press Resume to "
           + $"{resume}, or press {button} in the {RunWindow(run)} to {next} (fork).";
     }

@@ -80,7 +80,7 @@ internal static unsafe class GcMissions
                 else
                     crafted.Add((recipe, crafts));
             }
-            else if (Waits(mission.ItemId, amount, false))
+            else if (Waits(mission.ItemId, amount, MaterialSourceClassifier.IsSoldForGil(mission.ItemId)))
                 waiting.Add(name);
             else if (GatherBuddy.GameData.Gatherables.TryGetValue(mission.ItemId, out var gatherable))
                 gathered.Add((gatherable, (uint)amount));
@@ -105,7 +105,6 @@ internal static unsafe class GcMissions
     private static int Held(uint itemId)
         => Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(itemId);
 
-    // a gathering run never buys, so a vendor only spares the wait for a crafting run's materials
     private static bool Waits(uint itemId, int needed, bool soldForGil)
         => MissionRules.Waits(
             GatherBuddy.GameData.Gatherables.TryGetValue(itemId, out var node) ? node.InternalLocationId : null,
@@ -127,11 +126,12 @@ internal static unsafe class GcMissions
 
         list.SkipIfEnough       = true;
         list.SkipFinalIfEnough  = true;
+        list.CountOnlyHqFinals  = true;
         list.SkipCraftedRecipes = false;
         list.Recipes.Clear();
         foreach (var (recipe, crafts) in crafted)
             list.AddRecipe(recipe.RowId, crafts);
-        list.Description = MissionRules.Description(DateTime.Now, crafted.Count);
+        list.Description = MissionRules.Description(DateTime.Now, crafted.Count) + "; an HQ copy is wanted, one try a day";
         manager.SaveList(list);
     }
 
@@ -147,8 +147,9 @@ internal static unsafe class GcMissions
             lists.AddList(list);
         }
 
-        list.CountHeld       = true;
-        list.SkipLoggedItems = false;
+        list.CountHeld           = true;
+        list.BuyInsteadOfWaiting = true;
+        list.SkipLoggedItems     = false;
         while (list.Items.Count > 0)
             list.RemoveAt(0);
         foreach (var (item, amount) in gathered)
