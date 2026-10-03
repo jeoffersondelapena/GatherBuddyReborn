@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using Dalamud.Game.Text.SeStringHandling;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -35,6 +36,7 @@ internal static unsafe class GcMissions
 
     private static DateTime _looked = DateTime.MinValue;
     private static bool     _showing;
+    private static DateTime _fillBy = DateTime.MinValue;
 
     // the detail window serves every timer; cached because the overlay asks every frame
     public static bool WindowShowsMissions(AtkUnitBase* addon)
@@ -53,12 +55,29 @@ internal static unsafe class GcMissions
         var window   = FromWindow(delivery);
         ForkTrace.Info($"gc missions: Timers window {Describe(window)}; delivery data {Describe(delivery)}");
         var missions = window is { Count: > 0 } ? window : delivery;
+        var today    = MissionRules.Day(DateTime.UtcNow);
+        if (missions is { Count: > 0 })
+            Keep(today, missions);
+        else if (Kept(today) is { Count: > 0 } kept)
+        {
+            ForkTrace.Info("gc missions: no window to read, so the missions read earlier this mission day are used");
+            missions = kept;
+        }
+
         if (missions is not { Count: > 0 })
         {
-            Dalamud.Chat.PrintError("[GatherBuddy] Could not read today's Grand Company missions. Open Timers, then Supply & Provisioning "
-              + "Missions, and press the button again (fork).");
+            var timers = AgentContentsTimer.Instance();
+            if (timers != null && !timers->IsAgentActive())
+                timers->Show();
+            _fillBy = DateTime.UtcNow + FillWait;
+            ForkTrace.Info("gc missions: nothing read for this mission day yet, so Timers was opened and the lists wait for its missions page");
+            Dalamud.Chat.Print("[GatherBuddy] Today's Grand Company missions have not been read yet: the game holds them only while their "
+              + "Timers page is open. Timers is opening; choose Supply & Provisioning Missions there within two minutes and the lists fill by "
+              + "themselves (fork).");
             return;
         }
+
+        _fillBy = DateTime.MinValue;
 
         var crafted  = new List<(Recipe Recipe, int Crafts)>();
         var gathered = new List<(IGatherable Item, uint Amount)>();
@@ -100,6 +119,53 @@ internal static unsafe class GcMissions
             Dalamud.Chat.PrintError($"[GatherBuddy] Left out, since each would mean waiting for a time or weather window: {string.Join(", ", waiting)} (fork).");
         if (neither.Count > 0)
             Dalamud.Chat.PrintError($"[GatherBuddy] Neither craftable nor gatherable, so on no list: {string.Join(", ", neither)} (fork).");
+    }
+
+    private static readonly TimeSpan FillWait = TimeSpan.FromMinutes(2);
+
+    // a press that found nothing to read is finished by the missions page showing, without a second press
+    public static bool TakeFillRequest()
+    {
+        if (DateTime.UtcNow >= _fillBy || Busy)
+            return false;
+
+        _fillBy = DateTime.MinValue;
+        return true;
+    }
+
+    // missions differ by character, so each has its own file
+    private static string? KeptPath()
+        => CharacterListState.Key() is { } key ? Path.Combine(Dalamud.PluginInterface.ConfigDirectory.FullName, $"gc-missions-{key}.json") : null;
+
+    private static void Keep(string day, List<Mission> missions)
+    {
+        if (KeptPath() is not { } path)
+            return;
+
+        try
+        {
+            SafeFile.Write(path, MissionRules.Serialize(day, missions));
+        }
+        catch (Exception e)
+        {
+            GatherBuddy.Log.Warning($"[GcMissions] the day's missions were not saved: {e.Message}");
+        }
+    }
+
+    private static List<Mission> Kept(string day)
+    {
+        if (KeptPath() is not { } path || !File.Exists(path))
+            return [];
+
+        try
+        {
+            return MissionRules.SavedFor(SafeFile.Read(path, attempts: 1), day);
+        }
+        catch (Exception e)
+        {
+            GatherBuddy.Log.Warning($"[GcMissions] the day's saved missions could not be read: {e.Message}");
+            return [];
+        }
     }
 
     private static int Held(uint itemId)
@@ -185,6 +251,7 @@ internal static unsafe class GcMissions
 
         var texts = Texts(addon);
         ForkTrace.Info($"gc missions: the Timers window holds {addon->AtkValuesCount} value(s), {texts.Count} of them text: {string.Join(" | ", texts.Take(60))}");
+        ForkTrace.Info($"gc missions: its numbers: {Numbers(addon)}");
         return MissionRules.FromNames(texts, Known.Value, exact);
     }
 
@@ -199,6 +266,30 @@ internal static unsafe class GcMissions
         }
 
         return texts;
+    }
+
+    // traced so a delivered mission can later be told from an open one
+    private static string Numbers(AtkUnitBase* addon)
+    {
+        var numbers = new List<string>();
+        for (var i = 0; i < addon->AtkValuesCount; i++)
+        {
+            var value = addon->AtkValues[i];
+            switch ((int)value.Type & 0x0F)
+            {
+                case 2:
+                    numbers.Add($"{i}={(value.Byte != 0 ? "yes" : "no")}");
+                    break;
+                case 3:
+                    numbers.Add($"{i}={value.Int}");
+                    break;
+                case 5:
+                    numbers.Add($"{i}={value.UInt}");
+                    break;
+            }
+        }
+
+        return string.Join(" ", numbers);
     }
 
     private static string Describe(List<Mission>? missions)

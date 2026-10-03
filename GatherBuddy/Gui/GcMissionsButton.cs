@@ -17,6 +17,8 @@ internal static unsafe class GcMissionsButton
          || !GcMissions.WindowShowsMissions(addon))
             return;
 
+        if (GcMissions.TakeFillRequest())
+            GcMissions.MakeLists();
         var corner = ImGui.GetMainViewport().Pos + new Vector2(addon->X, addon->Y + addon->GetScaledHeight(true));
         ImGui.SetNextWindowPos(corner + new Vector2(16f, -4f) * ImGui.GetIO().FontGlobalScale);
         if (ImGui.Begin("##gcMissionsButton", ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoMove

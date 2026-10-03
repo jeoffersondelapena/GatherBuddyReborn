@@ -49,6 +49,24 @@ public class MissionRulesTests
     }
 
     [Fact]
+    public void A_days_read_comes_back_whole_on_the_same_mission_day()
+    {
+        var text = MissionRules.Serialize("2026-10-03", [new Mission(1, 1), new Mission(3, 10)]);
+        Assert.Equal([new Mission(1, 1), new Mission(3, 10)], MissionRules.SavedFor(text, "2026-10-03"));
+    }
+
+    [Fact]
+    public void A_read_from_another_day_or_an_unreadable_one_holds_nothing()
+    {
+        var text = MissionRules.Serialize("2026-10-02", [new Mission(1, 1)]);
+        Assert.Empty(MissionRules.SavedFor(text, "2026-10-03"));
+        Assert.Empty(MissionRules.SavedFor(null, "2026-10-03"));
+        Assert.Empty(MissionRules.SavedFor("", "2026-10-03"));
+        Assert.Empty(MissionRules.SavedFor("{ not json", "2026-10-03"));
+        Assert.Empty(MissionRules.SavedFor("{\"On\":\"2026-10-03\"}", "2026-10-03"));
+    }
+
+    [Fact]
     public void A_request_is_rounded_up_to_whole_crafts()
     {
         Assert.Equal(1, MissionRules.Crafts(1, 1));

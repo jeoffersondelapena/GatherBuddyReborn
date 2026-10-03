@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 
 namespace GatherBuddy.ForkLogic;
 
@@ -39,6 +40,25 @@ public static class MissionRules
     // Grand Company missions turn over at 20:00 UTC, so a day here is one such period, named by the date it began on
     public static string Day(DateTime utc)
         => utc.AddHours(-20).ToString("yyyy-MM-dd");
+
+    private sealed record Saved(string On, List<Mission> Missions);
+
+    public static string Serialize(string day, IEnumerable<Mission> missions)
+        => JsonSerializer.Serialize(new Saved(day, missions.ToList()));
+
+    // the missions change at the reset, so a read from another day holds nothing for this one
+    public static List<Mission> SavedFor(string? text, string today)
+    {
+        try
+        {
+            var saved = string.IsNullOrWhiteSpace(text) ? null : JsonSerializer.Deserialize<Saved>(text);
+            return saved is { Missions: not null } && saved.On == today ? saved.Missions.Where(m => m.ItemId != 0).ToList() : [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 
     public static DateTime NextReset(DateTime utc)
         => utc.AddHours(-20).Date.AddDays(1).AddHours(20);

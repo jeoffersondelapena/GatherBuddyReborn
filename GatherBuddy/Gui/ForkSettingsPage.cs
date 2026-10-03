@@ -118,7 +118,9 @@ internal static class ForkSettingsPage
     {
         if (ImGuiUtil.DrawDisabledButton("GC Mission Lists (fork)", Vector2.Zero,
                 $"Refill the crafting list '{MissionRules.SupplyList}' and the gathering list '{MissionRules.ProvisioningList}' with today's Grand "
-              + "Company supply and provisioning missions. Open Timers, then Supply & Provisioning Missions, first.\n"
+              + "Company supply and provisioning missions.\n"
+              + "The game holds the missions only while their Timers page is open. The first press of a mission day opens Timers and fills "
+              + "the lists once Supply & Provisioning Missions is chosen there; later presses reuse that read until the missions' daily reset.\n"
               + "Each press replaces what the two lists held, so earlier days never pile up. A mission item already held counts as done, logged "
               + "recipes and items are never skipped, and what would mean waiting for a time or weather window is left out. Not during a run.",
                 GcMissions.Busy))
