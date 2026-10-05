@@ -133,9 +133,9 @@ internal static class ForkSettingsPage
     {
         ImGui.Spacing();
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
-        ImGui.BulletText("Skip Logged Items (fork), Get Only What Is Missing (fork), Buy Instead of Waiting (fork) and, under it, Buy "
+        ImGui.BulletText("Skip Logged Items (fork), Get Only Missing Items (fork), Buy Instead of Waiting (fork) and, under it, Buy "
           + "Instead of Gathering Too (fork): on each gathering list, in the Auto-Gather tab.");
-        ImGui.BulletText("Skip Logged Recipes (fork), Get Only What Is Missing (fork), But Treat NQ as Missing (fork), Buy Instead of "
+        ImGui.BulletText("Skip Logged Recipes (fork), Get Only Missing Materials (fork), But Treat NQ as Missing (fork), Buy Instead of "
           + "Waiting (fork) and, under it, Buy Instead of Gathering Too (fork): on each crafting list, in Vulcan's list editor.");
         ImGui.BulletText("Craft Only Missing Final Crafts works without Craft Only Missing Precrafts; GatherBuddy needs both.");
         ImGui.BulletText("Restock from Retainers (fork): on each buy list, in the Vendor Buy List window.");

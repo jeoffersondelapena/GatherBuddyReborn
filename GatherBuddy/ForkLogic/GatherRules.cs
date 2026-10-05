@@ -2,7 +2,7 @@
 
 namespace GatherBuddy.ForkLogic;
 
-// with Get Only What Is Missing off, a list's amount is gathered on top of what was held when the run started
+// with Get Only Missing Items off, a list's amount is gathered on top of what was held when the run started
 public static class GatherRules
 {
     public static bool StillNeeded(int held, int? heldAtStart, uint quantity)
