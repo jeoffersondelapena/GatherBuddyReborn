@@ -297,10 +297,11 @@ public partial class Interface
             "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
             list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
         ImGui.SameLine();
-        ImGuiUtil.Checkbox("Count Items Already Held (fork)##list",
+        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##list",
             "On: an item is done once your bags (and your retainers, with Check Retainer Inventories on) hold its amount, as GatherBuddy "
           + "always did, and a run first takes what your retainers hold. Off: the run gathers the amount on top of what your bags held when it "
-          + "started, so a log list still gathers an item you have not logged though you hold some.",
+          + "started, so a log list still gathers an item you have not logged though you hold some.\n"
+          + "Formerly 'Count Items Already Held (fork)'.",
             list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v));
         ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##list",
             "On: an item only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead of "
