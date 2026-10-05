@@ -14,6 +14,8 @@ public sealed class ForkLog : IDisposable
 {
     private const long MaxFileBytes = 10 * 1024 * 1024;
     private const int  FlushMs      = 500;
+    private const long StalledMs    = 5000;
+    private const long ReportEvery  = 60000;
 
     public Logger Inner { get; }
 
@@ -22,11 +24,41 @@ public sealed class ForkLog : IDisposable
     private readonly Timer                   _timer;
     private          string?                 _key;
     private          string?                 _path;
+    private          long                    _timerCame = Environment.TickCount64;
+    private          long                    _reported = -ReportEvery;
+    private          long                    _checked;
 
     public ForkLog(Logger inner)
     {
         Inner  = inner;
-        _timer = new Timer(_ => Flush(), null, FlushMs, FlushMs);
+        _timer = new Timer(_ =>
+        {
+            Volatile.Write(ref _timerCame, Environment.TickCount64);
+            Flush();
+        }, null, FlushMs, FlushMs);
+    }
+
+    // the timer once stopped for a whole session, so each frame checks it and writes from the game's own thread when it has
+    public void CheckTimer()
+    {
+        var now  = Environment.TickCount64;
+        var idle = now - Volatile.Read(ref _timerCame);
+        if (idle < StalledMs || now - _checked < StalledMs)
+            return;
+
+        _checked = now;
+        var free = Monitor.TryEnter(_flushLock);
+        if (free)
+            Monitor.Exit(_flushLock);
+        if (now - _reported >= ReportEvery)
+        {
+            _reported = now;
+            Warning($"[fork] the trace timer has not come round for {idle / 1000}s ({(free ? "it stopped firing" : "a write is stuck")}); "
+              + $"thread pool: {ThreadPool.ThreadCount} thread(s), {ThreadPool.PendingWorkItemCount} queued, {ThreadPool.CompletedWorkItemCount} done");
+        }
+
+        if (free)
+            Flush();
     }
 
     public void Fatal(string text)

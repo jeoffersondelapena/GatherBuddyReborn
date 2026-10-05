@@ -250,6 +250,7 @@ public partial class GatherBuddy : IDalamudPlugin
         NativeItemTooltipBridge?.BeginImGuiFrame();
         try
         {
+            Log.CheckTimer();
             Gui.KeepMarkFrames.Draw();
             Gui.GcMissionsButton.Draw();
             Helpers.TimersProbe.Watch();
