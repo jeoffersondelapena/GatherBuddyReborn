@@ -186,7 +186,7 @@ public class CraftingMaterialsWindow : Window
         SameLineIfFits(keepFulfilledCheckboxWidth);
         ImGui.Checkbox("Keep Fulfilled##keepFulfilled", ref _matsKeepFulfilled);
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Keep fulfilled materials visible even when \"Craft Only What Is Missing\" is enabled on the list.");
+            ImGui.SetTooltip("Keep fulfilled materials visible even when \"Craft Only Missing Precrafts\" is enabled on the list.");
         if (showRetainer)
         {
             SameLineIfFits(refreshRetainersButtonWidth);
