@@ -155,7 +155,8 @@ public static class CraftingListPlanner
 
             remainingItemCount -= _availability.ConsumePlanned(resultItemId, remainingItemCount);
 
-            if (_list.SkipIfEnough && _list.SkipFinalIfEnough && _consumeFinalAvailability)
+            // fork: upstream also asked for SkipIfEnough here, which tied held final crafts to the precraft rule for no reason of its own
+            if (_list.SkipFinalIfEnough && _consumeFinalAvailability)
             {
                 var onlyHq = _list.OnlyHqCountsFor(item.RecipeId);
                 var consumedInventory = _availability.ConsumeInventory(resultItemId, remainingItemCount, onlyHq);

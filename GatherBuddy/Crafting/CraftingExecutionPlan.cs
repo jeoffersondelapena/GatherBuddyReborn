@@ -56,7 +56,7 @@ public sealed class CraftingExecutionPlan
     public static CraftingExecutionPlan Create(CraftingListDefinition list)
     {
         var planningSnapshot = list.CreateRetainerPlanningSnapshot();
-        var useRetainerCraftableAvailability = planningSnapshot.SkipIfEnough
+        var useRetainerCraftableAvailability = (planningSnapshot.SkipIfEnough || planningSnapshot.SkipFinalIfEnough)
             && planningSnapshot.RetainerRestock
             && AllaganTools.Enabled;
         var resolvedPlan = planningSnapshot.CreatePlan(useRetainerCraftableAvailability);

@@ -148,7 +148,7 @@ public class CraftingListEditor
     {
         ImGui.Indent();
         var reset = ForkLogic.MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
-        var applies = _list.SkipIfEnough && _list.SkipFinalIfEnough;
+        var applies = _list.SkipFinalIfEnough;
         ImGui.BeginDisabled(!applies);
         ImGuiUtil.Checkbox("But Treat NQ as Missing (fork)##cohf",
             "A final craft counts as already made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one.\n"
@@ -377,7 +377,7 @@ public class CraftingListEditor
                 changedItemIds.Add(itemId);
 
                 if ((planningList.SkipIfEnough && _watchedPrecraftResultItemIds.Contains(itemId))
-                 || (planningList.SkipIfEnough && planningList.SkipFinalIfEnough && _watchedOriginalResultItemIds.Contains(itemId)))
+                 || (planningList.SkipFinalIfEnough && _watchedOriginalResultItemIds.Contains(itemId)))
                 {
                     graphAffected = true;
                 }
@@ -645,23 +645,21 @@ public class CraftingListEditor
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("A precraft is not crafted when enough of it is already held.\nGatherBuddy's name: 'Skip if Already Have Enough'.");
 
-        ImGui.Indent();
-        ImGui.BeginDisabled(!_list.SkipIfEnough);
-        var skipFinalIfEnough = _list.SkipIfEnough && _list.SkipFinalIfEnough;
-        if (ImGui.Checkbox("Craft Only Missing Final Crafts Too##sife", ref skipFinalIfEnough))
+        var skipFinalIfEnough = _list.SkipFinalIfEnough;
+        if (ImGui.Checkbox("Craft Only Missing Final Crafts##sife", ref skipFinalIfEnough))
         {
             _list.SkipFinalIfEnough = skipFinalIfEnough;
             InvalidateQueueCache();
+            InvalidateMaterialCaches();
             InvalidatePresentationCaches();
             GatherBuddy.CraftingListManager.SaveList(_list);
             TriggerQueueRegeneration();
+            RefreshInventoryCounts();
         }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip("Also reduce final crafts based on how many you already have. Useful for resuming an interrupted list.\n"
-              + "GatherBuddy's name: 'Include Final Crafts'.");
-        ImGui.EndDisabled();
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("A final craft is not crafted when enough of it is already held. Useful for resuming an interrupted list.\n"
+              + "GatherBuddy's name: 'Include Final Crafts', which there only works with the precraft option on; here it works by itself.");
         DrawCountOnlyHqFinals();
-        ImGui.Unindent();
 
         ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##cih",
             "On: a run gathers or buys only what the bags are short of, as always. Off: it gets the full amounts on top of what the bags "
@@ -1308,10 +1306,9 @@ public class CraftingListEditor
 
     private void DrawQueueRow(QueueDisplayRow row, CraftingListDefinition planningList)
     {
-        var willBeSkipped = planningList.SkipIfEnough
-            && (!row.IsOriginalRecipe
-                ? WillBeSkippedDueToInventory(row.Recipe)
-                : planningList.SkipFinalIfEnough && row.Quantity == 0);
+        var willBeSkipped = !row.IsOriginalRecipe
+            ? planningList.SkipIfEnough && WillBeSkippedDueToInventory(row.Recipe)
+            : planningList.SkipFinalIfEnough && row.Quantity == 0;
         var textColor = willBeSkipped
             ? new Vector4(1f, 0.3f, 0.3f, 1f)
             : row.BaseTextColor;
@@ -1791,7 +1788,7 @@ public class CraftingListEditor
             ConsumeFinalAvailability: true));
 
     private static bool ShouldUseRetainerCraftablePlanning(CraftingListDefinition planningList)
-        => planningList.SkipIfEnough && planningList.RetainerRestock && AllaganTools.Enabled;
+        => (planningList.SkipIfEnough || planningList.SkipFinalIfEnough) && planningList.RetainerRestock && AllaganTools.Enabled;
 
     private MaterialCacheSnapshot EnsureMaterialCache(string hash)
     {
