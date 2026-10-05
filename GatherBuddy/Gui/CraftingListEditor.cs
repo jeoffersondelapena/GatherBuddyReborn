@@ -54,7 +54,8 @@ public class CraftingListEditor
     private int _queueGenerationVersion = 0;
     private int _selectedQueueIndex = -1;
     private bool _showPrecrafts = true;
-    private float _footerHeight;
+    private float _optionsHeight;
+    private float _buttonsHeight;
     
     private MaterialCacheSnapshot? _materialCache = null;
     
@@ -147,20 +148,23 @@ public class CraftingListEditor
     {
         ImGui.Indent();
         var reset = ForkLogic.MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
+        var applies = _list.SkipIfEnough && _list.SkipFinalIfEnough;
+        ImGui.BeginDisabled(!applies);
         ImGuiUtil.Checkbox("But Treat NQ as Missing (fork)##cohf",
             "A final craft counts as already made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one.\n"
           + "Each recipe gets one try a day: once a run has crafted it, any copy counts again until the daily reset (the Grand Company "
           + $"missions' reset, {reset:HH:mm} here), so a recipe this crafter cannot make HQ is not crafted over and over.\n"
           + "Formerly 'Count Only HQ Final Crafts (fork)'.",
-            _list.CountOnlyHqFinals, v =>
+            applies && _list.CountOnlyHqFinals, v =>
             {
                 _list.CountOnlyHqFinals = v;
                 InvalidateQueueCache();
                 InvalidatePresentationCaches();
                 GatherBuddy.CraftingListManager.SaveList(_list);
                 TriggerQueueRegeneration();
-            });
-        if (_list.CountOnlyHqFinals && _list.TriedToday() is { Count: > 0 } tried)
+            }, ImGuiHoveredFlags.AllowWhenDisabled);
+        ImGui.EndDisabled();
+        if (applies && _list.CountOnlyHqFinals && _list.TriedToday() is { Count: > 0 } tried)
         {
             ImGui.PushTextWrapPos();
             ImGui.TextDisabled($"Tried today, so any copy counts until {reset:HH:mm}: "
@@ -572,10 +576,9 @@ public class CraftingListEditor
         var lineH   = ImGui.GetTextLineHeightWithSpacing();
         var spacing = ImGui.GetStyle().ItemSpacing.Y;
         var frameH  = ImGui.GetFrameHeightWithSpacing();
-        var footerRows = 10 + (_list.QuickSynthAll ? 2 : 0) + (_list.SkipIfEnough ? 1 : 0);
-        // fork: the footer is as tall as it drew last frame, so a row added to it cannot push the start button out of the pane
-        var bottomH = _footerHeight > 0 ? _footerHeight : frameH * footerRows + spacing * 2;
-        var queueH  = Math.Max(ImGui.GetContentRegionAvail().Y - bottomH, lineH * 3);
+        // fork: sized so a new option row can never cut off the buttons below
+        var (queueH, optionsH) = ForkLogic.LayoutRules.SplitPane(ImGui.GetContentRegionAvail().Y, _optionsHeight > 0 ? _optionsHeight : frameH * 14,
+            _buttonsHeight > 0 ? _buttonsHeight : frameH * 2 + spacing * 2, spacing * 2, lineH * 3, frameH * 3);
 
         ImGui.BeginChild("QueueList", new Vector2(-1, queueH), false);
 
@@ -606,126 +609,14 @@ public class CraftingListEditor
 
         ImGui.EndChild();
 
-        ImGui.BeginChild("QueueFooter", new Vector2(-1, 0), false,
-            ImGuiWindowFlags.NoScrollbar | ImGuiWindowFlags.NoScrollWithMouse);
+        ImGui.BeginChild("QueueOptions", new Vector2(-1, optionsH), false);
 
         ImGui.Separator();
         ImGui.Spacing();
 
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
-        ImGuiUtil.Checkbox("Skip Logged Recipes (fork)##scr",
-            "Skip recipes this character has already crafted, according to the crafting log.\n"
-          + "The game keeps no log for master recipes and newer special recipes, so those are never skipped.",
-            _list.SkipCraftedRecipes, v =>
-            {
-                _list.SkipCraftedRecipes = v;
-                InvalidateQueueCache();
-                InvalidateMaterialCaches();
-                InvalidatePresentationCaches();
-                GatherBuddy.CraftingListManager.SaveList(_list);
-                TriggerQueueRegeneration();
-                RefreshInventoryCounts();
-            });
-
-        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##cih",
-            "On: a run gathers or buys only what the bags are short of, as always. Off: it gets the full amounts on top of what the bags "
-          + "held when it started, so what was held is still there afterwards; every new run gets the full amounts again. This is about "
-          + "materials; what is crafted follows Craft Only Missing Precrafts.\n"
-          + "Formerly 'Count Items Already Held (fork)'.",
-            _list.CountHeld, v =>
-            {
-                _list.CountHeld = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            });
-
-        var skipIfEnough = _list.SkipIfEnough;
-        if (ImGui.Checkbox("Craft Only Missing Precrafts##sie", ref skipIfEnough))
-        {
-            _list.SkipIfEnough    = skipIfEnough;
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            TriggerQueueRegeneration();
-            RefreshInventoryCounts();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("A precraft is not crafted when enough of it is already held.\nGatherBuddy's name: 'Skip if Already Have Enough'.");
-
-        if (_list.SkipIfEnough)
-        {
-            ImGui.Indent();
-            var skipFinalIfEnough = _list.SkipFinalIfEnough;
-            if (ImGui.Checkbox("Craft Only Missing Final Crafts Too##sife", ref skipFinalIfEnough))
-            {
-                _list.SkipFinalIfEnough = skipFinalIfEnough;
-                InvalidateQueueCache();
-                InvalidatePresentationCaches();
-                GatherBuddy.CraftingListManager.SaveList(_list);
-                TriggerQueueRegeneration();
-            }
-            if (ImGui.IsItemHovered())
-                ImGui.SetTooltip("Also reduce final crafts based on how many you already have. Useful for resuming an interrupted list.\n"
-                  + "GatherBuddy's name: 'Include Final Crafts'.");
-            if (_list.SkipFinalIfEnough)
-                DrawCountOnlyHqFinals();
-            ImGui.Unindent();
-        }
-
-        var quickSynthAll = _list.QuickSynthAll;
-        if (ImGui.Checkbox("Quick Synth Precrafts##qsa", ref quickSynthAll))
-        {
-            _list.QuickSynthAll = quickSynthAll;
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            TriggerQueueRegeneration();
-            TriggerMaterialsRegeneration();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Force Quick Synthesis on eligible items in this list. Additional override options appear below when enabled.\n"
-              + "GatherBuddy's name: 'Quick Synth All'.");
-
-        if (_list.QuickSynthAll)
-        {
-            ImGui.Indent();
-
-            // fork: shown as the reverse of GatherBuddy's 'Precrafts Only', so both groups widen to final crafts the same way
-            var quickSynthFinalsToo = !_list.QuickSynthAllPrecraftsOnly;
-            if (ImGui.Checkbox("Quick Synth Final Crafts Too##qsapo", ref quickSynthFinalsToo))
-            {
-                _list.QuickSynthAllPrecraftsOnly = !quickSynthFinalsToo;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-                InvalidateQueueCache();
-                InvalidateMaterialCaches();
-                InvalidatePresentationCaches();
-                TriggerQueueRegeneration();
-                TriggerMaterialsRegeneration();
-            }
-            if (ImGui.IsItemHovered())
-                ImGui.SetTooltip("Also quick-synth the list's final crafts, making only NQ when the box below is ticked. Off: only generated precrafts get them, "
-                  + "and final list items are left unchanged.\nGatherBuddy shows this the other way round, as 'Precrafts Only'.");
-
-            var quickSynthAllPreferNQ = _list.QuickSynthAllPreferNQ;
-            if (ImGui.Checkbox("But Make Only NQ##qsapnq", ref quickSynthAllPreferNQ))
-            {
-                _list.QuickSynthAllPreferNQ = quickSynthAllPreferNQ;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-                InvalidateQueueCache();
-                InvalidateMaterialCaches();
-                InvalidatePresentationCaches();
-                TriggerQueueRegeneration();
-                TriggerMaterialsRegeneration();
-            }
-            if (ImGui.IsItemHovered())
-                ImGui.SetTooltip("Enable the Quick Synthesis 'Synthesize NQ items only' toggle for affected crafts.\n"
-                  + "GatherBuddy's name: 'Prefer NQ'.");
-
-            ImGui.Unindent();
-        }
-
+        // fork: from here the options follow a run's own order: retainers, buying, gathering, crafting
         var allaganEnabled = AllaganTools.Enabled;
         using (ImRaii.Disabled(!allaganEnabled))
         {
@@ -769,7 +660,119 @@ public class CraftingListEditor
         ImGui.EndDisabled();
         ImGui.Unindent();
 
+        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##cih",
+            "On: a run gathers or buys only what the bags are short of, as always. Off: it gets the full amounts on top of what the bags "
+          + "held when it started, so what was held is still there afterwards; every new run gets the full amounts again. This is about "
+          + "materials; what is crafted follows Craft Only Missing Precrafts.\n"
+          + "Formerly 'Count Items Already Held (fork)'.",
+            _list.CountHeld, v =>
+            {
+                _list.CountHeld = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
 
+        ImGuiUtil.Checkbox("Skip Logged Recipes (fork)##scr",
+            "Skip recipes this character has already crafted, according to the crafting log.\n"
+          + "The game keeps no log for master recipes and newer special recipes, so those are never skipped.",
+            _list.SkipCraftedRecipes, v =>
+            {
+                _list.SkipCraftedRecipes = v;
+                InvalidateQueueCache();
+                InvalidateMaterialCaches();
+                InvalidatePresentationCaches();
+                GatherBuddy.CraftingListManager.SaveList(_list);
+                TriggerQueueRegeneration();
+                RefreshInventoryCounts();
+            });
+
+        var skipIfEnough = _list.SkipIfEnough;
+        if (ImGui.Checkbox("Craft Only Missing Precrafts##sie", ref skipIfEnough))
+        {
+            _list.SkipIfEnough    = skipIfEnough;
+            InvalidateQueueCache();
+            InvalidateMaterialCaches();
+            InvalidatePresentationCaches();
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            TriggerQueueRegeneration();
+            RefreshInventoryCounts();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("A precraft is not crafted when enough of it is already held.\nGatherBuddy's name: 'Skip if Already Have Enough'.");
+
+        ImGui.Indent();
+        ImGui.BeginDisabled(!_list.SkipIfEnough);
+        var skipFinalIfEnough = _list.SkipIfEnough && _list.SkipFinalIfEnough;
+        if (ImGui.Checkbox("Craft Only Missing Final Crafts Too##sife", ref skipFinalIfEnough))
+        {
+            _list.SkipFinalIfEnough = skipFinalIfEnough;
+            InvalidateQueueCache();
+            InvalidatePresentationCaches();
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            TriggerQueueRegeneration();
+        }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip("Also reduce final crafts based on how many you already have. Useful for resuming an interrupted list.\n"
+              + "GatherBuddy's name: 'Include Final Crafts'.");
+        ImGui.EndDisabled();
+        DrawCountOnlyHqFinals();
+        ImGui.Unindent();
+
+        var quickSynthAll = _list.QuickSynthAll;
+        if (ImGui.Checkbox("Quick Synth Precrafts##qsa", ref quickSynthAll))
+        {
+            _list.QuickSynthAll = quickSynthAll;
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            InvalidateQueueCache();
+            InvalidateMaterialCaches();
+            InvalidatePresentationCaches();
+            TriggerQueueRegeneration();
+            TriggerMaterialsRegeneration();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Force Quick Synthesis on eligible items in this list. The two options under it apply while it is on.\n"
+              + "GatherBuddy's name: 'Quick Synth All'.");
+
+        ImGui.Indent();
+        ImGui.BeginDisabled(!_list.QuickSynthAll);
+
+        // fork: shown as the reverse of GatherBuddy's 'Precrafts Only', so both groups widen to final crafts the same way
+        var quickSynthFinalsToo = _list.QuickSynthAll && !_list.QuickSynthAllPrecraftsOnly;
+        if (ImGui.Checkbox("Quick Synth Final Crafts Too##qsapo", ref quickSynthFinalsToo))
+        {
+            _list.QuickSynthAllPrecraftsOnly = !quickSynthFinalsToo;
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            InvalidateQueueCache();
+            InvalidateMaterialCaches();
+            InvalidatePresentationCaches();
+            TriggerQueueRegeneration();
+            TriggerMaterialsRegeneration();
+        }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip("Also quick-synth the list's final crafts, making only NQ when the box below is ticked. Off: only generated precrafts get them, "
+              + "and final list items are left unchanged.\nGatherBuddy shows this the other way round, as 'Precrafts Only'.");
+
+        var quickSynthAllPreferNQ = _list.QuickSynthAll && _list.QuickSynthAllPreferNQ;
+        if (ImGui.Checkbox("But Make Only NQ##qsapnq", ref quickSynthAllPreferNQ))
+        {
+            _list.QuickSynthAllPreferNQ = quickSynthAllPreferNQ;
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            InvalidateQueueCache();
+            InvalidateMaterialCaches();
+            InvalidatePresentationCaches();
+            TriggerQueueRegeneration();
+            TriggerMaterialsRegeneration();
+        }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip("Enable the Quick Synthesis 'Synthesize NQ items only' toggle for affected crafts.\n"
+              + "GatherBuddy's name: 'Prefer NQ'.");
+
+        ImGui.EndDisabled();
+        ImGui.Unindent();
+
+        _optionsHeight = ImGui.GetCursorPosY();
+        ImGui.EndChild();
+
+        var buttonsTop = ImGui.GetCursorPosY();
         ImGui.Spacing();
 
         if (IPCSubscriber.IsReady("Artisan"))
@@ -838,8 +841,7 @@ public class CraftingListEditor
             GatherBuddy.CraftingTreeWindow.IsOpen = !GatherBuddy.CraftingTreeWindow.IsOpen;
         }
 
-        _footerHeight = ImGui.GetCursorPosY();
-        ImGui.EndChild();
+        _buttonsHeight = ImGui.GetCursorPosY() - buttonsTop;
     }
     
     private void DrawDetailsPane()

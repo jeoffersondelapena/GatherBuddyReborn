@@ -292,17 +292,7 @@ public partial class Interface
         ImGuiUtil.Checkbox("Remove Completed##list",
             "Automatically remove enabled items from this list once your inventory reaches the configured quantity for them.",
             list.RemoveCompletedItems, (v) => _plugin.AutoGatherListsManager.SetRemoveCompletedItems(list, v));
-        ImGui.SameLine();
-        ImGuiUtil.Checkbox("Skip Logged Items (fork)##list",
-            "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
-            list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
-        ImGui.SameLine();
-        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##list",
-            "On: an item is done once your bags (and your retainers, with Check Retainer Inventories on) hold its amount, as GatherBuddy "
-          + "always did, and a run first takes what your retainers hold. Off: the run gathers the amount on top of what your bags held when it "
-          + "started, so a log list still gathers an item you have not logged though you hold some.\n"
-          + "Formerly 'Count Items Already Held (fork)'.",
-            list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v));
+        // fork: these follow a run's own order, buying before gathering, as on a crafting list
         ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##list",
             "On: an item only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead of "
           + "waiting for the window. Off: it is always gathered, which a log list needs, since an item bought is never logged.",
@@ -317,6 +307,16 @@ public partial class Interface
             ImGuiHoveredFlags.AllowWhenDisabled);
         ImGui.EndDisabled();
         ImGui.Unindent();
+        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##list",
+            "On: an item is done once your bags (and your retainers, with Check Retainer Inventories on) hold its amount, as GatherBuddy "
+          + "always did, and a run first takes what your retainers hold. Off: the run gathers the amount on top of what your bags held when it "
+          + "started, so a log list still gathers an item you have not logged though you hold some.\n"
+          + "Formerly 'Count Items Already Held (fork)'.",
+            list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v));
+        ImGui.SameLine();
+        ImGuiUtil.Checkbox("Skip Logged Items (fork)##list",
+            "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
+            list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
         {
             _autoGatherListsCache.ItemFilterList = list;
