@@ -375,7 +375,6 @@ public partial class GatherBuddy : IDalamudPlugin
         KeepMarkTooltip?.Dispose();
         KeepMarkTooltip = null;
         Helpers.KeepMarks.Stop();
-        Helpers.GcMissions.Restore();
         CraftingGatherBridge.UnhookLogout();
         //Wotsit?.Dispose();
         Interface?.Dispose();

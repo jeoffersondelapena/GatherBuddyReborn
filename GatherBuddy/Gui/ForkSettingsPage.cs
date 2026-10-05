@@ -120,7 +120,7 @@ internal static class ForkSettingsPage
                 $"Refill the crafting list '{MissionRules.SupplyList}' and the gathering list '{MissionRules.ProvisioningList}' with today's Grand "
               + "Company supply and provisioning missions.\n"
               + "The game holds the missions only while their Timers page is open, so a press opens that page, reads it, and leaves it "
-              + "open to compare with the lists. A Timers window the press had to open is hidden again; one already open stays.\n"
+              + "open to compare with the lists. A Timers window the press had to open is closed again; one already open stays.\n"
               + "Missions differ by character, so the two lists follow the character that is logged in: at login they are rebuilt from that "
               + "character's own read of the day, or emptied when it has none.\n"
               + "Each press replaces what the two lists held, so earlier days never pile up. A mission item already held counts as done, logged "

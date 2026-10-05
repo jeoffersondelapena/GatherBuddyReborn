@@ -94,8 +94,8 @@ internal static unsafe class GcMissions
     {
         FollowCharacter();
         WatchDeliveries();
-        if (_hidTimers)
-            TidyTimers();
+        if (_closeTimers)
+            CloseTimers();
         if (_opening == Opening.No)
             return;
 
@@ -111,7 +111,7 @@ internal static unsafe class GcMissions
             if (!TryFill())
                 NotOpened();
             else if (_openedTimers)
-                HideTimers();
+                (_openedTimers, _closeTimers) = (false, true);
             return;
         }
 
@@ -138,38 +138,17 @@ internal static unsafe class GcMissions
     }
 
     private static bool _openedTimers;
-    private static bool _hidTimers;
+    private static bool _closeTimers;
 
-    // the game closes the missions page together with Timers, so a Timers window this press opened is hidden, not closed
-    private static void HideTimers()
+    // closed the way its own close button closes it, which leaves the missions page up
+    private static void CloseTimers()
     {
-        _openedTimers = false;
-        if (!GenericHelpers.TryGetAddonByName<AtkUnitBase>(Timers, out var timers))
+        _closeTimers = false;
+        if (!GenericHelpers.TryGetAddonByName<AtkUnitBase>(Timers, out var timers) || !timers->IsVisible)
             return;
 
-        timers->IsVisible = false;
-        _hidTimers        = true;
-        ForkTrace.Info("gc missions: Timers was opened by this press, so it is hidden and only its missions page stays");
-    }
-
-    // a hidden Timers is closed for real once its missions page is, or the next opening of Timers would close it instead
-    private static void TidyTimers()
-    {
-        if (GenericHelpers.TryGetAddonByName<AtkUnitBase>(Window, out var page) && page->IsVisible)
-            return;
-
-        _hidTimers = false;
-        var agent = AgentContentsTimer.Instance();
-        if (agent != null && agent->IsAgentActive())
-            agent->Hide();
-        ForkTrace.Info("gc missions: the missions page was closed, so the hidden Timers window is closed too");
-    }
-
-    public static void Restore()
-    {
-        if (_hidTimers && GenericHelpers.TryGetAddonByName<AtkUnitBase>(Timers, out var timers))
-            timers->IsVisible = true;
-        _hidTimers = false;
+        timers->Close(true);
+        ForkTrace.Info("gc missions: Timers was opened by this press, so it is closed again and its missions page stays");
     }
 
     // the lists are one pair for every character, so they are rebuilt from a character's own kept read as it logs in
