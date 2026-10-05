@@ -168,4 +168,14 @@ public class TextRulesTests
           + "the rest, or press Stop there to end the run (fork).", TextRules.RunStopped(TextRules.BuyList, "your bags are full"));
         Assert.Contains(TextRules.SkipRetainers, TextRules.StoppedShortReason(TextRules.Retainers, "x"));
     }
+
+    [Fact]
+    public void A_run_that_cannot_get_a_material_says_to_get_it_and_does_not_speak_of_buying()
+    {
+        var chat = TextRules.CannotGet(2);
+        Assert.Equal("[GatherBuddy] This crafting run needs 2 material(s) it cannot get itself: no class gathers them and no gil vendor sells "
+          + "them. Get them and press Resume, or press Skip Buying (fork) in the Craft Status window to go on without them (fork).", chat);
+        Assert.DoesNotContain("buy the rest", chat);
+        Assert.Equal("2 material(s) the run cannot get itself. Get them and press Resume, or Skip Buying (fork).", TextRules.CannotGetReason(2));
+    }
 }

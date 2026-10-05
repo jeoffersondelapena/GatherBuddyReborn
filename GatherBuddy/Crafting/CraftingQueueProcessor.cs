@@ -1811,14 +1811,14 @@ public class CraftingQueueProcessor
     public void PauseGatheringStoppedShort(string? reason, IReadOnlyList<string> missing)
         => PauseStoppedShort(TextRules.Gathering, reason, missing);
 
-    public void PauseStoppedShort(string part, string? reason, IReadOnlyList<string> missing)
+    public void PauseStoppedShort(string part, string? reason, IReadOnlyList<string> missing, string? message = null, string? status = null)
     {
-        Communicator.PrintRun(TextRules.StoppedShort(part, reason));
+        Communicator.PrintRun(message ?? TextRules.StoppedShort(part, reason));
         var what = part switch { TextRules.BuyList => "buying", TextRules.Retainers => "retainer", _ => "gathering" };
         ForkTrace.Info($"crafting run paused in its {what} part: {reason}; still missing: " + (missing.Count == 0 ? "nothing" : string.Join(", ", missing)));
         if (missing.Count > 0)
             ForkChat.List(part == TextRules.Retainers ? "Your retainers hold for this run:" : "Still missing:", missing, 12);
-        Pause(TextRules.StoppedShortReason(part, reason));
+        Pause(status ?? TextRules.StoppedShortReason(part, reason));
         if (part == TextRules.Gathering)
             return;
         if (_setOut)

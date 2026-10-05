@@ -39,6 +39,14 @@ public static class TextRules
           + $"{resume}, or press {button} in the {RunWindow(run)} to {next} (fork).";
     }
 
+    // nothing is bought here: before setting out, the run found materials no part of it can get
+    public static string CannotGet(int count)
+        => $"[GatherBuddy] This crafting run needs {count} material(s) it cannot get itself: no class gathers them and no gil vendor "
+         + $"sells them. Get them and press Resume, or press {SkipBuying} in the Craft Status window to go on without them (fork).";
+
+    public static string CannotGetReason(int count)
+        => $"{count} material(s) the run cannot get itself. Get them and press Resume, or {SkipBuying}.";
+
     public static string RunName(string run)
         => run switch
         {

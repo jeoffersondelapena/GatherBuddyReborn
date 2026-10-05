@@ -386,8 +386,12 @@ public static class CraftingGatherBridge
     {
         if (!_withoutThem && BeyondReach() is { Count: > 0 } beyond)
         {
-            _beyondReach = true;
-            StopBuyingShort(PurchaseRules.NoWayToGet(beyond.Count), beyond);
+            _beyondReach  = true;
+            _buyingPaused = true;
+            _buyStarted   = false;
+            _noVendor.Clear();
+            _queueProcessor?.PauseStoppedShort(TextRules.BuyList, PurchaseRules.NoWayToGet(beyond.Count), beyond,
+                TextRules.CannotGet(beyond.Count), TextRules.CannotGetReason(beyond.Count));
             return;
         }
 
