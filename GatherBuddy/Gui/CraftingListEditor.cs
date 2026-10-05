@@ -54,6 +54,7 @@ public class CraftingListEditor
     private int _queueGenerationVersion = 0;
     private int _selectedQueueIndex = -1;
     private bool _showPrecrafts = true;
+    private float _footerHeight;
     
     private MaterialCacheSnapshot? _materialCache = null;
     
@@ -570,8 +571,9 @@ public class CraftingListEditor
         var lineH   = ImGui.GetTextLineHeightWithSpacing();
         var spacing = ImGui.GetStyle().ItemSpacing.Y;
         var frameH  = ImGui.GetFrameHeightWithSpacing();
-        var footerRows = 8 + (_list.QuickSynthAll ? 2 : 0) + (_list.SkipIfEnough ? 1 : 0);
-        var bottomH = frameH * footerRows + spacing * 2;
+        var footerRows = 10 + (_list.QuickSynthAll ? 2 : 0) + (_list.SkipIfEnough ? 1 : 0);
+        // fork: the footer is as tall as it drew last frame, so a row added to it cannot push the start button out of the pane
+        var bottomH = _footerHeight > 0 ? _footerHeight : frameH * footerRows + spacing * 2;
         var queueH  = Math.Max(ImGui.GetContentRegionAvail().Y - bottomH, lineH * 3);
 
         ImGui.BeginChild("QueueList", new Vector2(-1, queueH), false);
@@ -826,6 +828,7 @@ public class CraftingListEditor
             GatherBuddy.CraftingTreeWindow.IsOpen = !GatherBuddy.CraftingTreeWindow.IsOpen;
         }
 
+        _footerHeight = ImGui.GetCursorPosY();
         ImGui.EndChild();
     }
     
