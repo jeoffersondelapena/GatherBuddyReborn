@@ -147,7 +147,7 @@ public class CraftingListEditor
     {
         ImGui.Indent();
         var reset = ForkLogic.MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
-        ImGuiUtil.Checkbox("Only HQ Counts (fork)##cohf",
+        ImGuiUtil.Checkbox("Counting Only HQ (fork)##cohf",
             "A final craft counts as already made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one.\n"
           + "Each recipe gets one try a day: once a run has crafted it, any copy counts again until the daily reset (the Grand Company "
           + $"missions' reset, {reset:HH:mm} here), so a recipe this crafter cannot make HQ is not crafted over and over.\n"
@@ -693,7 +693,7 @@ public class CraftingListEditor
             ImGui.Indent();
 
             var quickSynthAllPreferNQ = _list.QuickSynthAllPreferNQ;
-            if (ImGui.Checkbox("Prefer NQ##qsapnq", ref quickSynthAllPreferNQ))
+            if (ImGui.Checkbox("Making Only NQ##qsapnq", ref quickSynthAllPreferNQ))
             {
                 _list.QuickSynthAllPreferNQ = quickSynthAllPreferNQ;
                 GatherBuddy.CraftingListManager.SaveList(_list);
@@ -704,7 +704,8 @@ public class CraftingListEditor
                 TriggerMaterialsRegeneration();
             }
             if (ImGui.IsItemHovered())
-                ImGui.SetTooltip("Enable the Quick Synthesis 'Synthesize NQ items only' toggle for affected crafts.");
+                ImGui.SetTooltip("Enable the Quick Synthesis 'Synthesize NQ items only' toggle for affected crafts.\n"
+                  + "GatherBuddy's name: 'Prefer NQ'.");
 
             // fork: shown as the reverse of GatherBuddy's 'Precrafts Only', so both groups widen to final crafts the same way
             var quickSynthFinalsToo = !_list.QuickSynthAllPrecraftsOnly;
@@ -719,7 +720,7 @@ public class CraftingListEditor
                 TriggerMaterialsRegeneration();
             }
             if (ImGui.IsItemHovered())
-                ImGui.SetTooltip("Also apply Quick Synth and Prefer NQ to the list's final crafts. Off: only generated precrafts get them, "
+                ImGui.SetTooltip("Also apply Quick Synth and Making Only NQ to the list's final crafts. Off: only generated precrafts get them, "
                   + "and final list items are left unchanged.\nGatherBuddy shows this the other way round, as 'Precrafts Only'.");
 
             ImGui.Unindent();
@@ -756,9 +757,10 @@ public class CraftingListEditor
             });
         ImGui.Indent();
         ImGui.BeginDisabled(!_list.BuyInsteadOfWaiting);
-        ImGuiUtil.Checkbox("Buy Instead of Gathering (fork)##big",
+        ImGuiUtil.Checkbox("Instead of Gathering Too (fork)##big",
             "Goes further than Buy Instead of Waiting, so it needs that one on: every material a gil vendor sells is bought instead of "
-          + "gathering or fishing it. What no vendor sells is still gathered, and what the vendors could not supply is gathered instead.",
+          + "gathering or fishing it. What no vendor sells is still gathered, and what the vendors could not supply is gathered instead.\n"
+          + "Formerly 'Buy Instead of Gathering (fork)'.",
             _list.BuyInsteadOfWaiting && _list.BuyInsteadOfGathering, v =>
             {
                 _list.BuyInsteadOfGathering = v;

@@ -18,7 +18,7 @@ public static class GatherRules
     public static bool Waits(int? nodeLocation, int? fishLocation, bool diademRaw)
         => (nodeLocation != null || fishLocation != null) && !PurchaseRules.GatheredWithoutWaiting(nodeLocation, fishLocation, diademRaw);
 
-    // Buy Instead of Gathering goes further than Buy Instead of Waiting, so it only counts while that one is on
+    // Instead of Gathering Too goes further than its parent, Buy Instead of Waiting, so it only counts while that one is on
     public static bool Buys(bool insteadOfWaiting, bool insteadOfGathering, bool waits)
         => insteadOfWaiting && (insteadOfGathering || waits);
 
