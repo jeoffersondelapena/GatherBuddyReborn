@@ -51,19 +51,35 @@ public class MissionRulesTests
     [Fact]
     public void A_days_read_comes_back_whole_on_the_same_mission_day()
     {
-        var text = MissionRules.Serialize("2026-10-03", [new Mission(1, 1), new Mission(3, 10)]);
-        Assert.Equal([new Mission(1, 1), new Mission(3, 10)], MissionRules.SavedFor(text, "2026-10-03"));
+        var text = MissionRules.Serialize("2026-10-03", [new Mission(1, 1), new Mission(3, 10)], [59, 59, 353]);
+        var (missions, tried) = MissionRules.SavedFor(text, "2026-10-03");
+        Assert.Equal([new Mission(1, 1), new Mission(3, 10)], missions);
+        Assert.Equal([59u, 353u], tried);
+        Assert.Empty(MissionRules.SavedFor(MissionRules.Serialize("2026-10-03", [new Mission(1, 1)]), "2026-10-03").Tried);
+    }
+
+    [Fact]
+    public void The_lists_are_brought_in_line_once_per_character_and_mission_day_and_never_during_a_run()
+    {
+        var aligned = MissionRules.Aligned("a", "2026-10-03");
+        Assert.True(MissionRules.Realign("a", "2026-10-03", null, busy: false, settled: true));
+        Assert.False(MissionRules.Realign("a", "2026-10-03", aligned, busy: false, settled: true));
+        Assert.True(MissionRules.Realign("b", "2026-10-03", aligned, busy: false, settled: true));
+        Assert.True(MissionRules.Realign("a", "2026-10-04", aligned, busy: false, settled: true));
+        Assert.False(MissionRules.Realign("b", "2026-10-03", aligned, busy: true, settled: true));
+        Assert.False(MissionRules.Realign("b", "2026-10-03", aligned, busy: false, settled: false));
+        Assert.False(MissionRules.Realign(null, "2026-10-03", aligned, busy: false, settled: true));
     }
 
     [Fact]
     public void A_read_from_another_day_or_an_unreadable_one_holds_nothing()
     {
         var text = MissionRules.Serialize("2026-10-02", [new Mission(1, 1)]);
-        Assert.Empty(MissionRules.SavedFor(text, "2026-10-03"));
-        Assert.Empty(MissionRules.SavedFor(null, "2026-10-03"));
-        Assert.Empty(MissionRules.SavedFor("", "2026-10-03"));
-        Assert.Empty(MissionRules.SavedFor("{ not json", "2026-10-03"));
-        Assert.Empty(MissionRules.SavedFor("{\"On\":\"2026-10-03\"}", "2026-10-03"));
+        Assert.Empty(MissionRules.SavedFor(text, "2026-10-03").Missions);
+        Assert.Empty(MissionRules.SavedFor(null, "2026-10-03").Missions);
+        Assert.Empty(MissionRules.SavedFor("", "2026-10-03").Missions);
+        Assert.Empty(MissionRules.SavedFor("{ not json", "2026-10-03").Missions);
+        Assert.Empty(MissionRules.SavedFor("{\"On\":\"2026-10-03\"}", "2026-10-03").Missions);
     }
 
     [Fact]

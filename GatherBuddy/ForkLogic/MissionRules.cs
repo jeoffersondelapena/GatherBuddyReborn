@@ -41,24 +41,35 @@ public static class MissionRules
     public static string Day(DateTime utc)
         => utc.AddHours(-20).ToString("yyyy-MM-dd");
 
-    private sealed record Saved(string On, List<Mission> Missions);
+    public const string NoneRead = Tag + " none read on this character since the daily reset";
 
-    public static string Serialize(string day, IEnumerable<Mission> missions)
-        => JsonSerializer.Serialize(new Saved(day, missions.ToList()));
+    private sealed record Saved(string On, List<Mission> Missions, List<uint>? Tried = null);
+
+    public static string Serialize(string day, IEnumerable<Mission> missions, IEnumerable<uint>? tried = null)
+        => JsonSerializer.Serialize(new Saved(day, missions.ToList(), tried?.Distinct().ToList()));
 
     // the missions change at the reset, so a read from another day holds nothing for this one
-    public static List<Mission> SavedFor(string? text, string today)
+    public static (List<Mission> Missions, List<uint> Tried) SavedFor(string? text, string today)
     {
         try
         {
             var saved = string.IsNullOrWhiteSpace(text) ? null : JsonSerializer.Deserialize<Saved>(text);
-            return saved is { Missions: not null } && saved.On == today ? saved.Missions.Where(m => m.ItemId != 0).ToList() : [];
+            return saved is { Missions: not null } && saved.On == today
+                ? (saved.Missions.Where(m => m.ItemId != 0).ToList(), saved.Tried ?? [])
+                : ([], []);
         }
         catch (JsonException)
         {
-            return [];
+            return ([], []);
         }
     }
+
+    public static string Aligned(string character, string day)
+        => $"{character} {day}";
+
+    // lists are shared by every character and missions are not, so the two lists are brought in line once per character and mission day
+    public static bool Realign(string? character, string day, string? alignedFor, bool busy, bool settled)
+        => character != null && !busy && settled && alignedFor != Aligned(character, day);
 
     public static DateTime NextReset(DateTime utc)
         => utc.AddHours(-20).Date.AddDays(1).AddHours(20);

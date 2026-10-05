@@ -782,6 +782,7 @@ public class CraftingQueueProcessor
         {
             ForkTrace.Info($"only HQ counts: {recipe.Value.ItemResult.Value.Name.ExtractText()} has had today's try on '{list.Name}'");
             GatherBuddy.CraftingListManager.SaveList(list);
+            GcMissions.TriedChanged(list);
         }
 
         if (!_lastCraftWasQuickSynth)

@@ -24,7 +24,8 @@ internal static unsafe class GcMissions
 
     private enum Opening { No, Timers, Page }
 
-    private static readonly TimeSpan OpenWait = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan OpenWait    = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan LoginSettle = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan Settle   = TimeSpan.FromMilliseconds(250);
 
     private static readonly Lazy<Dictionary<string, Mission>> Known = new(() =>
@@ -39,13 +40,17 @@ internal static unsafe class GcMissions
     });
 
     public static bool Busy
-        => CraftingGatherBridge.IsQueueMode || GatherBuddy.AutoGather.Enabled;
+        => CraftingGatherBridge.IsQueueMode || GatherBuddy.AutoGather is { Enabled: true };
 
     private static DateTime _looked = DateTime.MinValue;
     private static bool     _showing;
     private static Opening  _opening;
     private static DateTime _openBy;
     private static DateTime _chooseAt;
+    private static DateTime _followed = DateTime.MinValue;
+    private static string?  _character;
+    private static DateTime _characterSince;
+    private static string?  _alignedFor;
 
     // the detail window serves every timer; cached because the overlay asks every frame
     public static bool WindowShowsMissions(AtkUnitBase* addon)
@@ -75,6 +80,7 @@ internal static unsafe class GcMissions
 
     public static void Tick()
     {
+        FollowCharacter();
         if (_opening == Opening.No)
             return;
 
@@ -114,9 +120,75 @@ internal static unsafe class GcMissions
         ForkTrace.Info("gc missions: Timers is up, so its missions row was chosen");
     }
 
+    // the lists are one pair for every character, so they are rebuilt from a character's own kept read as it logs in
+    private static void FollowCharacter()
+    {
+        if (DateTime.UtcNow - _followed < TimeSpan.FromSeconds(1))
+            return;
+
+        _followed = DateTime.UtcNow;
+        var character = CharacterListState.Key();
+        if (character != _character)
+        {
+            _character      = character;
+            _characterSince = DateTime.UtcNow;
+        }
+
+        var day = MissionRules.Day(DateTime.UtcNow);
+        if (!MissionRules.Realign(character, day, _alignedFor, Busy, DateTime.UtcNow - _characterSince >= LoginSettle))
+            return;
+
+        _alignedFor = MissionRules.Aligned(character!, day);
+        var (kept, tried) = Kept(day);
+        var before = Listed();
+        if (kept.Count > 0)
+            Fill(kept, tried, false);
+        else
+            Empty();
+        var changed = Listed() != before;
+        ForkTrace.Info($"gc missions: the lists follow this character on {day}: kept {Describe(kept)}; {(changed ? "changed" : "as they were")}");
+        if (changed)
+            Dalamud.Chat.Print(kept.Count > 0
+                ? "[GatherBuddy] The two GC mission lists now hold this character's missions, as read earlier this mission day (fork)."
+                : "[GatherBuddy] The two GC mission lists were emptied: no Grand Company missions have been read on this character since "
+                + "the daily reset. The GC Mission Lists button fills them (fork).");
+    }
+
+    private static string Listed()
+    {
+        var supply       = GatherBuddy.CraftingListManager?.GetListByName(MissionRules.SupplyList);
+        var provisioning = CraftingGatherBridge.ListsManager?.Lists.FirstOrDefault(l => l.Name == MissionRules.ProvisioningList);
+        return string.Join(",", supply?.Recipes.Select(r => $"{r.RecipeId}x{r.Quantity}") ?? []) + "|"
+          + string.Join(",", provisioning?.Items.Select(i => $"{i.ItemId}x{provisioning.Quantities[i]}") ?? []);
+    }
+
+    // a character with nothing read today is shown neither its own earlier missions nor another character's
+    private static void Empty()
+    {
+        if (GatherBuddy.CraftingListManager?.GetListByName(MissionRules.SupplyList) is { } supply
+         && (supply.Recipes.Count > 0 || supply.Description != MissionRules.NoneRead))
+        {
+            supply.Recipes.Clear();
+            supply.HqTried.Clear();
+            supply.Description = MissionRules.NoneRead;
+            GatherBuddy.CraftingListManager.SaveList(supply);
+        }
+
+        if (CraftingGatherBridge.ListsManager is not { } lists
+         || lists.Lists.FirstOrDefault(l => l.Name == MissionRules.ProvisioningList) is not { } provisioning
+         || provisioning.Items.Count == 0 && provisioning.Description == MissionRules.NoneRead)
+            return;
+
+        while (provisioning.Items.Count > 0)
+            provisioning.RemoveAt(0);
+        provisioning.Description = MissionRules.NoneRead;
+        lists.Save();
+        lists.SetActiveItems();
+    }
+
     private static void NotOpened()
     {
-        var kept = Kept(MissionRules.Day(DateTime.UtcNow));
+        var (kept, tried) = Kept(MissionRules.Day(DateTime.UtcNow));
         ForkTrace.Info($"gc missions: the missions page did not open; kept for this mission day: {Describe(kept)}");
         if (kept.Count == 0)
         {
@@ -127,7 +199,7 @@ internal static unsafe class GcMissions
 
         Dalamud.Chat.PrintError("[GatherBuddy] The Timers missions page did not open, so the lists are refilled from the missions read "
           + "earlier this mission day (fork).");
-        Fill(kept);
+        Fill(kept, tried, true);
     }
 
     private static bool TryFill()
@@ -140,12 +212,15 @@ internal static unsafe class GcMissions
             return false;
 
         _opening = Opening.No;
-        Keep(MissionRules.Day(DateTime.UtcNow), missions);
-        Fill(missions);
+        var day = MissionRules.Day(DateTime.UtcNow);
+        if (CharacterListState.Key() is { } character)
+            _alignedFor = MissionRules.Aligned(character, day);
+        Fill(missions, Keep(day, missions), true);
         return true;
     }
 
-    private static void Fill(List<Mission> missions)
+    // pressed: by the button, which may create the lists and reports in chat; otherwise the lists only follow a login
+    private static void Fill(List<Mission> missions, List<uint> tried, bool pressed)
     {
         var crafted  = new List<(Recipe Recipe, int Crafts)>();
         var gathered = new List<(IGatherable Item, uint Amount)>();
@@ -177,12 +252,15 @@ internal static unsafe class GcMissions
                 neither.Add(name);
         }
 
-        FillCraftingList(crafted);
-        var gatheringListed = FillGatheringList(gathered);
+        FillCraftingList(crafted, tried, pressed);
+        var gatheringListed = FillGatheringList(gathered, pressed);
+        ForkTrace.Info($"gc missions: left out for waiting: {(waiting.Count == 0 ? "none" : string.Join(", ", waiting))}");
+        if (!pressed)
+            return;
+
         Dalamud.Chat.Print($"[GatherBuddy] Grand Company mission lists refilled: {crafted.Count} item(s) in the crafting list "
           + $"'{MissionRules.SupplyList}'"
           + (gatheringListed ? $", {gathered.Count} in the gathering list '{MissionRules.ProvisioningList}'" : "") + " (fork).");
-        ForkTrace.Info($"gc missions: left out for waiting: {(waiting.Count == 0 ? "none" : string.Join(", ", waiting))}");
         if (waiting.Count > 0)
             Dalamud.Chat.PrintError($"[GatherBuddy] Left out, since each would mean waiting for a time or weather window: {string.Join(", ", waiting)} (fork).");
         if (neither.Count > 0)
@@ -193,14 +271,21 @@ internal static unsafe class GcMissions
     private static string? KeptPath()
         => CharacterListState.Key() is { } key ? Path.Combine(Dalamud.PluginInterface.ConfigDirectory.FullName, $"gc-missions-{key}.json") : null;
 
-    private static void Keep(string day, List<Mission> missions)
+    private static List<uint> Keep(string day, List<Mission> missions)
+    {
+        var tried = Kept(day).Tried;
+        Write(day, missions, tried);
+        return tried;
+    }
+
+    private static void Write(string day, List<Mission> missions, IEnumerable<uint> tried)
     {
         if (KeptPath() is not { } path)
             return;
 
         try
         {
-            SafeFile.Write(path, MissionRules.Serialize(day, missions));
+            SafeFile.Write(path, MissionRules.Serialize(day, missions, tried));
         }
         catch (Exception e)
         {
@@ -208,10 +293,10 @@ internal static unsafe class GcMissions
         }
     }
 
-    private static List<Mission> Kept(string day)
+    private static (List<Mission> Missions, List<uint> Tried) Kept(string day)
     {
         if (KeptPath() is not { } path || !File.Exists(path))
-            return [];
+            return ([], []);
 
         try
         {
@@ -220,8 +305,16 @@ internal static unsafe class GcMissions
         catch (Exception e)
         {
             GatherBuddy.Log.Warning($"[GcMissions] the day's saved missions could not be read: {e.Message}");
-            return [];
+            return ([], []);
         }
+    }
+
+    // the day's one try belongs to the character that made it, as the missions do
+    public static void TriedChanged(CraftingListDefinition list)
+    {
+        var day = MissionRules.Day(DateTime.UtcNow);
+        if (list.Name == MissionRules.SupplyList && Kept(day).Missions is { Count: > 0 } missions)
+            Write(day, missions, list.TriedToday());
     }
 
     private static int Held(uint itemId)
@@ -234,12 +327,15 @@ internal static unsafe class GcMissions
             AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(itemId), soldForGil, Held(itemId), needed);
 
     // a refill resets only the switches that decide whether a held or logged item is made again
-    private static void FillCraftingList(List<(Recipe Recipe, int Crafts)> crafted)
+    private static void FillCraftingList(List<(Recipe Recipe, int Crafts)> crafted, List<uint> tried, bool create)
     {
         var manager = GatherBuddy.CraftingListManager;
         var list    = manager.GetListByName(MissionRules.SupplyList);
         if (list == null)
         {
+            if (!create)
+                return;
+
             list                            = manager.CreateNewList(MissionRules.SupplyList);
             list.QuickSynthAll              = true;
             list.QuickSynthAllPreferNQ      = true;
@@ -251,6 +347,8 @@ internal static unsafe class GcMissions
         list.SkipFinalIfEnough  = true;
         list.CountOnlyHqFinals  = true;
         list.SkipCraftedRecipes = false;
+        list.HqTriedDay         = MissionRules.Day(DateTime.UtcNow);
+        list.HqTried            = [.. tried];
         list.Recipes.Clear();
         foreach (var (recipe, crafts) in crafted)
             list.AddRecipe(recipe.RowId, crafts);
@@ -258,7 +356,7 @@ internal static unsafe class GcMissions
         manager.SaveList(list);
     }
 
-    private static bool FillGatheringList(List<(IGatherable Item, uint Amount)> gathered)
+    private static bool FillGatheringList(List<(IGatherable Item, uint Amount)> gathered, bool create)
     {
         if (CraftingGatherBridge.ListsManager is not { } lists)
             return false;
@@ -266,6 +364,9 @@ internal static unsafe class GcMissions
         var list = lists.Lists.FirstOrDefault(l => l.Name == MissionRules.ProvisioningList);
         if (list == null)
         {
+            if (!create)
+                return false;
+
             list = new AutoGatherList { Name = MissionRules.ProvisioningList };
             lists.AddList(list);
         }
