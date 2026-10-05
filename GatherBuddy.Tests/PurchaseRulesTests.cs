@@ -44,6 +44,16 @@ public class PurchaseRulesTests
     }
 
     [Fact]
+    public void What_is_neither_gathered_nor_sold_for_gil_and_still_missing_is_beyond_a_runs_reach()
+    {
+        var materials = new Dictionary<uint, int> { [Ore] = 6, [Hide] = 2, [Drop] = 3, [Sand] = 4 };
+        var held      = new Dictionary<uint, int> { [Drop] = 1 };
+        Assert.Equal([(Drop, 2)], PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, id => held.GetValueOrDefault(id)));
+        held[Drop] = 3;
+        Assert.Empty(PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, id => held.GetValueOrDefault(id)));
+    }
+
+    [Fact]
     public void A_shortfall_is_gathered_instead_only_when_the_list_asks_and_nothing_left_must_be_bought()
     {
         Assert.True(PurchaseRules.GatherInstead(true, 0));

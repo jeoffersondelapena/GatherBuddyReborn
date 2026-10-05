@@ -335,8 +335,21 @@ public static class CraftingGatherBridge
 
         _afterBuying  = materials;
         _buyingPaused = false;
+        _withoutThem  = false;
         StartBuying();
     }
+
+    // fork: a material the run has no way to get stops it before it sets out, unless the player goes on without it
+    private static bool _beyondReach;
+    private static bool _withoutThem;
+
+    private static bool Gatherable(uint id)
+        => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
+         || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id);
+
+    private static List<string> BeyondReach()
+        => PurchaseRules.BeyondReach(_afterBuying!, Gatherable, MaterialSourceClassifier.IsSoldForGil,
+            VendorBuyListManager.GetCurrentInventoryAndArmoryCount).Select(b => $"{ForkTrace.ItemName(b.ItemId)} x{b.Missing}").ToList();
 
     private static void StartBuying()
     {
@@ -363,8 +376,7 @@ public static class CraftingGatherBridge
                     GatherBuddy.GameData.Gatherables.TryGetValue(id, out var node) ? node.InternalLocationId : null,
                     GatherBuddy.GameData.Fishes.TryGetValue(id, out var fish) ? fish.InternalLocationId : null,
                     AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
-                id => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
-                 || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
+                Gatherable),
             MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
 
     private static List<string> Named(IEnumerable<(uint ItemId, uint Target, int Missing)> targets)
@@ -372,6 +384,13 @@ public static class CraftingGatherBridge
 
     private static void TryStartBuying()
     {
+        if (!_withoutThem && BeyondReach() is { Count: > 0 } beyond)
+        {
+            _beyondReach = true;
+            StopBuyingShort(PurchaseRules.NoWayToGet(beyond.Count), beyond);
+            return;
+        }
+
         var targets = ToBuy(InsteadOfGathering);
         if (targets.Count == 0)
         {
@@ -494,6 +513,7 @@ public static class CraftingGatherBridge
         _afterBuying  = null;
         _buyStarted   = false;
         _buyingPaused = false;
+        _beyondReach  = false;
         _noVendor.Clear();
     }
 
@@ -512,6 +532,7 @@ public static class CraftingGatherBridge
             return false;
 
         _buyingPaused = false;
+        _beyondReach  = false;
         StartBuying();
         return true;
     }
@@ -520,6 +541,16 @@ public static class CraftingGatherBridge
     {
         if (!BuyingHeld)
             return false;
+
+        if (_beyondReach)
+        {
+            ForkTrace.Info("buy before gathering: the player goes on without what the run cannot get; the rest is still bought");
+            _beyondReach  = false;
+            _withoutThem  = true;
+            _buyingPaused = false;
+            StartBuying();
+            return true;
+        }
 
         ForkTrace.Info("buy before gathering: skipped by the player, gathering next");
         FinishBuying();

@@ -24,6 +24,24 @@ public static class PurchaseRules
         return buy;
     }
 
+    // a drop or a currency item: no class gathers it and no gil vendor sells it, so a run cannot get it by itself
+    public static List<(uint ItemId, int Missing)> BeyondReach(IEnumerable<KeyValuePair<uint, int>> materials, Func<uint, bool> gatherable,
+        Func<uint, bool> soldForGil, Func<uint, int> held)
+    {
+        var beyond = new List<(uint, int)>();
+        foreach (var (itemId, need) in materials)
+        {
+            var missing = need - Math.Max(0, held(itemId));
+            if (missing > 0 && !gatherable(itemId) && !soldForGil(itemId))
+                beyond.Add((itemId, missing));
+        }
+
+        return beyond;
+    }
+
+    public static string NoWayToGet(int count)
+        => $"{count} material(s) can be neither gathered nor bought for gil, so the run cannot get them itself";
+
     // GatherBuddy numbers timed nodes and windowed fish from 1 up; waiting for one is what a vendor saves, so those count as not gathered
     public static bool GatheredWithoutWaiting(int? nodeLocation, int? fishLocation, bool diademRaw)
         => nodeLocation is <= 0 || fishLocation is <= 0 || diademRaw;
