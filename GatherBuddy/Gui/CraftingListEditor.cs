@@ -616,61 +616,7 @@ public class CraftingListEditor
 
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
-        // fork: from here the options follow a run's own order: retainers, buying, gathering, crafting
-        var allaganEnabled = AllaganTools.Enabled;
-        using (ImRaii.Disabled(!allaganEnabled))
-        {
-            var retainerRestock = _list.RetainerRestock;
-            if (ImGui.Checkbox("Restock from Retainers##rrr", ref retainerRestock))
-            {
-                _list.RetainerRestock = retainerRestock;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-                InvalidateQueueCache();
-                InvalidateMaterialCaches();
-                InvalidatePresentationCaches();
-                TriggerQueueRegeneration();
-                TriggerMaterialsRegeneration();
-            }
-        }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip(allaganEnabled
-                ? "Withdraw needed materials from retainers before generating the gather list. Respects HQ/NQ preferences."
-                : "Requires Allagan Tools to be installed and enabled.");
-
-        ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##biw",
-            "On: a material only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead "
-          + "of waiting for the window. Off: the run waits for the window and gathers it. What no class can gather is bought either way. "
-          + "Works with 'Buy From Vendors Before Gathering (fork)' on, on the fork's page in the settings.",
-            _list.BuyInsteadOfWaiting, v =>
-            {
-                _list.BuyInsteadOfWaiting = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            });
-        ImGui.Indent();
-        ImGui.BeginDisabled(!_list.BuyInsteadOfWaiting);
-        ImGuiUtil.Checkbox("Buy Instead of Gathering Too (fork)##big",
-            "Goes further than Buy Instead of Waiting, so it needs that one on: every material a gil vendor sells is bought instead of "
-          + "gathering or fishing it. What no vendor sells is still gathered, and what the vendors could not supply is gathered instead.\n"
-          + "Formerly 'Buy Instead of Gathering (fork)'.",
-            _list.BuyInsteadOfWaiting && _list.BuyInsteadOfGathering, v =>
-            {
-                _list.BuyInsteadOfGathering = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            }, ImGuiHoveredFlags.AllowWhenDisabled);
-        ImGui.EndDisabled();
-        ImGui.Unindent();
-
-        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##cih",
-            "On: a run gathers or buys only what the bags are short of, as always. Off: it gets the full amounts on top of what the bags "
-          + "held when it started, so what was held is still there afterwards; every new run gets the full amounts again. This is about "
-          + "materials; what is crafted follows Craft Only Missing Precrafts.\n"
-          + "Formerly 'Count Items Already Held (fork)'.",
-            _list.CountHeld, v =>
-            {
-                _list.CountHeld = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            });
-
+        // fork: first what a run includes, from the recipes down to the materials, then how it gets it, in the run's own order
         ImGuiUtil.Checkbox("Skip Logged Recipes (fork)##scr",
             "Skip recipes this character has already crafted, according to the crafting log.\n"
           + "The game keeps no log for master recipes and newer special recipes, so those are never skipped.",
@@ -715,6 +661,62 @@ public class CraftingListEditor
               + "GatherBuddy's name: 'Include Final Crafts'.");
         ImGui.EndDisabled();
         DrawCountOnlyHqFinals();
+        ImGui.Unindent();
+
+        ImGuiUtil.Checkbox("Get Only What Is Missing (fork)##cih",
+            "On: a run gathers or buys only what the bags are short of, as always. Off: it gets the full amounts on top of what the bags "
+          + "held when it started, so what was held is still there afterwards; every new run gets the full amounts again. This is about "
+          + "materials; what is crafted follows Craft Only Missing Precrafts.\n"
+          + "Formerly 'Count Items Already Held (fork)'.",
+            _list.CountHeld, v =>
+            {
+                _list.CountHeld = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
+
+        ImGui.Separator();
+
+        var allaganEnabled = AllaganTools.Enabled;
+        using (ImRaii.Disabled(!allaganEnabled))
+        {
+            var retainerRestock = _list.RetainerRestock;
+            if (ImGui.Checkbox("Restock from Retainers##rrr", ref retainerRestock))
+            {
+                _list.RetainerRestock = retainerRestock;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+                InvalidateQueueCache();
+                InvalidateMaterialCaches();
+                InvalidatePresentationCaches();
+                TriggerQueueRegeneration();
+                TriggerMaterialsRegeneration();
+            }
+        }
+        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
+            ImGui.SetTooltip(allaganEnabled
+                ? "Withdraw needed materials from retainers before generating the gather list. Respects HQ/NQ preferences."
+                : "Requires Allagan Tools to be installed and enabled.");
+
+        ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##biw",
+            "On: a material only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead "
+          + "of waiting for the window. Off: the run waits for the window and gathers it. What no class can gather is bought either way. "
+          + "Works with 'Buy From Vendors Before Gathering (fork)' on, on the fork's page in the settings.",
+            _list.BuyInsteadOfWaiting, v =>
+            {
+                _list.BuyInsteadOfWaiting = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
+        ImGui.Indent();
+        ImGui.BeginDisabled(!_list.BuyInsteadOfWaiting);
+        ImGuiUtil.Checkbox("Buy Instead of Gathering Too (fork)##big",
+            "Goes further than Buy Instead of Waiting, so it needs that one on: every material a gil vendor sells is bought instead of "
+          + "gathering or fishing it. What no vendor sells is still gathered, and what the vendors could not supply is gathered instead.\n"
+          + "Formerly 'Buy Instead of Gathering (fork)'.",
+            _list.BuyInsteadOfWaiting && _list.BuyInsteadOfGathering, v =>
+            {
+                _list.BuyInsteadOfGathering = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            }, ImGuiHoveredFlags.AllowWhenDisabled);
+        ImGui.EndDisabled();
         ImGui.Unindent();
 
         var quickSynthAll = _list.QuickSynthAll;
