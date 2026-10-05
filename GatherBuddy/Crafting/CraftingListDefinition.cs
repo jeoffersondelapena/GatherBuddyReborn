@@ -35,6 +35,7 @@ public class CraftingListDefinition
     public bool Repair { get; set; } = false;
     public int RepairPercent { get; set; } = 50;
     public bool RetainerRestock { get; set; } = false;
+    public bool BuyInsteadOfWaiting { get; set; } = true;
     public bool BuyInsteadOfGathering { get; set; } = false;
     public bool CountOnlyHqFinals { get; set; } = false;
     public string HqTriedDay { get; set; } = string.Empty;
@@ -104,6 +105,7 @@ public class CraftingListDefinition
             Repair = Repair,
             RepairPercent = RepairPercent,
             RetainerRestock = RetainerRestock,
+            BuyInsteadOfWaiting = BuyInsteadOfWaiting,
             BuyInsteadOfGathering = BuyInsteadOfGathering,
             CountOnlyHqFinals = CountOnlyHqFinals,
             HqTriedDay = HqTriedDay,

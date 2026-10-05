@@ -343,8 +343,11 @@ public static class CraftingGatherBridge
         TryStartBuying();
     }
 
+    private static bool InsteadOfWaiting
+        => _activeExecutionPlan?.BuyInsteadOfWaiting != false;
+
     private static bool InsteadOfGathering
-        => _activeExecutionPlan?.BuyInsteadOfGathering == true;
+        => InsteadOfWaiting && _activeExecutionPlan?.BuyInsteadOfGathering == true;
 
     private static readonly List<string> _gatheredInstead = new();
 
@@ -353,10 +356,12 @@ public static class CraftingGatherBridge
 
     private static List<(uint ItemId, uint Target, int Missing)> ToBuy(bool insteadOfGathering)
         => PurchaseRules.BeforeGathering(_afterBuying!,
-            PurchaseRules.Gathered(insteadOfGathering, id => PurchaseRules.GatheredWithoutWaiting(
-                GatherBuddy.GameData.Gatherables.TryGetValue(id, out var node) ? node.InternalLocationId : null,
-                GatherBuddy.GameData.Fishes.TryGetValue(id, out var fish) ? fish.InternalLocationId : null,
-                AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id))),
+            PurchaseRules.Gathered(InsteadOfWaiting, insteadOfGathering, id => PurchaseRules.GatheredWithoutWaiting(
+                    GatherBuddy.GameData.Gatherables.TryGetValue(id, out var node) ? node.InternalLocationId : null,
+                    GatherBuddy.GameData.Fishes.TryGetValue(id, out var fish) ? fish.InternalLocationId : null,
+                    AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
+                id => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
+                 || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
             MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
 
     private static List<string> Named(IEnumerable<(uint ItemId, uint Target, int Missing)> targets)

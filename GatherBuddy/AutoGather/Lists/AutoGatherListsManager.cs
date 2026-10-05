@@ -76,15 +76,14 @@ public partial class AutoGatherListsManager : IDisposable
     private bool CountsRetainers(IGatherable item)
         => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item);
 
-    // fork: what a gathering run buys first: of items only a window gives and a gil vendor sells, the share of the lists that allow buying
+    // fork: what a gathering run buys first: of each item a gil vendor sells, the share of the lists that buy it
     internal List<(uint ItemId, uint Target)> BuyTargets()
     {
         var targets = new List<(uint, uint)>();
         foreach (var (item, quantity) in _activeItems)
         {
             var toBuy = GatherRules.ToBuy(Missing(item, quantity), _keptForGathering.GetValueOrDefault(item));
-            if (!GatherRules.BuyInstead(item is Classes.Gatherable ? item.InternalLocationId : null, item is Classes.Fish ? item.InternalLocationId : null,
-                    Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(item.ItemId), Crafting.MaterialSourceClassifier.IsSoldForGil(item.ItemId), toBuy))
+            if (!GatherRules.BuyInstead(Crafting.MaterialSourceClassifier.IsSoldForGil(item.ItemId), toBuy))
                 continue;
 
             targets.Add((item.ItemId, (uint)(Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(item.ItemId) + toBuy)));
@@ -92,6 +91,10 @@ public partial class AutoGatherListsManager : IDisposable
 
         return targets;
     }
+
+    private static bool Waits(IGatherable item)
+        => GatherRules.Waits(item is Classes.Gatherable ? item.InternalLocationId : null, item is Classes.Fish ? item.InternalLocationId : null,
+            Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(item.ItemId));
 
     internal Dictionary<uint, int> RetainerTargets()
         => _activeItems.Where(i => CountsRetainers(i.Item))
@@ -303,12 +306,13 @@ public partial class AutoGatherListsManager : IDisposable
             .OfType<FileSystem<AutoGatherList>.Leaf>()
             .Select(leaf => leaf.Value)
             .Where(l => l.Enabled)
-            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.CountHeld, l.BuyInsteadOfWaiting)))
+            .SelectMany(l => l.Items.Select(i => (Item: i, Quantity: l.Quantities[i], l.Fallback, ItemEnabled: l.EnabledItems[i], l.UsesRetainerInventory, l.SkipLoggedItems, l.CountHeld, l.BuyInsteadOfWaiting, l.BuyInsteadOfGathering)))
             .Where(i => i.ItemEnabled && !(i.SkipLoggedItems && SkipAsLogged(i.Item)))
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory),
                 OnTop: x.Any(g => !g.CountHeld),
-                KeptForGathering: (uint)Math.Min(x.Where(g => !g.BuyInsteadOfWaiting).Sum(g => (long)g.Quantity), uint.MaxValue)));
+                KeptForGathering: (uint)Math.Min(x.Where(g => !GatherRules.Buys(g.BuyInsteadOfWaiting, g.BuyInsteadOfGathering, Waits(x.Key.Item)))
+                    .Sum(g => (long)g.Quantity), uint.MaxValue)));
 
         ReportSkippedAsLogged();
         foreach (var (item, quantity, fallback, usesRetainerInventory, onTop, keptForGathering) in items)

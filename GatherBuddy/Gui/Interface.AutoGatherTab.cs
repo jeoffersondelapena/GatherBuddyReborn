@@ -306,6 +306,15 @@ public partial class Interface
             "On: an item only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead of "
           + "waiting for the window. Off: it is always gathered, which a log list needs, since an item bought is never logged.",
             list.BuyInsteadOfWaiting, (v) => _plugin.AutoGatherListsManager.SetBuyInsteadOfWaiting(list, v));
+        ImGui.Indent();
+        ImGui.BeginDisabled(!list.BuyInsteadOfWaiting);
+        ImGuiUtil.Checkbox("Buy Instead of Gathering (fork)##list",
+            "Goes further than Buy Instead of Waiting, so it needs that one on: every item a gil vendor sells is bought before gathering, "
+          + "window or not. What no vendor sells is still gathered. A bought item is never logged.",
+            list.BuyInsteadOfWaiting && list.BuyInsteadOfGathering, (v) => _plugin.AutoGatherListsManager.SetBuyInsteadOfGathering(list, v),
+            ImGuiHoveredFlags.AllowWhenDisabled);
+        ImGui.EndDisabled();
+        ImGui.Unindent();
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
         {
             _autoGatherListsCache.ItemFilterList = list;

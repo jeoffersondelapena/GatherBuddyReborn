@@ -5,10 +5,11 @@ using Xunit;
 
 public class PurchaseRulesTests
 {
-    private const uint Ore = 5, Hide = 5300, Rivets = 5070, Drop = 7000;
+    private const uint Ore = 5, Hide = 5300, Rivets = 5070, Drop = 7000, Sand = 5500;
 
     private static readonly HashSet<uint> Gathered = [Ore];
-    private static readonly HashSet<uint> SoldForGil = [Ore, Hide, Rivets];
+    private static readonly HashSet<uint> Gatherable = [Ore, Sand];
+    private static readonly HashSet<uint> SoldForGil = [Ore, Hide, Rivets, Sand];
 
     private static List<(uint ItemId, uint Target, int Missing)> Buy(Dictionary<uint, int> materials, Dictionary<uint, int>? held = null)
         => PurchaseRules.BeforeGathering(materials, Gathered.Contains, SoldForGil.Contains, id => held?.GetValueOrDefault(id) ?? 0);
@@ -21,10 +22,25 @@ public class PurchaseRulesTests
     public void Buy_instead_of_gathering_buys_what_a_vendor_sells_and_still_leaves_the_rest_to_gathering()
     {
         var materials = new Dictionary<uint, int> { [Ore] = 6, [Hide] = 2, [Drop] = 1 };
-        var bought    = PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(true, Gathered.Contains), SoldForGil.Contains, _ => 0);
+        var bought    = PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(true, true, Gathered.Contains, Gatherable.Contains),
+            SoldForGil.Contains, _ => 0);
         Assert.Equal([Ore, Hide], bought.Select(b => b.ItemId).Order());
-        Assert.DoesNotContain(PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(false, Gathered.Contains), SoldForGil.Contains, _ => 0),
-            b => b.ItemId == Ore);
+        Assert.DoesNotContain(PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(true, false, Gathered.Contains, Gatherable.Contains),
+            SoldForGil.Contains, _ => 0), b => b.ItemId == Ore);
+    }
+
+    [Fact]
+    public void Buy_instead_of_waiting_decides_whether_a_windowed_material_is_bought_and_what_only_vendors_sell_is_bought_either_way()
+    {
+        var materials = new Dictionary<uint, int> { [Ore] = 6, [Hide] = 2, [Sand] = 4 };
+        List<uint> Bought(bool waiting, bool gathering)
+            => PurchaseRules.BeforeGathering(materials, PurchaseRules.Gathered(waiting, gathering, Gathered.Contains, Gatherable.Contains),
+                SoldForGil.Contains, _ => 0).Select(b => b.ItemId).Order().ToList();
+
+        Assert.Equal([Hide, Sand], Bought(waiting: true, gathering: false));
+        Assert.Equal([Hide], Bought(waiting: false, gathering: false));
+        Assert.Equal([Hide], Bought(waiting: false, gathering: true));
+        Assert.Equal([Ore, Hide, Sand], Bought(waiting: true, gathering: true));
     }
 
     [Fact]

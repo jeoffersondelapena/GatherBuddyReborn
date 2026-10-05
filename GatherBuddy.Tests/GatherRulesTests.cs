@@ -15,13 +15,31 @@ public class GatherRulesTests
     }
 
     [Fact]
-    public void An_item_is_bought_instead_only_when_gathering_it_means_waiting_and_a_vendor_sells_it()
+    public void An_item_waits_when_only_a_window_gives_it()
     {
-        Assert.True(GatherRules.BuyInstead(nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, toBuy: 10));
-        Assert.True(GatherRules.BuyInstead(nodeLocation: null, fishLocation: 2, diademRaw: false, soldForGil: true, toBuy: 1));
-        Assert.False(GatherRules.BuyInstead(nodeLocation: 0, fishLocation: null, diademRaw: false, soldForGil: true, toBuy: 10));
-        Assert.False(GatherRules.BuyInstead(nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: false, toBuy: 10));
-        Assert.False(GatherRules.BuyInstead(nodeLocation: 4, fishLocation: null, diademRaw: false, soldForGil: true, toBuy: 0));
+        Assert.True(GatherRules.Waits(nodeLocation: 4, fishLocation: null, diademRaw: false));
+        Assert.True(GatherRules.Waits(nodeLocation: null, fishLocation: 2, diademRaw: false));
+        Assert.False(GatherRules.Waits(nodeLocation: 0, fishLocation: null, diademRaw: false));
+        Assert.False(GatherRules.Waits(nodeLocation: null, fishLocation: null, diademRaw: false));
+        Assert.False(GatherRules.Waits(nodeLocation: null, fishLocation: null, diademRaw: true));
+    }
+
+    [Fact]
+    public void A_list_buys_what_waits_and_everything_once_it_buys_instead_of_gathering()
+    {
+        Assert.True(GatherRules.Buys(insteadOfWaiting: true, insteadOfGathering: false, waits: true));
+        Assert.False(GatherRules.Buys(insteadOfWaiting: true, insteadOfGathering: false, waits: false));
+        Assert.True(GatherRules.Buys(insteadOfWaiting: true, insteadOfGathering: true, waits: false));
+        Assert.False(GatherRules.Buys(insteadOfWaiting: false, insteadOfGathering: true, waits: true));
+        Assert.False(GatherRules.Buys(insteadOfWaiting: false, insteadOfGathering: false, waits: true));
+    }
+
+    [Fact]
+    public void A_share_is_bought_only_from_a_gil_vendor()
+    {
+        Assert.True(GatherRules.BuyInstead(soldForGil: true, toBuy: 10));
+        Assert.False(GatherRules.BuyInstead(soldForGil: false, toBuy: 10));
+        Assert.False(GatherRules.BuyInstead(soldForGil: true, toBuy: 0));
     }
 
     [Fact]

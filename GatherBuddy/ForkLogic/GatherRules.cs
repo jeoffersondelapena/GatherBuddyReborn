@@ -15,8 +15,13 @@ public static class GatherRules
     public static int ToBuy(int missing, uint keptForGathering)
         => (int)System.Math.Max(0, missing - (long)keptForGathering);
 
-    public static bool BuyInstead(int? nodeLocation, int? fishLocation, bool diademRaw, bool soldForGil, int toBuy)
-        => soldForGil && toBuy > 0
-         && (nodeLocation != null || fishLocation != null)
-         && !PurchaseRules.GatheredWithoutWaiting(nodeLocation, fishLocation, diademRaw);
+    public static bool Waits(int? nodeLocation, int? fishLocation, bool diademRaw)
+        => (nodeLocation != null || fishLocation != null) && !PurchaseRules.GatheredWithoutWaiting(nodeLocation, fishLocation, diademRaw);
+
+    // Buy Instead of Gathering goes further than Buy Instead of Waiting, so it only counts while that one is on
+    public static bool Buys(bool insteadOfWaiting, bool insteadOfGathering, bool waits)
+        => insteadOfWaiting && (insteadOfGathering || waits);
+
+    public static bool BuyInstead(bool soldForGil, int toBuy)
+        => soldForGil && toBuy > 0;
 }

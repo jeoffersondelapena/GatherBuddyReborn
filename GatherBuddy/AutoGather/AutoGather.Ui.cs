@@ -51,7 +51,7 @@ namespace GatherBuddy.AutoGather
                 if (ImGui.Button(ForkLogic.TextRules.SkipBuying))
                     GatherBuyStage.Skip();
                 if (ImGui.IsItemHovered())
-                    ImGui.SetTooltip("Go on without buying: the run waits for those items' time or weather windows instead.");
+                    ImGui.SetTooltip("Go on without buying: the run gathers those items instead, waiting where one needs a time or weather window.");
                 return;
             }
 

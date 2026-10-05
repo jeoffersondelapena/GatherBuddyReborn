@@ -725,15 +725,27 @@ public class CraftingListEditor
                 ? "Withdraw needed materials from retainers before generating the gather list. Respects HQ/NQ preferences."
                 : "Requires Allagan Tools to be installed and enabled.");
 
+        ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##biw",
+            "On: a material only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead "
+          + "of waiting for the window. Off: the run waits for the window and gathers it. What no class can gather is bought either way. "
+          + "Works with 'Buy From Vendors Before Gathering (fork)' on, on the fork's page in the settings.",
+            _list.BuyInsteadOfWaiting, v =>
+            {
+                _list.BuyInsteadOfWaiting = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
+        ImGui.Indent();
+        ImGui.BeginDisabled(!_list.BuyInsteadOfWaiting);
         ImGuiUtil.Checkbox("Buy Instead of Gathering (fork)##big",
-            "Buy from gil vendors every material they sell, instead of gathering or fishing it. What no vendor sells is still gathered, "
-          + "and what the vendors could not supply is gathered instead. Works with 'Buy From Vendors Before Gathering (fork)' on, "
-          + "on the fork's page in the settings.",
-            _list.BuyInsteadOfGathering, v =>
+            "Goes further than Buy Instead of Waiting, so it needs that one on: every material a gil vendor sells is bought instead of "
+          + "gathering or fishing it. What no vendor sells is still gathered, and what the vendors could not supply is gathered instead.",
+            _list.BuyInsteadOfWaiting && _list.BuyInsteadOfGathering, v =>
             {
                 _list.BuyInsteadOfGathering = v;
                 GatherBuddy.CraftingListManager.SaveList(_list);
-            });
+            }, ImGuiHoveredFlags.AllowWhenDisabled);
+        ImGui.EndDisabled();
+        ImGui.Unindent();
 
 
         ImGui.Spacing();

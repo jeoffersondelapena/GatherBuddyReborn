@@ -28,8 +28,10 @@ public static class PurchaseRules
     public static bool GatheredWithoutWaiting(int? nodeLocation, int? fishLocation, bool diademRaw)
         => nodeLocation is <= 0 || fishLocation is <= 0 || diademRaw;
 
-    public static Func<uint, bool> Gathered(bool insteadOfGathering, Func<uint, bool> gatheredWithoutWaiting)
-        => id => !insteadOfGathering && gatheredWithoutWaiting(id);
+    // with Buy Instead of Waiting off, what a class can gather is gathered even when that means waiting for its window
+    public static Func<uint, bool> Gathered(bool insteadOfWaiting, bool insteadOfGathering, Func<uint, bool> gatheredWithoutWaiting,
+        Func<uint, bool> gatherable)
+        => id => insteadOfWaiting ? !insteadOfGathering && gatheredWithoutWaiting(id) : gatherable(id);
 
     public static bool GatherInstead(bool insteadOfGathering, int mustBuyMissing)
         => insteadOfGathering && mustBuyMissing == 0;

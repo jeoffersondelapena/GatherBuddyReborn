@@ -15,6 +15,7 @@ public sealed class CraftingExecutionPlan
     public bool SkipIfEnough { get; }
     public bool SkipFinalIfEnough { get; }
     public bool RetainerRestock { get; }
+    public bool BuyInsteadOfWaiting { get; }
     public bool BuyInsteadOfGathering { get; }
     public CraftingListPlan ResolvedPlan { get; private set; }
 
@@ -45,6 +46,7 @@ public sealed class CraftingExecutionPlan
         SkipIfEnough = planningSnapshot.SkipIfEnough;
         SkipFinalIfEnough = planningSnapshot.SkipFinalIfEnough;
         RetainerRestock = planningSnapshot.RetainerRestock;
+        BuyInsteadOfWaiting = planningSnapshot.BuyInsteadOfWaiting;
         BuyInsteadOfGathering = planningSnapshot.BuyInsteadOfGathering;
         ApplyResolvedPlan(resolvedPlan);
     }

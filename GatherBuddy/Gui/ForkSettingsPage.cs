@@ -119,8 +119,8 @@ internal static class ForkSettingsPage
         if (ImGuiUtil.DrawDisabledButton("GC Mission Lists (fork)", Vector2.Zero,
                 $"Refill the crafting list '{MissionRules.SupplyList}' and the gathering list '{MissionRules.ProvisioningList}' with today's Grand "
               + "Company supply and provisioning missions.\n"
-              + "The game holds the missions only while their Timers page is open. The first press of a mission day opens Timers and fills "
-              + "the lists once Supply & Provisioning Missions is chosen there; later presses reuse that read until the missions' daily reset.\n"
+              + "The game holds the missions only while their Timers page is open, so a press opens that page, reads it, and leaves it "
+              + "open to compare with the lists.\n"
               + "Each press replaces what the two lists held, so earlier days never pile up. A mission item already held counts as done, logged "
               + "recipes and items are never skipped, and what would mean waiting for a time or weather window is left out. Not during a run.",
                 GcMissions.Busy))
@@ -131,10 +131,10 @@ internal static class ForkSettingsPage
     {
         ImGui.Spacing();
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
-        ImGui.BulletText("Skip Logged Items (fork), Count Items Already Held (fork) and Buy Instead of Waiting (fork): on each gathering list, "
-          + "in the Auto-Gather tab.");
-        ImGui.BulletText("Skip Logged Recipes (fork), Buy Instead of Gathering (fork) and Count Only HQ Final Crafts (fork): on each crafting "
-          + "list, in Vulcan's list editor.");
+        ImGui.BulletText("Skip Logged Items (fork), Count Items Already Held (fork), Buy Instead of Waiting (fork) and, under it, Buy "
+          + "Instead of Gathering (fork): on each gathering list, in the Auto-Gather tab.");
+        ImGui.BulletText("Skip Logged Recipes (fork), Count Only HQ Final Crafts (fork), Buy Instead of Waiting (fork) and, under it, Buy "
+          + "Instead of Gathering (fork): on each crafting list, in Vulcan's list editor.");
         ImGui.BulletText("Restock from Retainers (fork): on each buy list, in the Vendor Buy List window.");
         ImGui.BulletText("Skip Retainers (fork), Skip Buying (fork), Skip Gathering (fork) and Clear Green Marks (fork): in the Craft Status window.");
         ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");

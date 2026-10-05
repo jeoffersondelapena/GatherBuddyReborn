@@ -408,6 +408,17 @@ public partial class AutoGatherListsManager
             SetActiveItems(true);
     }
 
+    public void SetBuyInsteadOfGathering(AutoGatherList list, bool value)
+    {
+        if (list.BuyInsteadOfGathering == value)
+            return;
+
+        list.BuyInsteadOfGathering = value;
+        Save();
+        if (list.Enabled)
+            SetActiveItems();
+    }
+
     public void SetBuyInsteadOfWaiting(AutoGatherList list, bool value)
     {
         if (list.BuyInsteadOfWaiting == value)

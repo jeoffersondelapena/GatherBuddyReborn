@@ -10,7 +10,7 @@ using GatherBuddy.Vulcan.Vendors;
 
 namespace GatherBuddy.AutoGather;
 
-// fork: before gathering, a plain run buys what would mean waiting for a window; it pauses on a shortfall as a crafting run's buying does
+// fork: before gathering, a plain run buys what its lists buy instead; it pauses on a shortfall as a crafting run's buying does
 internal static class GatherBuyStage
 {
     private enum Step { Off, Start, Buying, Paused }
@@ -51,7 +51,7 @@ internal static class GatherBuyStage
 
     public static bool Hold(out string status)
     {
-        status = "Buying what would mean waiting...";
+        status = "Buying instead of gathering...";
         switch (_step)
         {
             case Step.Off:
@@ -100,8 +100,8 @@ internal static class GatherBuyStage
             case VendorBuyListManager.StartResult.Started or VendorBuyListManager.StartResult.WaitingForPreviousInteraction:
                 _noVendor = noVendor.Select(id => $"{ForkTrace.ItemName(id)} (no vendor GatherBuddy can walk to)").ToList();
                 var buying = Named(targets.Where(t => !noVendor.Contains(t.ItemId)));
-                ForkTrace.Info($"gathering run: buying instead of waiting: {string.Join(", ", buying)}");
-                ForkChat.List("Buying first what would mean waiting:", buying, tone: Communicator.Tone.Info);
+                ForkTrace.Info($"gathering run: buying instead of gathering: {string.Join(", ", buying)}");
+                ForkChat.List("Buying first, instead of gathering:", buying, tone: Communicator.Tone.Info);
                 _step = Step.Buying;
                 return;
             case VendorBuyListManager.StartResult.NoPendingEntries:
@@ -182,9 +182,9 @@ internal static class GatherBuyStage
         if (_step != Step.Paused)
             return;
 
-        ForkTrace.Info("gathering run: buying part skipped; it waits for those items' windows instead");
-        Communicator.PrintRun("[GatherBuddy] Skipping the buying: this run waits for those items' time or weather windows instead (fork).",
-            tone: Communicator.Tone.Info);
+        ForkTrace.Info("gathering run: buying part skipped; it gathers those items instead");
+        Communicator.PrintRun("[GatherBuddy] Skipping the buying: this run gathers those items instead, waiting where one needs a time or "
+          + "weather window (fork).", tone: Communicator.Tone.Info);
         Skipped = true;
         Reason  = null;
         _step   = Step.Off;
