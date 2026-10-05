@@ -173,9 +173,20 @@ public class TextRulesTests
     public void A_run_that_cannot_get_a_material_says_to_get_it_and_does_not_speak_of_buying()
     {
         var chat = TextRules.CannotGet(2);
-        Assert.Equal("[GatherBuddy] This crafting run needs 2 material(s) it cannot get itself: no class gathers them and no gil vendor sells "
-          + "them. Get them and press Resume, or press Skip Buying (fork) in the Craft Status window to go on without them (fork).", chat);
+        Assert.Equal("[GatherBuddy] This crafting run needs 2 material(s) it cannot get itself, each listed below with the reason. Get them "
+          + "and press Resume, or press Skip Buying (fork) in the Craft Status window to go on without them (fork).", chat);
         Assert.DoesNotContain("buy the rest", chat);
         Assert.Equal("2 material(s) the run cannot get itself. Get them and press Resume, or Skip Buying (fork).", TextRules.CannotGetReason(2));
+    }
+
+    [Fact]
+    public void A_chat_line_quoted_as_a_reason_loses_its_tag_and_its_closing_mark()
+    {
+        Assert.Equal("No fishing gearset was found", TextRules.AsReason("[GatherBuddy] No fishing gearset was found (fork)."));
+        Assert.Equal("Fishing data collection is off. Turn it on or take fish off the lists",
+            TextRules.AsReason("[GatherBuddyReborn] [Auto-Gather] Fishing data collection is off. Turn it on or take fish off the lists."));
+        Assert.Equal("plain words", TextRules.AsReason("  plain words  "));
+        Assert.Null(TextRules.AsReason(null));
+        Assert.Null(TextRules.AsReason("[GatherBuddy] (fork)."));
     }
 }

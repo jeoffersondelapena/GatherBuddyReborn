@@ -327,7 +327,7 @@ public static class CraftingGatherBridge
     // fork: a crafting run first buys what it can neither gather nor fish but a gil vendor sells, then gathers the rest
     public static void BeginGathering(Dictionary<uint, int> materials)
     {
-        if (!_isQueueMode || !GatherBuddy.Config.VulcanBuyBeforeGathering || GatherBuddy.VendorBuyListManager == null)
+        if (!_isQueueMode)
         {
             CreateGatherListForMissingIngredients(materials);
             return;
@@ -347,9 +347,13 @@ public static class CraftingGatherBridge
         => GatherBuddy.GameData.Gatherables.ContainsKey(id) || GatherBuddy.GameData.Fishes.ContainsKey(id)
          || AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id);
 
+    private static bool Buying
+        => GatherBuddy.Config.VulcanBuyBeforeGathering && GatherBuddy.VendorBuyListManager != null;
+
     private static List<string> BeyondReach()
         => PurchaseRules.BeyondReach(_afterBuying!, Gatherable, MaterialSourceClassifier.IsSoldForGil,
-            VendorBuyListManager.GetCurrentInventoryAndArmoryCount).Select(b => $"{ForkTrace.ItemName(b.ItemId)} x{b.Missing}").ToList();
+                VendorBuyListManager.GetCurrentInventoryAndArmoryCount, Buying)
+            .Select(b => $"{ForkTrace.ItemName(b.ItemId)} x{b.Missing} ({b.Why})").ToList();
 
     private static void StartBuying()
     {
@@ -395,6 +399,12 @@ public static class CraftingGatherBridge
             return;
         }
 
+        if (!Buying)
+        {
+            FinishBuying();
+            return;
+        }
+
         var targets = ToBuy(InsteadOfGathering);
         if (targets.Count == 0)
         {
@@ -414,7 +424,7 @@ public static class CraftingGatherBridge
         if (result is VendorBuyListManager.StartResult.Started or VendorBuyListManager.StartResult.WaitingForPreviousInteraction)
         {
             _buyStarted = true;
-            _noVendor.AddRange(noVendor.Select(id => $"{ForkTrace.ItemName(id)} (no vendor GatherBuddy can walk to)"));
+            _noVendor.AddRange(noVendor.Select(id => $"{ForkTrace.ItemName(id)} ({VendorBuyListManager.WhyNoVendor(id)})"));
             var buying = Named(targets.Where(t => !noVendor.Contains(t.ItemId)));
             ForkTrace.Info($"buy before gathering: {string.Join(", ", buying)}{(noVendor.Count == 0 ? "" : $"; no vendor for {string.Join(", ", noVendor.Select(ForkTrace.Named))}")}");
             ForkChat.List(PurchaseRules.BuyingHeader(InsteadOfGathering), buying, tone: Communicator.Tone.Info);
@@ -436,7 +446,7 @@ public static class CraftingGatherBridge
         {
             ForkTrace.Info($"buy before gathering: no vendor GatherBuddy can walk to sells {string.Join(", ", Named(targets))}; gathering them instead");
             Communicator.PrintRun(PurchaseRules.GatheringInstead(targets.Count), tone: Communicator.Tone.Info);
-            _gatheredInstead.AddRange(targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} (no vendor GatherBuddy can walk to)"));
+            _gatheredInstead.AddRange(targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} ({VendorBuyListManager.WhyNoVendor(t.ItemId)})"));
             FinishBuying();
             return;
         }
@@ -446,7 +456,9 @@ public static class CraftingGatherBridge
             VendorBuyListManager.StartResult.Empty          => "no vendor GatherBuddy can walk to sells what is missing",
             VendorBuyListManager.StartResult.AlreadyRunning => "another vendor run was still going after a minute",
             _                                               => "the vendor data did not load within a minute",
-        }, Named(targets));
+        }, result is VendorBuyListManager.StartResult.Empty
+            ? targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} x{t.Missing} ({VendorBuyListManager.WhyNoVendor(t.ItemId)})").ToList()
+            : Named(targets));
     }
 
     private static void UpdateBuying()

@@ -24,23 +24,39 @@ public static class PurchaseRules
         return buy;
     }
 
-    // a drop or a currency item: no class gathers it and no gil vendor sells it, so a run cannot get it by itself
-    public static List<(uint ItemId, int Missing)> BeyondReach(IEnumerable<KeyValuePair<uint, int>> materials, Func<uint, bool> gatherable,
-        Func<uint, bool> soldForGil, Func<uint, int> held)
+    // no class gathers it, and either no gil vendor sells it or the run does not buy: a run cannot get it by itself
+    public static List<(uint ItemId, int Missing, string Why)> BeyondReach(IEnumerable<KeyValuePair<uint, int>> materials,
+        Func<uint, bool> gatherable, Func<uint, bool> soldForGil, Func<uint, int> held, bool buying)
     {
-        var beyond = new List<(uint, int)>();
+        var beyond = new List<(uint, int, string)>();
         foreach (var (itemId, need) in materials)
         {
             var missing = need - Math.Max(0, held(itemId));
-            if (missing > 0 && !gatherable(itemId) && !soldForGil(itemId))
-                beyond.Add((itemId, missing));
+            if (missing <= 0 || gatherable(itemId))
+                continue;
+
+            var sold = soldForGil(itemId);
+            if (!sold || !buying)
+                beyond.Add((itemId, missing, sold ? NotBuying : NeitherGatheredNorSold));
         }
 
         return beyond;
     }
 
+    public const string NeitherGatheredNorSold = "no class gathers it and no gil vendor sells it";
+    public const string NotBuying = "no class gathers it; a gil vendor sells it, but Buy From Vendors Before Gathering (fork) is off";
+
     public static string NoWayToGet(int count)
-        => $"{count} material(s) can be neither gathered nor bought for gil, so the run cannot get them itself";
+        => $"{count} material(s) the run cannot get itself";
+
+    public static string NoVendor(IReadOnlyList<string> sellers)
+    {
+        if (sellers.Count == 0)
+            return "no vendor is known for the shop that sells it";
+
+        var named = sellers.Count <= 2 ? string.Join(" and ", sellers) : $"{sellers[0]}, {sellers[1]} and {sellers.Count - 2} more";
+        return $"sold by {named}, where GatherBuddy cannot buy";
+    }
 
     // GatherBuddy numbers timed nodes and windowed fish from 1 up; waiting for one is what a vendor saves, so those count as not gathered
     public static bool GatheredWithoutWaiting(int? nodeLocation, int? fishLocation, bool diademRaw)

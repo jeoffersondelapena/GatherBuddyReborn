@@ -98,7 +98,7 @@ internal static class GatherBuyStage
         switch (result)
         {
             case VendorBuyListManager.StartResult.Started or VendorBuyListManager.StartResult.WaitingForPreviousInteraction:
-                _noVendor = noVendor.Select(id => $"{ForkTrace.ItemName(id)} (no vendor GatherBuddy can walk to)").ToList();
+                _noVendor = noVendor.Select(id => $"{ForkTrace.ItemName(id)} ({VendorBuyListManager.WhyNoVendor(id)})").ToList();
                 var buying = Named(targets.Where(t => !noVendor.Contains(t.ItemId)));
                 ForkTrace.Info($"gathering run: buying instead of gathering: {string.Join(", ", buying)}");
                 ForkChat.List("Buying first, instead of gathering:", buying, tone: Communicator.Tone.Info);
@@ -108,7 +108,8 @@ internal static class GatherBuyStage
                 _step = Step.Off;
                 return;
             case VendorBuyListManager.StartResult.Empty:
-                Pause("no vendor GatherBuddy can walk to sells what is missing", Named(targets));
+                Pause("no vendor GatherBuddy can walk to sells what is missing",
+                    targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} ({VendorBuyListManager.WhyNoVendor(t.ItemId)})").ToList());
                 return;
         }
 

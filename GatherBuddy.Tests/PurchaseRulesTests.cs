@@ -48,9 +48,27 @@ public class PurchaseRulesTests
     {
         var materials = new Dictionary<uint, int> { [Ore] = 6, [Hide] = 2, [Drop] = 3, [Sand] = 4 };
         var held      = new Dictionary<uint, int> { [Drop] = 1 };
-        Assert.Equal([(Drop, 2)], PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, id => held.GetValueOrDefault(id)));
+        Assert.Equal([(Drop, 2, PurchaseRules.NeitherGatheredNorSold)],
+            PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, id => held.GetValueOrDefault(id), buying: true));
         held[Drop] = 3;
-        Assert.Empty(PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, id => held.GetValueOrDefault(id)));
+        Assert.Empty(PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, id => held.GetValueOrDefault(id), buying: true));
+    }
+
+    [Fact]
+    public void With_buying_switched_off_what_only_a_vendor_sells_is_beyond_reach_too_and_says_why()
+    {
+        var materials = new Dictionary<uint, int> { [Ore] = 6, [Hide] = 2, [Drop] = 3 };
+        Assert.Equal([(Hide, 2, PurchaseRules.NotBuying), (Drop, 3, PurchaseRules.NeitherGatheredNorSold)],
+            PurchaseRules.BeyondReach(materials, Gatherable.Contains, SoldForGil.Contains, _ => 0, buying: false));
+    }
+
+    [Fact]
+    public void An_item_no_vendor_could_supply_names_who_sells_it()
+    {
+        Assert.Equal("no vendor is known for the shop that sells it", PurchaseRules.NoVendor([]));
+        Assert.Equal("sold by Estate Manservant, where GatherBuddy cannot buy", PurchaseRules.NoVendor(["Estate Manservant"]));
+        Assert.Equal("sold by A and B, where GatherBuddy cannot buy", PurchaseRules.NoVendor(["A", "B"]));
+        Assert.Equal("sold by A, B and 2 more, where GatherBuddy cannot buy", PurchaseRules.NoVendor(["A", "B", "C", "D"]));
     }
 
     [Fact]

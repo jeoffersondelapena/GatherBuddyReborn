@@ -41,8 +41,8 @@ public static class TextRules
 
     // nothing is bought here: before setting out, the run found materials no part of it can get
     public static string CannotGet(int count)
-        => $"[GatherBuddy] This crafting run needs {count} material(s) it cannot get itself: no class gathers them and no gil vendor "
-         + $"sells them. Get them and press Resume, or press {SkipBuying} in the Craft Status window to go on without them (fork).";
+        => $"[GatherBuddy] This crafting run needs {count} material(s) it cannot get itself, each listed below with the reason. Get them "
+         + $"and press Resume, or press {SkipBuying} in the Craft Status window to go on without them (fork).";
 
     public static string CannotGetReason(int count)
         => $"{count} material(s) the run cannot get itself. Get them and press Resume, or {SkipBuying}.";
@@ -81,6 +81,23 @@ public static class TextRules
             Retainers => ("Taking from your retainers", "try again", SkipRetainers, "go on without them"),
             _         => ("Gathering", "gather the rest", SkipGathering, "craft with what is here"),
         };
+
+    // a chat line quoted as the reason inside another line: its own tag and its "(fork)" would read twice
+    public static string? AsReason(string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+            return null;
+
+        var text = line.Trim();
+        while (text.StartsWith('[') && text.IndexOf(']') is var end and > 0)
+            text = text[(end + 1)..].TrimStart();
+        if (text.EndsWith("(fork).", StringComparison.Ordinal))
+            text = text[..^7];
+        else if (text.EndsWith("(fork)", StringComparison.Ordinal))
+            text = text[..^6];
+        text = text.Trim().TrimEnd('.');
+        return text.Length == 0 ? null : text;
+    }
 
     private static string Why(string? why)
         => string.IsNullOrWhiteSpace(why) ? "it could not go on" : why.Trim().TrimEnd('.');

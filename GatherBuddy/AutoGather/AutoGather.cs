@@ -2394,6 +2394,9 @@ namespace GatherBuddy.AutoGather
 
         private void AbortAutoGather(string? status = null, string? detail = null)
         {
+            // fork: many stops say why in chat just before and pass nothing here
+            if (status == null && detail == null)
+                detail = TextRules.AsReason(Communicator.RecentProblem());
             ResetFishingApproachState();
             _currentRequestedTarget = null;
 

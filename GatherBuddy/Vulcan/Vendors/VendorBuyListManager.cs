@@ -604,6 +604,10 @@ public sealed partial class VendorBuyListManager : IDisposable
         return result;
     }
 
+    public static string WhyNoVendor(uint itemId)
+        => ForkLogic.PurchaseRules.NoVendor(VendorShopResolver.GilShopEntries.Where(e => e.ItemId == itemId).SelectMany(e => e.Npcs)
+            .Select(n => n.Name).Where(n => n.Length > 0).Distinct().ToList());
+
     // the run's own Pause or Stop: nothing is reported back, the run already knows
     public void CancelRunPurchase()
     {

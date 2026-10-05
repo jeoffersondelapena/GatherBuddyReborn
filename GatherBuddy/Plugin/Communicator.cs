@@ -79,6 +79,7 @@ public static class Communicator
 
     public static void PrintError(SeString message)
     {
+        _lastProblem = (message.TextValue, Environment.TickCount64);
         var entry = new XivChatEntry()
         {
             Message = Labelled(message),
@@ -98,7 +99,17 @@ public static class Communicator
 
     // fork: a run's end, or anything a run needs from the player, is printed the way the crafting run's end list is (ForkChat)
     public static void PrintRun(string message, string? label = null, Tone tone = Tone.Problem)
-        => PrintTinted(TextRules.WithRunLabel(TextRules.Tagged(message), label ?? RunLabel.Current), tone);
+    {
+        if (tone == Tone.Problem)
+            _lastProblem = (message, Environment.TickCount64);
+        PrintTinted(TextRules.WithRunLabel(TextRules.Tagged(message), label ?? RunLabel.Current), tone);
+    }
+
+    // fork: kept so a stop that was given no reason can quote it
+    private static (string Text, long At) _lastProblem;
+
+    public static string? RecentProblem(long withinMs = 1500)
+        => _lastProblem.Text != null && Environment.TickCount64 - _lastProblem.At <= withinMs ? _lastProblem.Text : null;
 
     // that channel shows red in every tab; the color says whether a line is a problem, plain news, or good news
     public static void PrintTinted(string text, Tone tone)
@@ -117,7 +128,10 @@ public static class Communicator
     }
 
     public static void PrintRun(SeString message)
-        => Dalamud.Chat.PrintError(Labelled(message));
+    {
+        _lastProblem = (message.TextValue, Environment.TickCount64);
+        Dalamud.Chat.PrintError(Labelled(message));
+    }
 
     // fork: a line printed during a run names the run's list
     private static SeString Labelled(SeString message)
