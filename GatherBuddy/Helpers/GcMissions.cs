@@ -269,7 +269,7 @@ internal static unsafe class GcMissions
     }
 
     // traced so a delivered mission can later be told from an open one
-    private static string Numbers(AtkUnitBase* addon)
+    internal static string Numbers(AtkUnitBase* addon)
     {
         var numbers = new List<string>();
         for (var i = 0; i < addon->AtkValuesCount; i++)

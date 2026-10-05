@@ -172,6 +172,7 @@ public partial class GatherBuddy : IDalamudPlugin
 
             FishRecorder = new FishRecorder(Dalamud.Interop);
             FishRecorder.Enable();
+            Helpers.TimersProbe.Start();
             BiteTimerService = new AutoHookIntegration.BiteTimerService(pluginInterface.ConfigDirectory.FullName);
             AutoGather   = new AutoGather.AutoGather(this);
             CollectableManager = new AutoGather.Collectables.CollectableManager(Dalamud.Framework, Dalamud.Conditions, Config);
@@ -252,6 +253,7 @@ public partial class GatherBuddy : IDalamudPlugin
         {
             Gui.KeepMarkFrames.Draw();
             Gui.GcMissionsButton.Draw();
+            Helpers.TimersProbe.Watch();
             WindowSystem.Draw();
         }
         finally
@@ -374,6 +376,7 @@ public partial class GatherBuddy : IDalamudPlugin
         KeepMarkTooltip?.Dispose();
         KeepMarkTooltip = null;
         Helpers.KeepMarks.Stop();
+        Helpers.TimersProbe.Stop();
         CraftingGatherBridge.UnhookLogout();
         //Wotsit?.Dispose();
         Interface?.Dispose();
