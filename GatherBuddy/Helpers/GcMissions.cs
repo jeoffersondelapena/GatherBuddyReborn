@@ -20,6 +20,13 @@ internal static unsafe class GcMissions
 {
     public const string Window = "ContentsInfoDetail";
 
+    private const string Timers = "ContentsInfo";
+
+    private enum Opening { No, Timers, Page }
+
+    private static readonly TimeSpan OpenWait = TimeSpan.FromSeconds(15);
+    private static readonly TimeSpan Settle   = TimeSpan.FromMilliseconds(250);
+
     private static readonly Lazy<Dictionary<string, Mission>> Known = new(() =>
     {
         var known = new Dictionary<string, Mission>(StringComparer.Ordinal);
@@ -36,7 +43,9 @@ internal static unsafe class GcMissions
 
     private static DateTime _looked = DateTime.MinValue;
     private static bool     _showing;
-    private static DateTime _fillBy = DateTime.MinValue;
+    private static Opening  _opening;
+    private static DateTime _openBy;
+    private static DateTime _chooseAt;
 
     // the detail window serves every timer; cached because the overlay asks every frame
     public static bool WindowShowsMissions(AtkUnitBase* addon)
@@ -49,36 +58,95 @@ internal static unsafe class GcMissions
         return _showing;
     }
 
+    // the game holds the missions only while a window shows them, so a press with none open opens the Timers page and leaves it open
     public static void MakeLists()
+    {
+        if (TryFill())
+            return;
+
+        var timers = AgentContentsTimer.Instance();
+        if (timers != null && !timers->IsAgentActive())
+            timers->Show();
+        _opening  = Opening.Timers;
+        _openBy   = DateTime.UtcNow + OpenWait;
+        _chooseAt = DateTime.MaxValue;
+        ForkTrace.Info("gc missions: no window to read, so Timers and its missions page are opened");
+    }
+
+    public static void Tick()
+    {
+        if (_opening == Opening.No)
+            return;
+
+        if (Busy)
+        {
+            _opening = Opening.No;
+            return;
+        }
+
+        if (GenericHelpers.TryGetAddonByName<AtkUnitBase>(Window, out var page) && page->IsVisible && WindowShowsMissions(page))
+        {
+            _opening = Opening.No;
+            if (!TryFill())
+                NotOpened();
+            return;
+        }
+
+        if (DateTime.UtcNow >= _openBy)
+        {
+            _opening = Opening.No;
+            NotOpened();
+            return;
+        }
+
+        if (_opening != Opening.Timers || !GenericHelpers.TryGetAddonByName<AtkUnitBase>(Timers, out var timers)
+         || !GenericHelpers.IsAddonReady(timers))
+            return;
+
+        if (_chooseAt == DateTime.MaxValue)
+            _chooseAt = DateTime.UtcNow + Settle;
+        if (DateTime.UtcNow < _chooseAt)
+            return;
+
+        // what choosing the Supply & Provisioning Missions row sends, traced from a click on 2026-10-05
+        Callback.Fire(timers, true, 12, 1, default(AtkValue));
+        _opening = Opening.Page;
+        ForkTrace.Info("gc missions: Timers is up, so its missions row was chosen");
+    }
+
+    private static void NotOpened()
+    {
+        var kept = Kept(MissionRules.Day(DateTime.UtcNow));
+        ForkTrace.Info($"gc missions: the missions page did not open; kept for this mission day: {Describe(kept)}");
+        if (kept.Count == 0)
+        {
+            Dalamud.Chat.PrintError("[GatherBuddy] The Timers missions page did not open. Open Timers and choose Supply & Provisioning "
+              + "Missions; the button under that page fills the lists (fork).");
+            return;
+        }
+
+        Dalamud.Chat.PrintError("[GatherBuddy] The Timers missions page did not open, so the lists are refilled from the missions read "
+          + "earlier this mission day (fork).");
+        Fill(kept);
+    }
+
+    private static bool TryFill()
     {
         var delivery = FromDeliveryData();
         var window   = FromWindow(delivery);
         ForkTrace.Info($"gc missions: Timers window {Describe(window)}; delivery data {Describe(delivery)}");
         var missions = window is { Count: > 0 } ? window : delivery;
-        var today    = MissionRules.Day(DateTime.UtcNow);
-        if (missions is { Count: > 0 })
-            Keep(today, missions);
-        else if (Kept(today) is { Count: > 0 } kept)
-        {
-            ForkTrace.Info("gc missions: no window to read, so the missions read earlier this mission day are used");
-            missions = kept;
-        }
-
         if (missions is not { Count: > 0 })
-        {
-            var timers = AgentContentsTimer.Instance();
-            if (timers != null && !timers->IsAgentActive())
-                timers->Show();
-            _fillBy = DateTime.UtcNow + FillWait;
-            ForkTrace.Info("gc missions: nothing read for this mission day yet, so Timers was opened and the lists wait for its missions page");
-            Dalamud.Chat.Print("[GatherBuddy] Today's Grand Company missions have not been read yet: the game holds them only while their "
-              + "Timers page is open. Timers is opening; choose Supply & Provisioning Missions there within two minutes and the lists fill by "
-              + "themselves (fork).");
-            return;
-        }
+            return false;
 
-        _fillBy = DateTime.MinValue;
+        _opening = Opening.No;
+        Keep(MissionRules.Day(DateTime.UtcNow), missions);
+        Fill(missions);
+        return true;
+    }
 
+    private static void Fill(List<Mission> missions)
+    {
         var crafted  = new List<(Recipe Recipe, int Crafts)>();
         var gathered = new List<(IGatherable Item, uint Amount)>();
         var waiting  = new List<string>();
@@ -119,18 +187,6 @@ internal static unsafe class GcMissions
             Dalamud.Chat.PrintError($"[GatherBuddy] Left out, since each would mean waiting for a time or weather window: {string.Join(", ", waiting)} (fork).");
         if (neither.Count > 0)
             Dalamud.Chat.PrintError($"[GatherBuddy] Neither craftable nor gatherable, so on no list: {string.Join(", ", neither)} (fork).");
-    }
-
-    private static readonly TimeSpan FillWait = TimeSpan.FromMinutes(2);
-
-    // a press that found nothing to read is finished by the missions page showing, without a second press
-    public static bool TakeFillRequest()
-    {
-        if (DateTime.UtcNow >= _fillBy || Busy)
-            return false;
-
-        _fillBy = DateTime.MinValue;
-        return true;
     }
 
     // missions differ by character, so each has its own file
