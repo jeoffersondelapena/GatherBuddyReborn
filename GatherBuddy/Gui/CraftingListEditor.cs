@@ -625,6 +625,16 @@ public class CraftingListEditor
                 RefreshInventoryCounts();
             });
 
+        ImGuiUtil.Checkbox("Count Items Already Held (fork)##cih",
+            "On: a material is there once the bags hold its amount, as always. Off: a run sources the full amounts on top of what the bags "
+          + "held when it started, so what was held is still there afterwards; every new run sources the full amounts again. Crafted "
+          + "in-betweens and finals follow Skip if Already Have Enough instead.",
+            _list.CountHeld, v =>
+            {
+                _list.CountHeld = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
+
         var skipIfEnough = _list.SkipIfEnough;
         if (ImGui.Checkbox("Skip if Already Have Enough##sie", ref skipIfEnough))
         {

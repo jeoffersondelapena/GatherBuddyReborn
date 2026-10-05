@@ -162,4 +162,12 @@ public class QueueRulesTests
         Assert.True(QueueRules.OnlyHqCounts(true, "2026-10-02", tried, 61, "2026-10-03"));
         Assert.False(QueueRules.OnlyHqCounts(false, "", [], 61, "2026-10-03"));
     }
+
+    [Fact]
+    public void With_held_items_not_counted_each_amount_is_raised_by_what_was_held_at_the_start()
+    {
+        var needs = new Dictionary<uint, int> { [5] = 20, [7] = 3 };
+        Assert.Equal(new Dictionary<uint, int> { [5] = 32, [7] = 3 }, QueueRules.OnTop(needs, new Dictionary<uint, int> { [5] = 12, [9] = 4 }));
+        Assert.Equal(needs, QueueRules.OnTop(needs, null));
+    }
 }

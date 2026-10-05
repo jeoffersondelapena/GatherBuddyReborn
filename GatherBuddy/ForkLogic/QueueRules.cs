@@ -95,6 +95,10 @@ public static class QueueRules
     public static bool OnlyHqCounts(bool listOption, string triedDay, IEnumerable<uint> tried, uint recipeId, string today)
         => listOption && !(triedDay == today && tried.Contains(recipeId));
 
+    // with Count Items Already Held off, a material is sourced on top of what the bags held when the run started
+    public static Dictionary<uint, int> OnTop(IReadOnlyDictionary<uint, int> needs, IReadOnlyDictionary<uint, int>? heldBefore)
+        => needs.ToDictionary(n => n.Key, n => n.Value + Math.Max(0, heldBefore?.GetValueOrDefault(n.Key) ?? 0));
+
     public static (int Taken, int NQ, int HQ) TakeHeld(int nq, int hq, int requested, bool onlyHq)
     {
         var usableNq = onlyHq ? 0 : nq;

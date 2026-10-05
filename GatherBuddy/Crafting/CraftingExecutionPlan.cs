@@ -15,6 +15,7 @@ public sealed class CraftingExecutionPlan
     public bool SkipIfEnough { get; }
     public bool SkipFinalIfEnough { get; }
     public bool RetainerRestock { get; }
+    public bool CountHeld { get; }
     public bool BuyInsteadOfWaiting { get; }
     public bool BuyInsteadOfGathering { get; }
     public CraftingListPlan ResolvedPlan { get; private set; }
@@ -46,6 +47,7 @@ public sealed class CraftingExecutionPlan
         SkipIfEnough = planningSnapshot.SkipIfEnough;
         SkipFinalIfEnough = planningSnapshot.SkipFinalIfEnough;
         RetainerRestock = planningSnapshot.RetainerRestock;
+        CountHeld = planningSnapshot.CountHeld;
         BuyInsteadOfWaiting = planningSnapshot.BuyInsteadOfWaiting;
         BuyInsteadOfGathering = planningSnapshot.BuyInsteadOfGathering;
         ApplyResolvedPlan(resolvedPlan);
@@ -75,6 +77,15 @@ public sealed class CraftingExecutionPlan
     public void RefreshFromCurrentInventory()
         => ApplyResolvedPlan(_planningSnapshot.CreatePlan(false));
 
+    private IReadOnlyDictionary<uint, int>? _heldBefore;
+
+    // fork: set once as a run starts, so a later refresh of the plan keeps the same baseline
+    public void SourceOnTopOf(IReadOnlyDictionary<uint, int> heldBefore)
+    {
+        _heldBefore = heldBefore;
+        Materials   = ForkLogic.QueueRules.OnTop(ResolvedPlan.Materials, _heldBefore);
+    }
+
     public Dictionary<uint, IngredientQualityDemand> BuildQualityTargetsForItems(IReadOnlyDictionary<uint, int> requestedItems)
     {
         var targets = requestedItems.Keys.ToDictionary(
@@ -101,7 +112,7 @@ public sealed class CraftingExecutionPlan
     {
         Version++;
         ResolvedPlan = resolvedPlan;
-        Materials = new Dictionary<uint, int>(resolvedPlan.Materials);
+        Materials = ForkLogic.QueueRules.OnTop(resolvedPlan.Materials, _heldBefore);
         Precrafts = new Dictionary<uint, int>(resolvedPlan.Precrafts);
         RetainerConsumedCraftables = new Dictionary<uint, int>(resolvedPlan.RetainerConsumedCraftables);
         IngredientDemands = new Dictionary<uint, IngredientQualityDemand>(resolvedPlan.IngredientDemands);

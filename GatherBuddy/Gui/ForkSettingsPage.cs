@@ -133,8 +133,8 @@ internal static class ForkSettingsPage
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
         ImGui.BulletText("Skip Logged Items (fork), Count Items Already Held (fork), Buy Instead of Waiting (fork) and, under it, Buy "
           + "Instead of Gathering (fork): on each gathering list, in the Auto-Gather tab.");
-        ImGui.BulletText("Skip Logged Recipes (fork), Count Only HQ Final Crafts (fork), Buy Instead of Waiting (fork) and, under it, Buy "
-          + "Instead of Gathering (fork): on each crafting list, in Vulcan's list editor.");
+        ImGui.BulletText("Skip Logged Recipes (fork), Count Items Already Held (fork), Count Only HQ Final Crafts (fork), Buy Instead of "
+          + "Waiting (fork) and, under it, Buy Instead of Gathering (fork): on each crafting list, in Vulcan's list editor.");
         ImGui.BulletText("Restock from Retainers (fork): on each buy list, in the Vendor Buy List window.");
         ImGui.BulletText("Skip Retainers (fork), Skip Buying (fork), Skip Gathering (fork) and Clear Green Marks (fork): in the Craft Status window.");
         ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");

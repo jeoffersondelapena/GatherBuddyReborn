@@ -246,6 +246,7 @@ internal static unsafe class GcMissions
             list.QuickSynthAllPrecraftsOnly = true;
         }
 
+        list.CountHeld          = true;
         list.SkipIfEnough       = true;
         list.SkipFinalIfEnough  = true;
         list.CountOnlyHqFinals  = true;

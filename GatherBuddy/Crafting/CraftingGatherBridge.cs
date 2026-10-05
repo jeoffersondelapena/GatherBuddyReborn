@@ -268,6 +268,8 @@ public static class CraftingGatherBridge
         _ephemeralListId = ephemeralListId;
         _gatheredInstead.Clear();
         _activeExecutionPlan = executionPlan;
+        if (!executionPlan.CountHeld)
+            executionPlan.SourceOnTopOf(executionPlan.Materials.Keys.ToDictionary(id => id, GetInventoryCount));
         _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted", CraftingTargets(executionPlan));
         ResetCollectablesInterruptionState();
         _lastCollectablesHardFailLog = DateTime.MinValue;
@@ -312,7 +314,8 @@ public static class CraftingGatherBridge
         return $"plan for '{plan.ListName}': queue [{string.Join("; ", plan.QueueView.Select(Line))}]"
           + $" | to source {Items(plan.MaterialsView)} | precrafts {Items(plan.PrecraftsView)}"
           + $" | from retainers {Items(plan.RetainerConsumedCraftablesView)}"
-          + $" | skipIfEnough={plan.SkipIfEnough} skipFinalIfEnough={plan.SkipFinalIfEnough} retainerRestock={plan.RetainerRestock}";
+          + $" | skipIfEnough={plan.SkipIfEnough} skipFinalIfEnough={plan.SkipFinalIfEnough} retainerRestock={plan.RetainerRestock}"
+          + $" countHeld={plan.CountHeld}";
     }
 
     public static bool IsBuying
