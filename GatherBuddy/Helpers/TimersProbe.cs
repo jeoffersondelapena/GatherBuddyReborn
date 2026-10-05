@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
@@ -10,7 +11,9 @@ namespace GatherBuddy.Helpers;
 // fork: temporary. Traces what a turn-in changes, so the mission lists can leave out a delivered mission.
 internal static unsafe class TimersProbe
 {
-    private const int Lines = 300;
+    private const int    Lines          = 300;
+    private const int    Longest        = 6000;
+    private const string DeliveryWindow = "GrandCompanySupplyList";
 
     private static DateTime _polled   = DateTime.MinValue;
     private static string   _delivery = string.Empty;
@@ -25,10 +28,9 @@ internal static unsafe class TimersProbe
         _polled = DateTime.UtcNow;
         try
         {
-            var agent = AgentGrandCompanySupply.Instance();
-            if (agent != null && agent->IsAgentActive() && agent->SupplyProvisioningData != null
-             && Changed(ref _delivery, Delivery(agent->SupplyProvisioningData)))
-                ForkTrace.Info($"timers probe: delivery data, tab {agent->SelectedTab}: {_delivery}");
+            if (GenericHelpers.TryGetAddonByName<AtkUnitBase>(DeliveryWindow, out var window) && window->IsVisible
+             && Changed(ref _delivery, Describe(window)))
+                ForkTrace.Info($"timers probe: delivery window: {_delivery}");
 
             if (GenericHelpers.TryGetAddonByName<AtkUnitBase>(GcMissions.Window, out var page) && page->IsVisible
              && GcMissions.WindowShowsMissions(page) && Changed(ref _page, GcMissions.Numbers(page)))
@@ -48,6 +50,16 @@ internal static unsafe class TimersProbe
         last = now;
         _changes++;
         return true;
+    }
+
+    private static string Describe(AtkUnitBase* window)
+    {
+        var agent = AgentGrandCompanySupply.Instance();
+        var state = agent == null ? "no agent"
+            : $"agent active {agent->IsAgentActive()}, tab {agent->SelectedTab}, data "
+            + (agent->SupplyProvisioningData == null ? "none" : Delivery(agent->SupplyProvisioningData));
+        var text = $"{state} | texts: {string.Join(" | ", GcMissions.Texts(window).Take(60))} | numbers: {GcMissions.Numbers(window)}";
+        return text.Length > Longest ? text[..Longest] : text;
     }
 
     private static string Delivery(SupplyProvisioningData* data)

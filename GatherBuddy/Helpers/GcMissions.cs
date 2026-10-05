@@ -312,7 +312,7 @@ internal static unsafe class GcMissions
         return MissionRules.FromNames(texts, Known.Value, exact);
     }
 
-    private static List<string> Texts(AtkUnitBase* addon)
+    internal static List<string> Texts(AtkUnitBase* addon)
     {
         var texts = new List<string>();
         for (var i = 0; i < addon->AtkValuesCount; i++)
