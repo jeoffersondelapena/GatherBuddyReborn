@@ -309,7 +309,7 @@ public partial class Interface
             list.BuyInsteadOfWaiting, (v) => _plugin.AutoGatherListsManager.SetBuyInsteadOfWaiting(list, v));
         ImGui.Indent();
         ImGui.BeginDisabled(!list.BuyInsteadOfWaiting);
-        ImGuiUtil.Checkbox("Instead of Gathering Too (fork)##list",
+        ImGuiUtil.Checkbox("Buy Instead of Gathering Too (fork)##list",
             "Goes further than Buy Instead of Waiting, so it needs that one on: every item a gil vendor sells is bought before gathering, "
           + "window or not. What no vendor sells is still gathered. A bought item is never logged.\n"
           + "Formerly 'Buy Instead of Gathering (fork)'.",
