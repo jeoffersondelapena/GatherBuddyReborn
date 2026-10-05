@@ -65,11 +65,18 @@ public class PurchaseRulesTests
     [Fact]
     public void An_item_no_vendor_could_supply_names_who_sells_it()
     {
-        Assert.Equal("no vendor is known for the shop that sells it", PurchaseRules.NoVendor([]));
-        Assert.Equal("sold by Estate Manservant, where GatherBuddy cannot buy", PurchaseRules.NoVendor(["Estate Manservant"]));
-        Assert.Equal("sold by A and B, where GatherBuddy cannot buy", PurchaseRules.NoVendor(["A", "B"]));
-        Assert.Equal("sold by A, B and 2 more, where GatherBuddy cannot buy", PurchaseRules.NoVendor(["A", "B", "C", "D"]));
+        Assert.Equal("no vendor is known for the shop that sells it", PurchaseRules.NoVendor([], PurchaseRules.NoVendorCause.ShopKind));
+        Assert.Equal("sold by Estate Manservant, but through a kind of shop window GatherBuddy cannot work",
+            PurchaseRules.NoVendor(["Estate Manservant"], PurchaseRules.NoVendorCause.ShopKind));
+        Assert.Equal("sold by A and B, which GatherBuddy's own list of vendors leaves out",
+            PurchaseRules.NoVendor(["A", "B"], PurchaseRules.NoVendorCause.LeftOut));
+        Assert.Equal("sold by A, B and 2 more, which GatherBuddy's own list of vendors leaves out",
+            PurchaseRules.NoVendor(["A", "B", "C", "D"], PurchaseRules.NoVendorCause.LeftOut));
     }
+
+    [Fact]
+    public void A_vendor_whose_place_is_unknown_is_named_and_the_reason_is_walking()
+        => Assert.Equal("GatherBuddy does not know where Estate Manservant is, so it cannot walk there.", PurchaseRules.PlaceUnknown("Estate Manservant"));
 
     [Fact]
     public void A_shortfall_is_gathered_instead_only_when_the_list_asks_and_nothing_left_must_be_bought()

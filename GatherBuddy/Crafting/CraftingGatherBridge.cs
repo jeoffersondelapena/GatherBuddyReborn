@@ -444,7 +444,7 @@ public static class CraftingGatherBridge
 
         if (result is VendorBuyListManager.StartResult.Empty && PurchaseRules.GatherInstead(InsteadOfGathering, ToBuy(false).Count))
         {
-            ForkTrace.Info($"buy before gathering: no vendor GatherBuddy can walk to sells {string.Join(", ", Named(targets))}; gathering them instead");
+            ForkTrace.Info($"buy before gathering: no vendor GatherBuddy can buy from sells {string.Join(", ", Named(targets))}; gathering them instead");
             Communicator.PrintRun(PurchaseRules.GatheringInstead(targets.Count), tone: Communicator.Tone.Info);
             _gatheredInstead.AddRange(targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} ({VendorBuyListManager.WhyNoVendor(t.ItemId)})"));
             FinishBuying();
@@ -453,7 +453,7 @@ public static class CraftingGatherBridge
 
         StopBuyingShort(result switch
         {
-            VendorBuyListManager.StartResult.Empty          => "no vendor GatherBuddy can walk to sells what is missing",
+            VendorBuyListManager.StartResult.Empty          => "nothing that is missing has a vendor GatherBuddy can buy from",
             VendorBuyListManager.StartResult.AlreadyRunning => "another vendor run was still going after a minute",
             _                                               => "the vendor data did not load within a minute",
         }, result is VendorBuyListManager.StartResult.Empty

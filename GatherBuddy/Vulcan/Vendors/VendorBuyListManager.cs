@@ -605,8 +605,13 @@ public sealed partial class VendorBuyListManager : IDisposable
     }
 
     public static string WhyNoVendor(uint itemId)
-        => ForkLogic.PurchaseRules.NoVendor(VendorShopResolver.GilShopEntries.Where(e => e.ItemId == itemId).SelectMany(e => e.Npcs)
-            .Select(n => n.Name).Where(n => n.Length > 0).Distinct().ToList());
+    {
+        var entries  = VendorShopResolver.GilShopEntries.Where(e => e.ItemId == itemId).ToList();
+        var sellers  = entries.SelectMany(e => e.Npcs).Select(n => n.Name).Where(n => n.Length > 0).Distinct().ToList();
+        var workable = entries.Any(e => e.Npcs.Any(n => VendorPurchaseManager.IsPurchaseSupported(e, n)));
+        return ForkLogic.PurchaseRules.NoVendor(sellers,
+            workable ? ForkLogic.PurchaseRules.NoVendorCause.LeftOut : ForkLogic.PurchaseRules.NoVendorCause.ShopKind);
+    }
 
     // the run's own Pause or Stop: nothing is reported back, the run already knows
     public void CancelRunPurchase()
@@ -1590,7 +1595,7 @@ public sealed partial class VendorBuyListManager : IDisposable
             liveEntry    = null!;
             vendor       = null!;
             location     = null!;
-            errorMessage = $"No vendor location data is available for {resolvedVendor.Name}.";
+            errorMessage = ForkLogic.PurchaseRules.PlaceUnknown(resolvedVendor.Name);
             return PurchaseContextResolutionResult.SkippableFailure;
         }
 

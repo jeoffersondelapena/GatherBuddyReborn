@@ -49,14 +49,21 @@ public static class PurchaseRules
     public static string NoWayToGet(int count)
         => $"{count} material(s) the run cannot get itself";
 
-    public static string NoVendor(IReadOnlyList<string> sellers)
+    public enum NoVendorCause { ShopKind, LeftOut }
+
+    public static string NoVendor(IReadOnlyList<string> sellers, NoVendorCause cause)
     {
         if (sellers.Count == 0)
             return "no vendor is known for the shop that sells it";
 
         var named = sellers.Count <= 2 ? string.Join(" and ", sellers) : $"{sellers[0]}, {sellers[1]} and {sellers.Count - 2} more";
-        return $"sold by {named}, where GatherBuddy cannot buy";
+        return cause == NoVendorCause.ShopKind
+            ? $"sold by {named}, but through a kind of shop window GatherBuddy cannot work"
+            : $"sold by {named}, which GatherBuddy's own list of vendors leaves out";
     }
+
+    public static string PlaceUnknown(string vendor)
+        => $"GatherBuddy does not know where {vendor} is, so it cannot walk there.";
 
     // GatherBuddy numbers timed nodes and windowed fish from 1 up; waiting for one is what a vendor saves, so those count as not gathered
     public static bool GatheredWithoutWaiting(int? nodeLocation, int? fishLocation, bool diademRaw)

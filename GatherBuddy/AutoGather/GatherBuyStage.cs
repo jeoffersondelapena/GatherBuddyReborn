@@ -108,7 +108,7 @@ internal static class GatherBuyStage
                 _step = Step.Off;
                 return;
             case VendorBuyListManager.StartResult.Empty:
-                Pause("no vendor GatherBuddy can walk to sells what is missing",
+                Pause("nothing that is missing has a vendor GatherBuddy can buy from",
                     targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} ({VendorBuyListManager.WhyNoVendor(t.ItemId)})").ToList());
                 return;
         }
