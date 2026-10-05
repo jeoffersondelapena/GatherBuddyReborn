@@ -150,7 +150,7 @@ public class CraftingListEditor
         var reset = ForkLogic.MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
         var applies = _list.SkipFinalIfEnough;
         ImGui.BeginDisabled(!applies);
-        ImGuiUtil.Checkbox("But Treat NQ as Missing (fork)##cohf",
+        ImGuiUtil.Checkbox("And Treat NQ as Missing (fork)##cohf",
             "A final craft counts as already made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one.\n"
           + "Each recipe gets one try a day: once a run has crafted it, any copy counts again until the daily reset (the Grand Company "
           + $"missions' reset, {reset:HH:mm} here), so a recipe this crafter cannot make HQ is not crafted over and over.\n"
