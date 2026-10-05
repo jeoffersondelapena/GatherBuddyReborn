@@ -614,6 +614,13 @@ public class CraftingListEditor
         ImGui.Separator();
         ImGui.Spacing();
 
+        if (Helpers.GcMissions.NoteFor(_list.Name) is { } missionNote)
+        {
+            ImGui.PushTextWrapPos();
+            ImGui.TextDisabled(missionNote);
+            ImGui.PopTextWrapPos();
+        }
+
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
         // fork: the next four decide what the retainer, buying and crafting options further down have to work on

@@ -253,7 +253,6 @@ public partial class GatherBuddy : IDalamudPlugin
             Log.CheckTimer();
             Gui.KeepMarkFrames.Draw();
             Gui.GcMissionsButton.Draw();
-            Helpers.TimersProbe.Watch();
             WindowSystem.Draw();
         }
         finally

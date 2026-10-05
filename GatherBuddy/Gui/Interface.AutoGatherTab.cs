@@ -317,6 +317,13 @@ public partial class Interface
             ImGuiHoveredFlags.AllowWhenDisabled);
         ImGui.EndDisabled();
         ImGui.Unindent();
+        if (Helpers.GcMissions.NoteFor(list.Name) is { } missionNote)
+        {
+            ImGui.PushTextWrapPos();
+            ImGui.TextDisabled(missionNote);
+            ImGui.PopTextWrapPos();
+        }
+
         if (!ReferenceEquals(_autoGatherListsCache.ItemFilterList, list))
         {
             _autoGatherListsCache.ItemFilterList = list;

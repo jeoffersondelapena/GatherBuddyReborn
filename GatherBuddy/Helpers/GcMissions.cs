@@ -51,6 +51,17 @@ internal static unsafe class GcMissions
     private static string?  _character;
     private static DateTime _characterSince;
     private static string?  _alignedFor;
+    private static DateTime _watched = DateTime.MinValue;
+
+    private const string DeliveryWindow = "GrandCompanySupplyList";
+
+    private static readonly MissionRules.DeliveryWatch Deliveries = new();
+
+    private static (string? Supply, string? Provisioning) _notes;
+
+    // shown on the two lists themselves, so a list that differs from the day's missions says why
+    public static string? NoteFor(string listName)
+        => listName == MissionRules.SupplyList ? _notes.Supply : listName == MissionRules.ProvisioningList ? _notes.Provisioning : null;
 
     // the detail window serves every timer; cached because the overlay asks every frame
     public static bool WindowShowsMissions(AtkUnitBase* addon)
@@ -81,6 +92,7 @@ internal static unsafe class GcMissions
     public static void Tick()
     {
         FollowCharacter();
+        WatchDeliveries();
         if (_opening == Opening.No)
             return;
 
@@ -139,19 +151,61 @@ internal static unsafe class GcMissions
             return;
 
         _alignedFor = MissionRules.Aligned(character!, day);
-        var (kept, tried) = Kept(day);
+        var (kept, tried, all) = Kept(day);
         var before = Listed();
-        if (kept.Count > 0)
-            Fill(kept, tried, false);
+        if (all.Count > 0)
+            Fill(kept, tried, false, all);
         else
             Empty();
         var changed = Listed() != before;
         ForkTrace.Info($"gc missions: the lists follow this character on {day}: kept {Describe(kept)}; {(changed ? "changed" : "as they were")}");
         if (changed)
-            Dalamud.Chat.Print(kept.Count > 0
+            Dalamud.Chat.Print(all.Count > 0
                 ? "[GatherBuddy] The two GC mission lists now hold this character's missions, as read earlier this mission day (fork)."
                 : "[GatherBuddy] The two GC mission lists were emptied: no Grand Company missions have been read on this character since "
                 + "the daily reset. The GC Mission Lists button fills them (fork).");
+    }
+
+    // the officer's window stops listing a mission once it is delivered, so the two lists drop it then, not at the next press
+    private static void WatchDeliveries()
+    {
+        if (DateTime.UtcNow - _watched < TimeSpan.FromSeconds(1))
+            return;
+
+        _watched = DateTime.UtcNow;
+        var agent = AgentGrandCompanySupply.Instance();
+        if (agent == null || !GenericHelpers.TryGetAddonByName<AtkUnitBase>(DeliveryWindow, out var window) || !window->IsVisible)
+        {
+            NoteDelivered(Deliveries.Closed(Held));
+            return;
+        }
+
+        // the third tab is expert delivery, which lists gear and no missions
+        var listed = agent->SelectedTab is 0 or 1
+            ? MissionRules.FromNames(Texts(window), Known.Value).Select(m => m.ItemId).ToList()
+            : [];
+        NoteDelivered(Deliveries.Read(agent->SelectedTab, listed, Held));
+    }
+
+    private static void NoteDelivered(List<uint> delivered)
+    {
+        if (delivered.Count == 0)
+            return;
+
+        var day                    = MissionRules.Day(DateTime.UtcNow);
+        var (missions, tried, all) = Kept(day);
+        var left                   = missions.Where(m => !delivered.Contains(m.ItemId)).ToList();
+        var names                  = delivered.Select(ForkTrace.ItemName).ToList();
+        ForkTrace.Info($"gc missions: delivered at the officer: {string.Join(", ", names)}; open missions kept {missions.Count} -> {left.Count}");
+        if (left.Count == missions.Count)
+            return;
+
+        Write(day, left, tried, all);
+        Dalamud.Chat.Print($"[GatherBuddy] Delivered: {string.Join(", ", names)}. Taken off the Grand Company mission lists (fork).");
+        if (Busy)
+            _alignedFor = null;
+        else
+            Fill(left, tried, false, all);
     }
 
     private static string Listed()
@@ -174,6 +228,8 @@ internal static unsafe class GcMissions
             GatherBuddy.CraftingListManager.SaveList(supply);
         }
 
+        _notes = (null, null);
+
         if (CraftingGatherBridge.ListsManager is not { } lists
          || lists.Lists.FirstOrDefault(l => l.Name == MissionRules.ProvisioningList) is not { } provisioning
          || provisioning.Items.Count == 0 && provisioning.Description == MissionRules.NoneRead)
@@ -188,9 +244,9 @@ internal static unsafe class GcMissions
 
     private static void NotOpened()
     {
-        var (kept, tried) = Kept(MissionRules.Day(DateTime.UtcNow));
+        var (kept, tried, all) = Kept(MissionRules.Day(DateTime.UtcNow));
         ForkTrace.Info($"gc missions: the missions page did not open; kept for this mission day: {Describe(kept)}");
-        if (kept.Count == 0)
+        if (all.Count == 0)
         {
             Dalamud.Chat.PrintError("[GatherBuddy] The Timers missions page did not open. Open Timers and choose Supply & Provisioning "
               + "Missions; the button under that page fills the lists (fork).");
@@ -199,15 +255,14 @@ internal static unsafe class GcMissions
 
         Dalamud.Chat.PrintError("[GatherBuddy] The Timers missions page did not open, so the lists are refilled from the missions read "
           + "earlier this mission day (fork).");
-        Fill(kept, tried, true);
+        Fill(kept, tried, true, all);
     }
 
     private static bool TryFill()
     {
-        var delivery = FromDeliveryData();
-        var window   = FromWindow(delivery);
-        ForkTrace.Info($"gc missions: Timers window {Describe(window)}; delivery data {Describe(delivery)}");
-        var missions = window is { Count: > 0 } ? window : delivery;
+        // the page lists only the missions still open; the delivery data keeps delivered ones too, so it is not read
+        var missions = FromWindow();
+        ForkTrace.Info($"gc missions: Timers window {Describe(missions)}");
         if (missions is not { Count: > 0 })
             return false;
 
@@ -215,17 +270,25 @@ internal static unsafe class GcMissions
         var day = MissionRules.Day(DateTime.UtcNow);
         if (CharacterListState.Key() is { } character)
             _alignedFor = MissionRules.Aligned(character, day);
-        Fill(missions, Keep(day, missions), true);
+        var (_, tried, seen) = Kept(day);
+        var all = MissionRules.Merge(seen, missions);
+        Write(day, missions, tried, all);
+        Fill(missions, tried, true, all);
         return true;
     }
 
-    // pressed: by the button, which may create the lists and reports in chat; otherwise the lists only follow a login
-    private static void Fill(List<Mission> missions, List<uint> tried, bool pressed)
+    private static bool Crafted(uint itemId)
+        => RecipeManager.GetRecipeForItem(itemId) != null;
+
+    // pressed: by the button, which may create the lists and reports in chat; otherwise the lists only follow a login or a delivery
+    private static void Fill(List<Mission> missions, List<uint> tried, bool pressed, List<Mission> all)
     {
         var crafted  = new List<(Recipe Recipe, int Crafts)>();
         var gathered = new List<(IGatherable Item, uint Amount)>();
         var waiting  = new List<string>();
         var neither  = new List<string>();
+        var unmade     = new List<string>();
+        var ungathered = new List<string>();
         foreach (var mission in missions)
         {
             var name   = ForkTrace.ItemName(mission.ItemId);
@@ -238,22 +301,36 @@ internal static unsafe class GcMissions
                     : RecipeManager.GetResolvedIngredients(recipe).Where(m => Waits(m.Key, m.Value * crafts, MaterialSourceClassifier.IsSoldForGil(m.Key)))
                         .Select(m => ForkTrace.ItemName(m.Key)).ToList();
                 if (slow.Count > 0)
+                {
                     waiting.Add($"{name} (needs {string.Join(", ", slow)})");
+                    unmade.Add($"{name} (needs {string.Join(", ", slow)}, which would mean waiting)");
+                }
                 else
                     crafted.Add((recipe, crafts));
             }
             else if (Waits(mission.ItemId, amount, MaterialSourceClassifier.IsSoldForGil(mission.ItemId)))
+            {
                 waiting.Add(name);
+                ungathered.Add($"{name} (would mean waiting)");
+            }
             else if (GatherBuddy.GameData.Gatherables.TryGetValue(mission.ItemId, out var gatherable))
                 gathered.Add((gatherable, (uint)amount));
             else if (GatherBuddy.GameData.Fishes.TryGetValue(mission.ItemId, out var fish))
                 gathered.Add((fish, (uint)amount));
             else
+            {
                 neither.Add(name);
+                ungathered.Add($"{name} (not gatherable)");
+            }
         }
 
         FillCraftingList(crafted, tried, pressed);
         var gatheringListed = FillGatheringList(gathered, pressed);
+        var delivered       = all.Where(a => missions.All(m => m.ItemId != a.ItemId)).ToList();
+        _notes = (MissionRules.Tally("supply", all.Count(a => Crafted(a.ItemId)), crafted.Count,
+                delivered.Where(d => Crafted(d.ItemId)).Select(d => ForkTrace.ItemName(d.ItemId)).ToList(), unmade),
+            MissionRules.Tally("provisioning", all.Count(a => !Crafted(a.ItemId)), gathered.Count,
+                delivered.Where(d => !Crafted(d.ItemId)).Select(d => ForkTrace.ItemName(d.ItemId)).ToList(), ungathered));
         ForkTrace.Info($"gc missions: left out for waiting: {(waiting.Count == 0 ? "none" : string.Join(", ", waiting))}");
         if (!pressed)
             return;
@@ -271,21 +348,14 @@ internal static unsafe class GcMissions
     private static string? KeptPath()
         => CharacterListState.Key() is { } key ? Path.Combine(Dalamud.PluginInterface.ConfigDirectory.FullName, $"gc-missions-{key}.json") : null;
 
-    private static List<uint> Keep(string day, List<Mission> missions)
-    {
-        var tried = Kept(day).Tried;
-        Write(day, missions, tried);
-        return tried;
-    }
-
-    private static void Write(string day, List<Mission> missions, IEnumerable<uint> tried)
+    private static void Write(string day, List<Mission> missions, IEnumerable<uint> tried, List<Mission> all)
     {
         if (KeptPath() is not { } path)
             return;
 
         try
         {
-            SafeFile.Write(path, MissionRules.Serialize(day, missions, tried));
+            SafeFile.Write(path, MissionRules.Serialize(day, missions, tried, all));
         }
         catch (Exception e)
         {
@@ -293,10 +363,10 @@ internal static unsafe class GcMissions
         }
     }
 
-    private static (List<Mission> Missions, List<uint> Tried) Kept(string day)
+    private static (List<Mission> Missions, List<uint> Tried, List<Mission> All) Kept(string day)
     {
         if (KeptPath() is not { } path || !File.Exists(path))
-            return ([], []);
+            return ([], [], []);
 
         try
         {
@@ -305,7 +375,7 @@ internal static unsafe class GcMissions
         catch (Exception e)
         {
             GatherBuddy.Log.Warning($"[GcMissions] the day's saved missions could not be read: {e.Message}");
-            return ([], []);
+            return ([], [], []);
         }
     }
 
@@ -313,8 +383,12 @@ internal static unsafe class GcMissions
     public static void TriedChanged(CraftingListDefinition list)
     {
         var day = MissionRules.Day(DateTime.UtcNow);
-        if (list.Name == MissionRules.SupplyList && Kept(day).Missions is { Count: > 0 } missions)
-            Write(day, missions, list.TriedToday());
+        if (list.Name != MissionRules.SupplyList)
+            return;
+
+        var (missions, _, all) = Kept(day);
+        if (all.Count > 0)
+            Write(day, missions, list.TriedToday(), all);
     }
 
     private static int Held(uint itemId)
@@ -384,36 +458,17 @@ internal static unsafe class GcMissions
         return true;
     }
 
-    private static List<Mission>? FromDeliveryData()
-    {
-        var agent = AgentGrandCompanySupply.Instance();
-        if (agent == null || agent->SupplyProvisioningData == null)
-            return null;
-
-        // the pointer may outlive the delivery window, so only items the mission table holds are trusted
-        var valid    = Known.Value.Values.Select(m => m.ItemId).ToHashSet();
-        var missions = new List<Mission>();
-        foreach (ref var item in agent->SupplyProvisioningData->SupplyData)
-            if (valid.Contains(item.ItemId))
-                missions.Add(new Mission(item.ItemId, item.NumRequested));
-        foreach (ref var item in agent->SupplyProvisioningData->ProvisioningData)
-            if (valid.Contains(item.ItemId))
-                missions.Add(new Mission(item.ItemId, item.NumRequested));
-        return missions;
-    }
-
-    private static List<Mission>? FromWindow(List<Mission>? exact)
+    private static List<Mission>? FromWindow()
     {
         if (!GenericHelpers.TryGetAddonByName<AtkUnitBase>(Window, out var addon) || !addon->IsVisible)
             return null;
 
         var texts = Texts(addon);
         ForkTrace.Info($"gc missions: the Timers window holds {addon->AtkValuesCount} value(s), {texts.Count} of them text: {string.Join(" | ", texts.Take(60))}");
-        ForkTrace.Info($"gc missions: its numbers: {Numbers(addon)}");
-        return MissionRules.FromNames(texts, Known.Value, exact);
+        return MissionRules.FromNames(texts, Known.Value);
     }
 
-    internal static List<string> Texts(AtkUnitBase* addon)
+    private static List<string> Texts(AtkUnitBase* addon)
     {
         var texts = new List<string>();
         for (var i = 0; i < addon->AtkValuesCount; i++)
@@ -424,30 +479,6 @@ internal static unsafe class GcMissions
         }
 
         return texts;
-    }
-
-    // traced so a delivered mission can later be told from an open one
-    internal static string Numbers(AtkUnitBase* addon)
-    {
-        var numbers = new List<string>();
-        for (var i = 0; i < addon->AtkValuesCount; i++)
-        {
-            var value = addon->AtkValues[i];
-            switch ((int)value.Type & 0x0F)
-            {
-                case 2:
-                    numbers.Add($"{i}={(value.Byte != 0 ? "yes" : "no")}");
-                    break;
-                case 3:
-                    numbers.Add($"{i}={value.Int}");
-                    break;
-                case 5:
-                    numbers.Add($"{i}={value.UInt}");
-                    break;
-            }
-        }
-
-        return string.Join(" ", numbers);
     }
 
     private static string Describe(List<Mission>? missions)

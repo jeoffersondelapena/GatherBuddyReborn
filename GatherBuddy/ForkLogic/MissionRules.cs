@@ -43,24 +43,88 @@ public static class MissionRules
 
     public const string NoneRead = Tag + " none read on this character since the daily reset";
 
-    private sealed record Saved(string On, List<Mission> Missions, List<uint>? Tried = null);
+    private sealed record Saved(string On, List<Mission> Missions, List<uint>? Tried = null, List<Mission>? All = null);
 
-    public static string Serialize(string day, IEnumerable<Mission> missions, IEnumerable<uint>? tried = null)
-        => JsonSerializer.Serialize(new Saved(day, missions.ToList(), tried?.Distinct().ToList()));
+    public static string Serialize(string day, IEnumerable<Mission> missions, IEnumerable<uint>? tried = null, IEnumerable<Mission>? all = null)
+        => JsonSerializer.Serialize(new Saved(day, missions.ToList(), tried?.Distinct().ToList(), all?.ToList()));
 
     // the missions change at the reset, so a read from another day holds nothing for this one
-    public static (List<Mission> Missions, List<uint> Tried) SavedFor(string? text, string today)
+    public static (List<Mission> Missions, List<uint> Tried, List<Mission> All) SavedFor(string? text, string today)
     {
         try
         {
             var saved = string.IsNullOrWhiteSpace(text) ? null : JsonSerializer.Deserialize<Saved>(text);
-            return saved is { Missions: not null } && saved.On == today
-                ? (saved.Missions.Where(m => m.ItemId != 0).ToList(), saved.Tried ?? [])
-                : ([], []);
+            if (saved is not { Missions: not null } || saved.On != today)
+                return ([], [], []);
+
+            var open = saved.Missions.Where(m => m.ItemId != 0).ToList();
+            return (open, saved.Tried ?? [], Merge(saved.All ?? [], open));
         }
         catch (JsonException)
         {
-            return ([], []);
+            return ([], [], []);
+        }
+    }
+
+    // a window lists only the missions still open, so the day's whole set is what was seen at any point
+    public static List<Mission> Merge(IEnumerable<Mission> all, IEnumerable<Mission> open)
+    {
+        var merged = all.Where(m => m.ItemId != 0).ToList();
+        foreach (var mission in open)
+            if (merged.All(m => m.ItemId != mission.ItemId))
+                merged.Add(mission);
+        return merged;
+    }
+
+    public static string Tally(string kind, int missions, int listed, IReadOnlyList<string> delivered, IReadOnlyList<string> leftOut)
+    {
+        var parts = new List<string> { $"{listed} on this list" };
+        if (delivered.Count > 0)
+            parts.Add($"{delivered.Count} delivered ({string.Join(", ", delivered)})");
+        if (leftOut.Count > 0)
+            parts.Add($"{leftOut.Count} left out ({string.Join(", ", leftOut)})");
+        return $"{missions} {kind} mission(s) today: {string.Join(", ", parts)} (fork).";
+    }
+
+    // the bags are asked too, since the officer's list is also empty while it loads
+    public sealed class DeliveryWatch
+    {
+        private int                            _tab = -1;
+        private readonly Dictionary<uint, int> _held = new();
+        private readonly Dictionary<uint, int> _gone = new();
+
+        // the window often closes right after a delivery, before its list is read again, so there the bags alone decide
+        public List<uint> Closed(Func<uint, int> held)
+        {
+            var delivered = _held.Where(kv => held(kv.Key) < kv.Value).Select(kv => kv.Key).ToList();
+            _tab = -1;
+            _held.Clear();
+            _gone.Clear();
+            return delivered;
+        }
+
+        public List<uint> Read(int tab, IReadOnlyCollection<uint> listed, Func<uint, int> held, int reads = 2)
+        {
+            var delivered = tab != _tab ? Closed(held) : [];
+            _tab = tab;
+            foreach (var id in _held.Keys.Where(id => !listed.Contains(id)).ToList())
+            {
+                _gone[id] = _gone.GetValueOrDefault(id) + 1;
+                if (_gone[id] < reads || held(id) >= _held[id])
+                    continue;
+
+                _held.Remove(id);
+                _gone.Remove(id);
+                delivered.Add(id);
+            }
+
+            foreach (var id in listed)
+            {
+                _held[id] = held(id);
+                _gone.Remove(id);
+            }
+
+            return delivered;
         }
     }
 
