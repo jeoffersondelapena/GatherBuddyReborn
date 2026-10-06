@@ -47,6 +47,13 @@ public static class TextRules
     public static string MissingAtCraftReason(string item, string missing)
         => $"'{item}' is missing {missing}. Get it and press Resume, or {LeaveOut}.";
 
+    // a list's quantity counts crafts; a recipe that yields more than one shows what the crafts come to
+    public static string? Yield(int crafts, int perCraft)
+        => perCraft > 1 ? $"\u2192 {crafts * perCraft}" : null;
+
+    public static string YieldTip(int crafts, int perCraft)
+        => $"Quantity counts crafts. This recipe yields {perCraft} per craft, so {crafts} craft(s) give {crafts * perCraft} items.";
+
     public static string HqOutcome(string item, bool hq, bool oncePerDay, string reset)
         => hq ? $"{item}: HQ" : $"{item}: NQ, counts as done {(oncePerDay ? $"until {reset}" : "for this run")}";
 

@@ -1098,6 +1098,15 @@ public class CraftingListEditor
         ImGui.InputInt("##quantity", ref _searchQuantity, 1);
         if (_searchQuantity < 1)
             _searchQuantity = 1;
+        var addPerCraft = _selectedRecipe is { } adding ? Math.Max(1, (int)adding.AmountResult) : 1;
+        if (TextRules.Yield(_searchQuantity, addPerCraft) is { } addYield)
+        {
+            ImGui.SameLine();
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextDisabled(addYield);
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(TextRules.YieldTip(_searchQuantity, addPerCraft));
+        }
         ImGui.SameLine();
 
         using (ImRaii.Disabled(_selectedRecipe == null))
@@ -1120,7 +1129,8 @@ public class CraftingListEditor
         }
 
         if (ImGui.IsItemHovered() && _selectedRecipe != null)
-            ImGui.SetTooltip($"Add {_recipeLabels[_selectedRecipe.Value.RowId]} x{_searchQuantity} to list");
+            ImGui.SetTooltip($"Add {_recipeLabels[_selectedRecipe.Value.RowId]} x{_searchQuantity} to list"
+              + (addPerCraft > 1 ? $" ({_searchQuantity} craft(s) \u2192 {_searchQuantity * addPerCraft} items)" : ""));
     }
 
     private void DrawRecipeComboWithKeywordFilter()
@@ -1619,7 +1629,10 @@ public class CraftingListEditor
         var rowStartY = ImGui.GetCursorPosY();
         var qtyTotalWidth = qtyTextWidth + 2 * (frameHeight + innerSpacing);
         var iconBtnSize = new Vector2(frameHeight, frameHeight);
-        var selectableWidth = Math.Max(50f, ImGui.GetContentRegionAvail().X - qtyTotalWidth - 2 * frameHeight - 3 * innerSpacing - sourceIconSize - innerSpacing);
+        var perCraft  = row.Recipe is { } yielding ? Math.Max(1, (int)yielding.AmountResult) : 1;
+        var yieldText = TextRules.Yield(item.Quantity, perCraft);
+        var yieldWidth = yieldText == null ? 0f : ImGui.CalcTextSize(yieldText).X + innerSpacing;
+        var selectableWidth = Math.Max(50f, ImGui.GetContentRegionAvail().X - qtyTotalWidth - 2 * frameHeight - 3 * innerSpacing - sourceIconSize - innerSpacing - yieldWidth);
         var crafterIcon = CraftingRowIcons.GetCrafterIcon(row.Recipe);
         ImGui.PushStyleColor(ImGuiCol.Text, row.TextColor);
         using var selectableAlign = ImRaii.PushStyle(ImGuiStyleVar.SelectableTextAlign, new Vector2(0f, 0.5f));
@@ -1674,7 +1687,16 @@ public class CraftingListEditor
             }
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Click +/- to adjust quantity by 1.\nHold Ctrl: ±10\nHold Shift: ±100");
+            ImGui.SetTooltip("Click +/- to adjust quantity by 1.\nHold Ctrl: ±10\nHold Shift: ±100"
+              + (perCraft > 1 ? "\n" + TextRules.YieldTip(item.Quantity, perCraft) : ""));
+        if (yieldText != null)
+        {
+            ImGui.SameLine(0, innerSpacing);
+            ImGui.AlignTextToFramePadding();
+            ImGui.TextDisabled(yieldText);
+            if (ImGui.IsItemHovered())
+                ImGui.SetTooltip(TextRules.YieldTip(item.Quantity, perCraft));
+        }
 
         ImGui.SameLine(0, innerSpacing);
         var skipIcon = item.Options.Skipping ? FontAwesomeIcon.Check : FontAwesomeIcon.Ban;

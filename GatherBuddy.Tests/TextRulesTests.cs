@@ -206,4 +206,12 @@ public class TextRulesTests
         Assert.Contains("'Bronze Awl' is missing Jellyfish Humours (needs 1, you have 0)", TextRules.MissingAtCraft("Bronze Awl", "Jellyfish Humours (needs 1, you have 0)"));
         Assert.Contains(TextRules.LeaveOut, TextRules.MissingAtCraftReason("Bronze Awl", "x"));
     }
+
+    [Fact]
+    public void A_recipe_yielding_more_than_one_shows_what_the_crafts_come_to()
+    {
+        Assert.Equal("\u2192 9", TextRules.Yield(3, 3));
+        Assert.Null(TextRules.Yield(3, 1));
+        Assert.Equal("Quantity counts crafts. This recipe yields 3 per craft, so 3 craft(s) give 9 items.", TextRules.YieldTip(3, 3));
+    }
 }
