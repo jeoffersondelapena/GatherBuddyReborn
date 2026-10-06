@@ -419,29 +419,39 @@ internal static unsafe class GcMissions
             GatherBuddy.GameData.Fishes.TryGetValue(itemId, out var fish) ? fish.InternalLocationId : null,
             AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(itemId), soldForGil, Held(itemId), needed);
 
-    // a refill resets only the switches that decide whether a held or logged item is made again
-    private static void FillCraftingList(List<(Recipe Recipe, int Crafts)> crafted, List<uint> tried, bool create)
+    // a press puts every option of the two lists back as generated, so a stray click is undone by the next press; a login or a delivery only moves items
+    private static void FillCraftingList(List<(Recipe Recipe, int Crafts)> crafted, List<uint> tried, bool pressed)
     {
         var manager = GatherBuddy.CraftingListManager;
         var list    = manager.GetListByName(MissionRules.SupplyList);
         if (list == null)
         {
-            if (!create)
+            if (!pressed)
                 return;
 
-            list                            = manager.CreateNewList(MissionRules.SupplyList);
-            list.QuickSynthAll              = true;
-            list.QuickSynthAllPreferNQ      = true;
-            list.QuickSynthAllPrecraftsOnly = true;
+            list = manager.CreateNewList(MissionRules.SupplyList);
         }
 
-        list.CountHeld          = true;
-        list.SkipIfEnough       = true;
-        list.SkipFinalIfEnough  = true;
-        list.CountOnlyHqFinals  = true;
-        list.SkipCraftedRecipes = false;
-        list.HqTriedDay         = MissionRules.Day(DateTime.UtcNow);
-        list.HqTried            = [.. tried];
+        if (pressed)
+        {
+            list.SkipCraftedRecipes         = false;
+            list.AimForHq                   = true;
+            list.HqTryOncePerDay            = true;
+            list.SkipFinalIfEnough          = true;
+            list.SkipIfEnough               = true;
+            list.CountHeld                  = true;
+            list.RetainerRestock            = false;
+            list.BuyInsteadOfWaiting        = true;
+            list.BuyInsteadOfGathering      = true;
+            list.BuyPrecrafts               = BuyCrafts.WhenOutOfReach;
+            list.BuyFinals                  = BuyCrafts.Craft;
+            list.QuickSynthAll              = false;
+            list.QuickSynthAllPreferNQ      = false;
+            list.QuickSynthAllPrecraftsOnly = false;
+        }
+
+        list.HqTriedDay = MissionRules.Day(DateTime.UtcNow);
+        list.HqTried    = [.. tried];
         list.Recipes.Clear();
         foreach (var (recipe, crafts) in crafted)
             list.AddRecipe(recipe.RowId, crafts);
@@ -449,7 +459,7 @@ internal static unsafe class GcMissions
         manager.SaveList(list);
     }
 
-    private static bool FillGatheringList(List<(IGatherable Item, uint Amount)> gathered, bool create)
+    private static bool FillGatheringList(List<(IGatherable Item, uint Amount)> gathered, bool pressed)
     {
         if (CraftingGatherBridge.ListsManager is not { } lists)
             return false;
@@ -457,16 +467,21 @@ internal static unsafe class GcMissions
         var list = lists.Lists.FirstOrDefault(l => l.Name == MissionRules.ProvisioningList);
         if (list == null)
         {
-            if (!create)
+            if (!pressed)
                 return false;
 
             list = new AutoGatherList { Name = MissionRules.ProvisioningList };
             lists.AddList(list);
         }
 
-        list.CountHeld           = true;
-        list.BuyInsteadOfWaiting = true;
-        list.SkipLoggedItems     = false;
+        if (pressed)
+        {
+            list.SkipLoggedItems       = false;
+            list.CountHeld             = true;
+            list.BuyInsteadOfWaiting   = true;
+            list.BuyInsteadOfGathering = true;
+        }
+
         while (list.Items.Count > 0)
             list.RemoveAt(0);
         foreach (var (item, amount) in gathered)

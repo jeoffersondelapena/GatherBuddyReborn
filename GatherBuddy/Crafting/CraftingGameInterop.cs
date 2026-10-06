@@ -56,11 +56,42 @@ public static class CraftingGameInterop
         return have > 0 && have >= (recipe.RecipeLevelTable.ValueNullable?.ClassJobLevel ?? 0) && !RecipeLocked(recipe, out _);
     }
 
+    private static string JobName(uint classJob)
+        => TextRules.Capitalized(Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}");
+
+    // fork: everything the recipe note or the game checks before a craft starts, read before the run sources anything
+    public static Gate? GateFor(Recipe recipe)
+    {
+        var classJob = 8u + recipe.CraftType.RowId;
+        var job      = JobName(classJob);
+        if (JobLevelFor(classJob) == 0)
+            return new Gate(GateKind.Class, $"{job}, which is not unlocked");
+        if (LevelShort(recipe, out var need, out var have))
+            return new Gate(GateKind.Level, GateRules.Need($"{job} level", need, have));
+        if (RecipeLocked(recipe, out var locked))
+            return new Gate(locked.StartsWith("the book") ? GateKind.Book : GateKind.Quest, locked);
+
+        var stats = GearsetStatsReader.ReadGearsetStatsForJob(classJob);
+        if (stats == null)
+            return new Gate(GateKind.Gearset, $"a gearset for {job}, which has none");
+        if (GateRules.Short(recipe.RequiredCraftsmanship, stats.Craftsmanship))
+            return new Gate(GateKind.Stats, GateRules.Need("craftsmanship", recipe.RequiredCraftsmanship, stats.Craftsmanship));
+        if (GateRules.Short(recipe.RequiredControl, stats.Control))
+            return new Gate(GateKind.Stats, GateRules.Need("control", recipe.RequiredControl, stats.Control));
+        if (recipe.IsSpecializationRequired && !stats.Specialist)
+            return new Gate(GateKind.Specialist, $"a {job} specialist's soul crystal");
+        if (recipe.ItemRequired.RowId != 0 && AutoGather.Collectables.ItemHelper.GetInventoryAndArmoryItemCount(recipe.ItemRequired.RowId, true) == 0)
+            return new Gate(GateKind.Item, GetItemName(recipe.ItemRequired.RowId) + " in your possession");
+        if (recipe.StatusRequired.RowId != 0 && Dalamud.Objects.LocalPlayer?.StatusList.Any(st => st.StatusId == recipe.StatusRequired.RowId) != true)
+            return new Gate(GateKind.Status, "the status " + (recipe.StatusRequired.ValueNullable?.Name.ExtractText() ?? $"{recipe.StatusRequired.RowId}"));
+        return null;
+    }
+
     private static bool RecordLevelShortfall(Recipe recipe)
     {
         if (!LevelShort(recipe, out var need, out var have)) return false;
         var classJob = 8u + recipe.CraftType.RowId;
-        var jobName = TextRules.Capitalized(Dalamud.GameData.GetExcelSheet<ClassJob>()?.GetRowOrDefault(classJob)?.Name.ExtractText() ?? $"job {classJob}");
+        var jobName = JobName(classJob);
         var itemName = GetItemName(recipe.ItemResult.RowId);
         _lastPreparationFailure = new CraftPreparationFailure(recipe.RowId, CraftPreparationFailureReason.JobLevelTooLow, recipe.ItemResult.RowId, need, have, 0,
             $"{jobName} level {need} (yours is {have})");

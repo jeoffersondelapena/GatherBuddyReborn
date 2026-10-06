@@ -1664,7 +1664,7 @@ public partial class Interface
         ]),
         new("", "Fork",
         [
-            new("Buy From Vendors Before Gathering vendor crafting run fork", ForkSettingsPage.DrawBuyBeforeGathering),
+            new("Buy From Vendors master switch vendor run fork", ForkSettingsPage.DrawBuyBeforeGathering),
             new("Sprint When Walking sprint vnavmesh fork",               ForkSettingsPage.DrawSprint),
             new("Summoning Bell retainer bell per character fork", ForkSettingsPage.DrawBellZone),
             new("Repair All Gear After a Run After-Run Threshold mender fork",

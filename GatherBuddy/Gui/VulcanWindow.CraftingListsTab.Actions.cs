@@ -19,6 +19,7 @@ public partial class VulcanWindow
         }
 
         Helpers.RunChat.Begin(ForkLogic.TextRules.KindLabel(ForkLogic.TextRules.Crafting, list.Name));
+        list.StartTries();
         if (list.QuickSynthAll)
             GatherBuddy.Log.Debug($"[VulcanWindow] Quick Synth All active (PreferNQ={list.QuickSynthAllPreferNQ}, PrecraftsOnly={list.QuickSynthAllPrecraftsOnly})");
         var executionPlan = CraftingExecutionPlan.Create(list);

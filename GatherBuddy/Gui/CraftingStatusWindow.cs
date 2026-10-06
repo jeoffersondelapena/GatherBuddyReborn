@@ -197,6 +197,16 @@ public class CraftingStatusWindow : Window
                     if (ImGui.IsItemHovered())
                         ImGui.SetTooltip("Skip the rest of the gathering and go on to crafting with what is here; what cannot be made is listed when the run ends.");
                 }
+
+                if (_queueProcessor.PausedForCrafts)
+                {
+                    ImGui.SameLine();
+                    if (ImGui.Button(ForkLogic.TextRules.LeaveOut))
+                        _queueProcessor.LeaveOut();
+                    if (ImGui.IsItemHovered())
+                        ImGui.SetTooltip("Go on without the crafts listed in chat, and whatever needs them; they are listed again when the run ends. "
+                          + "Resume checks them again instead, after you have fixed the cause.");
+                }
             }
             
             ImGui.SameLine();

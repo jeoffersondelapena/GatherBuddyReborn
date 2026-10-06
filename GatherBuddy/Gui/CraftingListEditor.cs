@@ -14,6 +14,7 @@ using ElliLib;
 using ElliLib.Widgets;
 using ImRaii = ElliLib.Raii.ImRaii;
 using GatherBuddy.Crafting;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Plugin;
 using GatherBuddy.Vulcan;
 
@@ -25,6 +26,7 @@ public class CraftingListEditor
     {
         public string Hash { get; init; } = string.Empty;
         public List<CraftingListItem> SortedQueue { get; init; } = [];
+        public List<string> Notes { get; init; } = [];
     }
 
     private sealed class MaterialCacheSnapshot
@@ -143,36 +145,122 @@ public class CraftingListEditor
     internal bool SkipIfEnoughEnabled   => GetPlanningList().SkipIfEnough;
     internal bool RetainerRestockEnabled => GetPlanningList().RetainerRestock;
 
-    // fork: the day's tries are shown under the box, or a list that quietly stops recrafting an NQ item would look broken
-    private void DrawCountOnlyHqFinals()
+    // fork: the tries are shown under the box, or a list that quietly stops recrafting an NQ item would look broken
+    private void DrawHqTries()
     {
         ImGui.Indent();
-        var reset = ForkLogic.MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
-        var applies = _list.SkipFinalIfEnough;
+        var reset   = MissionRules.NextReset(DateTime.UtcNow).ToLocalTime();
+        var applies = _list.AimForHq;
         ImGui.BeginDisabled(!applies);
-        ImGuiUtil.Checkbox("And Treat NQ as Missing (fork)##cohf",
-            "A final craft counts as already made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one.\n"
-          + "Each recipe gets one try a day: once a run has crafted it, any copy counts again until the daily reset (the Grand Company "
-          + $"missions' reset, {reset:HH:mm} here), so a recipe this crafter cannot make HQ is not crafted over and over.\n"
-          + "Formerly 'Count Only HQ Final Crafts (fork)'.",
-            applies && _list.CountOnlyHqFinals, v =>
+        ImGuiUtil.Checkbox("Try Each Once a Day (fork)##hqday",
+            $"On: a final craft that came out NQ counts as done until the daily reset (the Grand Company missions' reset, {reset:HH:mm} here), "
+          + "as the GC supply list uses. Off: it counts as done for this run only, and the next run tries it again.",
+            applies && _list.HqTryOncePerDay, v =>
             {
-                _list.CountOnlyHqFinals = v;
+                _list.HqTryOncePerDay = v;
                 InvalidateQueueCache();
                 InvalidatePresentationCaches();
                 GatherBuddy.CraftingListManager.SaveList(_list);
                 TriggerQueueRegeneration();
             }, ImGuiHoveredFlags.AllowWhenDisabled);
         ImGui.EndDisabled();
-        if (applies && _list.CountOnlyHqFinals && _list.TriedToday() is { Count: > 0 } tried)
+        if (applies && _list.TriedToday() is { Count: > 0 } tried)
         {
             ImGui.PushTextWrapPos();
-            ImGui.TextDisabled($"Tried today, so any copy counts until {reset:HH:mm}: "
+            ImGui.TextDisabled($"Tried, so any copy counts {(_list.HqTryOncePerDay ? $"until {reset:HH:mm}" : "for this run")}: "
               + string.Join(", ", tried.Select(id => RecipeManager.GetRecipe(id)?.ItemResult.Value.Name.ExtractText() ?? $"recipe {id}")));
             ImGui.PopTextWrapPos();
         }
         ImGui.Unindent();
     }
+
+    private void SaveAndReplan()
+    {
+        InvalidateQueueCache();
+        InvalidateMaterialCaches();
+        InvalidatePresentationCaches();
+        GatherBuddy.CraftingListManager.SaveList(_list);
+        TriggerQueueRegeneration();
+        TriggerMaterialsRegeneration();
+    }
+
+    private const string MasterSwitch = "Works with 'Buy From Vendors (fork)' on, on the fork's page in the settings.";
+
+    private const string Gates = "class not unlocked, level too low, book unread, quest not done, no gearset, stats too low, specialist only, or a required item "
+      + "or status missing";
+
+    // fork: the vendor choices for materials, precrafts and final crafts, and the synthesis; aiming for HQ greys what would give NQ
+    private void DrawSourcing()
+    {
+        var hq = _list.AimForHq;
+        ForkChoice.Draw("Materials", "mat", (int)_list.MaterialsChoice,
+        [
+            new("Gather all, waiting for windows", "Every material a class can gather is gathered, waiting for a time or weather window when it has one. "
+              + "What no class gathers is bought from a gil vendor when one sells it.\nFormerly 'Buy Instead of Waiting (fork)' off. " + MasterSwitch),
+            new("Buy instead of waiting", "A material only a time or weather window gives is bought from a gil vendor when one sells it, instead of waiting for the "
+              + "window; the rest is gathered.\nFormerly 'Buy Instead of Waiting (fork)'. " + MasterSwitch),
+            new("Buy instead of gathering", "Every material a gil vendor sells is bought; what no vendor sells is gathered, and what the vendors could not supply "
+              + "is gathered instead.\nFormerly 'Buy Instead of Gathering Too (fork)'. " + MasterSwitch),
+        ], i =>
+        {
+            (_list.BuyInsteadOfWaiting, _list.BuyInsteadOfGathering) = ListRules.MaterialsFlags((Materials)i);
+            GatherBuddy.CraftingListManager.SaveList(_list);
+        });
+
+        ForkChoice.Draw("Precrafts", "pre", (int)_list.EffectiveBuyPrecrafts,
+        [
+            new("Craft", $"Every precraft is crafted. One the character cannot start ({Gates}) is tried again at the end of the run when only the level is "
+              + "short; for any other reason the run pauses before it sources anything and asks."),
+            new("Buy when out of reach", "A precraft the character cannot start now is bought from a gil vendor when one sells it, NQ, and its own materials are "
+              + "not sourced; the rest is crafted. " + MasterSwitch),
+            new("Buy instead of crafting", "Every precraft a gil vendor sells is bought, NQ, instead of crafted. Greyed while aiming for HQ, since a bought "
+              + "precraft is NQ. " + MasterSwitch, !hq),
+        ], i =>
+        {
+            _list.BuyPrecrafts = (BuyCrafts)i;
+            SaveAndReplan();
+        });
+
+        ForkChoice.Draw("Final crafts", "fin", (int)_list.EffectiveBuyFinals,
+        [
+            new("Craft", $"Every final craft is crafted. One the character cannot start ({Gates}) is tried again at the end of the run when only the level is "
+              + "short; for any other reason the run pauses before it sources anything and asks."),
+            new("Buy when out of reach", "A final craft the character cannot start now is bought from a gil vendor when one sells it, NQ. Greyed while aiming for "
+              + "HQ. Pointless on a log list: a bought item is never logged. " + MasterSwitch, !hq),
+            new("Buy instead of crafting", "Every final craft a gil vendor sells is bought, NQ, for a list that only wants the items. Greyed while aiming for HQ. "
+              + MasterSwitch, !hq),
+        ], i =>
+        {
+            _list.BuyFinals = (BuyCrafts)i;
+            SaveAndReplan();
+        });
+
+        ForkChoice.Draw("Synthesis", "syn", (int)_list.EffectiveSynthesis,
+        [
+            new("Normal", "Every craft is synthesised normally, with the solver or macro set for it."),
+            new("Quick synth precrafts", "Precrafts that allow it are quick-synthesised; final crafts are synthesised normally. Greyed while aiming for HQ, since "
+              + "quick synthesis gives NQ.\nGatherBuddy's names: 'Quick Synth All' with 'Precrafts Only'; formerly 'Quick Synth Precrafts'.", !hq),
+            new("Quick synth everything", "Precrafts and final crafts that allow it are quick-synthesised. Greyed while aiming for HQ.\nGatherBuddy's name: "
+              + "'Quick Synth All'; formerly 'Quick Synth Final Crafts Too'.", !hq),
+        ], i =>
+        {
+            (_list.QuickSynthAll, _list.QuickSynthAllPrecraftsOnly) = ListRules.SynthesisFlags((Synthesis)i);
+            SaveAndReplan();
+        });
+        ImGui.Indent();
+        var nqApplies = ListRules.NqOnlyApplies(hq, _list.SynthesisChoice);
+        ImGui.BeginDisabled(!nqApplies);
+        ImGuiUtil.Checkbox("Make only NQ when quick synthesising##qsnq",
+            "Turn on the game's 'Synthesize NQ items only' for the quick-synthesised crafts.\nGatherBuddy's name: 'Prefer NQ'; formerly 'But Make Only NQ'.",
+            nqApplies && _list.QuickSynthAllPreferNQ, v =>
+            {
+                _list.QuickSynthAllPreferNQ = v;
+                SaveAndReplan();
+            }, ImGuiHoveredFlags.AllowWhenDisabled);
+        ImGui.EndDisabled();
+        ImGui.Unindent();
+    }
+
     internal CraftingListDefinition PlanningList => GetPlanningList();
     internal long MaterialCacheVersion  => Interlocked.Read(ref _materialCacheVersion);
     
@@ -620,10 +708,17 @@ public class CraftingListEditor
             ImGui.TextDisabled(missionNote);
             ImGui.PopTextWrapPos();
         }
+        if (GetQueueCache() is { Notes.Count: > 0 } notes)
+        {
+            ImGui.PushTextWrapPos();
+            foreach (var note in notes.Notes)
+                ImGui.TextDisabled(note);
+            ImGui.PopTextWrapPos();
+        }
 
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
-        // fork: the next four decide what the retainer, buying and crafting options further down have to work on
+        // fork: first what the run works on, then how it gets each part: retainers, vendors, gathering, crafting
         ImGuiUtil.Checkbox("Skip Logged Recipes (fork)##scr",
             "Skip recipes this character has already crafted, according to the crafting log.\n"
           + "The game keeps no log for master recipes and newer special recipes, so those are never skipped.",
@@ -638,8 +733,21 @@ public class CraftingListEditor
                 RefreshInventoryCounts();
             });
 
+        ImGuiUtil.Checkbox("Aim for HQ Final Crafts (fork)##hq",
+            "A final craft counts as made only when an HQ copy is held, so an NQ copy does not stop the run from crafting an HQ one; each recipe gets one "
+          + "try, then any copy counts, so a recipe this crafter cannot make HQ is not crafted over and over. Nothing is quick-synthesised, and no precraft or "
+          + "final craft is bought just because a vendor sells it, since quick synthesis and vendors give NQ: those choices below are greyed while this is on.\n"
+          + "Formerly 'And Treat NQ as Missing (fork)' and 'Count Only HQ Final Crafts (fork)'.",
+            _list.AimForHq, v =>
+            {
+                _list.AimForHq = v;
+                SaveAndReplan();
+                RefreshInventoryCounts();
+            });
+        DrawHqTries();
+
         var skipFinalIfEnough = _list.SkipFinalIfEnough;
-        if (ImGui.Checkbox("Craft Only Missing Final Crafts##sife", ref skipFinalIfEnough))
+        if (ImGui.Checkbox("Get Only Missing Final Crafts##sife", ref skipFinalIfEnough))
         {
             _list.SkipFinalIfEnough = skipFinalIfEnough;
             InvalidateQueueCache();
@@ -650,12 +758,12 @@ public class CraftingListEditor
             RefreshInventoryCounts();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("A final craft is not crafted when enough of it is already held. Useful for resuming an interrupted list.\n"
-              + "GatherBuddy's name: 'Include Final Crafts', which there only works with the precraft option on; here it works by itself.");
-        DrawCountOnlyHqFinals();
+            ImGui.SetTooltip("A final craft is not made when enough of it is already held (an HQ copy, while aiming for HQ). Useful for resuming an interrupted list.\n"
+              + "Formerly 'Craft Only Missing Final Crafts'. GatherBuddy's name: 'Include Final Crafts', which there only works with the precraft option on; here it "
+              + "works by itself.");
 
         var skipIfEnough = _list.SkipIfEnough;
-        if (ImGui.Checkbox("Craft Only Missing Precrafts##sie", ref skipIfEnough))
+        if (ImGui.Checkbox("Get Only Missing Precrafts##sie", ref skipIfEnough))
         {
             _list.SkipIfEnough    = skipIfEnough;
             InvalidateQueueCache();
@@ -666,12 +774,13 @@ public class CraftingListEditor
             RefreshInventoryCounts();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("A precraft is not crafted when enough of it is already held.\nGatherBuddy's name: 'Skip if Already Have Enough'.");
+            ImGui.SetTooltip("A precraft is not made when enough of it is already held.\nFormerly 'Craft Only Missing Precrafts'. GatherBuddy's name: 'Skip if "
+              + "Already Have Enough'.");
 
         ImGuiUtil.Checkbox("Get Only Missing Materials (fork)##cih",
             "On: a run gathers or buys only the materials the bags are short of, as always. Off: it gets the full amounts on top of what "
           + "the bags held when it started, so what was held is still there afterwards; every new run gets the full amounts again. What "
-          + "is crafted follows the two options above.\n"
+          + "is made follows the two options above.\n"
           + "Formerly 'Count Items Already Held (fork)'. On a gathering list the same option is 'Get Only Missing Items (fork)'.",
             _list.CountHeld, v =>
             {
@@ -701,80 +810,7 @@ public class CraftingListEditor
                 ? "Withdraw needed materials from retainers before generating the gather list. Respects HQ/NQ preferences."
                 : "Requires Allagan Tools to be installed and enabled.");
 
-        ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##biw",
-            "On: a material only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead "
-          + "of waiting for the window. Off: the run waits for the window and gathers it. What no class can gather is bought either way. "
-          + "Works with 'Buy From Vendors Before Gathering (fork)' on, on the fork's page in the settings.",
-            _list.BuyInsteadOfWaiting, v =>
-            {
-                _list.BuyInsteadOfWaiting = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            });
-        ImGui.Indent();
-        ImGui.BeginDisabled(!_list.BuyInsteadOfWaiting);
-        ImGuiUtil.Checkbox("Buy Instead of Gathering Too (fork)##big",
-            "Goes further than Buy Instead of Waiting, so it needs that one on: every material a gil vendor sells is bought instead of "
-          + "gathering or fishing it. What no vendor sells is still gathered, and what the vendors could not supply is gathered instead.\n"
-          + "Formerly 'Buy Instead of Gathering (fork)'.",
-            _list.BuyInsteadOfWaiting && _list.BuyInsteadOfGathering, v =>
-            {
-                _list.BuyInsteadOfGathering = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            }, ImGuiHoveredFlags.AllowWhenDisabled);
-        ImGui.EndDisabled();
-        ImGui.Unindent();
-
-        var quickSynthAll = _list.QuickSynthAll;
-        if (ImGui.Checkbox("Quick Synth Precrafts##qsa", ref quickSynthAll))
-        {
-            _list.QuickSynthAll = quickSynthAll;
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            TriggerQueueRegeneration();
-            TriggerMaterialsRegeneration();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Force Quick Synthesis on eligible items in this list. The two options under it apply while it is on.\n"
-              + "GatherBuddy's name: 'Quick Synth All'.");
-
-        ImGui.Indent();
-        ImGui.BeginDisabled(!_list.QuickSynthAll);
-
-        // fork: shown as the reverse of GatherBuddy's 'Precrafts Only', so both groups widen to final crafts the same way
-        var quickSynthFinalsToo = _list.QuickSynthAll && !_list.QuickSynthAllPrecraftsOnly;
-        if (ImGui.Checkbox("Quick Synth Final Crafts Too##qsapo", ref quickSynthFinalsToo))
-        {
-            _list.QuickSynthAllPrecraftsOnly = !quickSynthFinalsToo;
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            TriggerQueueRegeneration();
-            TriggerMaterialsRegeneration();
-        }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip("Also quick-synth the list's final crafts, making only NQ when the box below is ticked. Off: only generated precrafts get them, "
-              + "and final list items are left unchanged.\nGatherBuddy shows this the other way round, as 'Precrafts Only'.");
-
-        var quickSynthAllPreferNQ = _list.QuickSynthAll && _list.QuickSynthAllPreferNQ;
-        if (ImGui.Checkbox("But Make Only NQ##qsapnq", ref quickSynthAllPreferNQ))
-        {
-            _list.QuickSynthAllPreferNQ = quickSynthAllPreferNQ;
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            TriggerQueueRegeneration();
-            TriggerMaterialsRegeneration();
-        }
-        if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
-            ImGui.SetTooltip("Enable the Quick Synthesis 'Synthesize NQ items only' toggle for affected crafts.\n"
-              + "GatherBuddy's name: 'Prefer NQ'.");
-
-        ImGui.EndDisabled();
-        ImGui.Unindent();
+        DrawSourcing();
 
         _optionsHeight = ImGui.GetCursorPosY();
         ImGui.EndChild();
@@ -1739,7 +1775,8 @@ public class CraftingListEditor
         hashParts.Add($"SkipIfEnough:{planningList.SkipIfEnough}");
         hashParts.Add($"SkipFinalIfEnough:{planningList.SkipFinalIfEnough}");
         hashParts.Add($"RetainerRestock:{planningList.RetainerRestock}");
-        hashParts.Add($"CountOnlyHqFinals:{planningList.CountOnlyHqFinals}:{string.Join(',', planningList.TriedToday())}");
+        hashParts.Add($"AimForHq:{planningList.AimForHq}:{string.Join(',', planningList.TriedToday())}");
+        hashParts.Add($"Buy:{planningList.BuyPrecrafts}:{planningList.BuyFinals}:{planningList.QuickSynthAll}:{planningList.QuickSynthAllPrecraftsOnly}");
         foreach (var item in planningList.Recipes)
         {
             hashParts.Add($"{item.RecipeId}:{item.Quantity}:{item.Options.Skipping}");
@@ -1760,7 +1797,24 @@ public class CraftingListEditor
         {
             Hash = hash,
             SortedQueue = BuildDisplayQueue(plan),
+            Notes = PlanNotes(plan),
         };
+
+    // fork: a craft the plan bought, left out or put off is said under the queue, or it would just be missing from it
+    private static List<string> PlanNotes(CraftingListPlan plan)
+    {
+        var notes = new List<string>();
+        if (plan.OutOfReach.Count > 0)
+            notes.Add("Out of reach, so the run asks before it starts: " + string.Join("; ", GateRules.Distinct(plan.OutOfReach.Select(o => $"{o.Name} ({o.Why})"))));
+        if (plan.BoughtInstead.Count > 0)
+            notes.Add("Bought instead of crafted: " + string.Join("; ", plan.BoughtInstead.Select(b => GateRules.Bought(ItemName(b.ItemId), b.Amount, b.Why))));
+        if (plan.Deferred.Count > 0)
+            notes.Add("Tried again at the end of the run: " + string.Join("; ", GateRules.Distinct(plan.Deferred.Select(d => $"{d.Name} ({d.Why})"))));
+        return notes;
+    }
+
+    private static string ItemName(uint itemId)
+        => Dalamud.GameData.GetExcelSheet<Item>()?.GetRowOrDefault(itemId)?.Name.ExtractText() ?? $"item {itemId}";
 
     private MaterialCacheSnapshot BuildMaterialCacheSnapshot(CraftingListDefinition planningList, string hash)
         => BuildMaterialCacheSnapshot(

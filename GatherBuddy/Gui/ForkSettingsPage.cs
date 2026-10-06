@@ -14,15 +14,15 @@ internal static class ForkSettingsPage
     public static void DrawBuyBeforeGathering()
     {
         var buy = GatherBuddy.Config.VulcanBuyBeforeGathering;
-        if (ImGui.Checkbox("Buy From Vendors Before Gathering (fork)", ref buy))
+        if (ImGui.Checkbox("Buy From Vendors (fork)", ref buy))
         {
             GatherBuddy.Config.VulcanBuyBeforeGathering = buy;
             GatherBuddy.Config.Save();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("A crafting run first buys, for gil, every material it can neither gather nor fish (vendor items, drops a vendor also "
-              + "sells), only what your bags lack, then gathers and crafts. What it can gather it gathers (unless the list has Buy Instead of "
-              + "Gathering (fork) on), and in-between items it crafts.");
+            ImGui.SetTooltip("The master switch for vendor runs. On: a crafting or gathering run first buys from gil vendors what its list says to buy "
+              + "(each list's Materials, Precrafts and Final crafts choices), only what your bags lack, then gathers and crafts. Off: no run visits a "
+              + "vendor, and a material only a vendor sells stops the run before it sets out.\nFormerly 'Buy From Vendors Before Gathering (fork)'.");
     }
 
     public static void DrawSprint()
@@ -123,9 +123,11 @@ internal static class ForkSettingsPage
               + "open to compare with the lists. A Timers window the press had to open is closed again; one already open stays.\n"
               + "Missions differ by character, so the two lists follow the character that is logged in: at login they are rebuilt from that "
               + "character's own read of the day, or emptied when it has none.\n"
-              + "Each press replaces what the two lists held, so earlier days never pile up. A mission item already held counts as done, logged "
-              + "recipes and items are never skipped, and what would mean waiting for a time or weather window is left out. A mission is taken "
-              + "off its list once it is delivered at the personnel officer. Each list shows its tally of the day. Not during a run.",
+              + "Each press replaces what the two lists held, so earlier days never pile up, and puts every option of the two lists back as "
+              + "generated: a mission item already held counts as done, an HQ copy is wanted with one try a day, logged recipes and items are never "
+              + "skipped, what a vendor sells is bought, a precraft out of reach is bought, and nothing is quick-synthesised. What would mean waiting "
+              + "for a time or weather window is left out. A mission is taken off its list once it is delivered at the personnel officer. Each list "
+              + "shows its tally of the day. Not during a run.",
                 GcMissions.Busy))
             GcMissions.MakeLists();
     }
@@ -134,11 +136,12 @@ internal static class ForkSettingsPage
     {
         ImGui.Spacing();
         ImGui.TextDisabled("Also added by the fork, kept where they act:");
-        ImGui.BulletText("Skip Logged Items (fork), Get Only Missing Items (fork), Buy Instead of Waiting (fork) and, under it, Buy "
-          + "Instead of Gathering Too (fork): on each gathering list, in the Auto-Gather tab.");
-        ImGui.BulletText("Skip Logged Recipes (fork), Get Only Missing Materials (fork), And Treat NQ as Missing (fork), Buy Instead of "
-          + "Waiting (fork) and, under it, Buy Instead of Gathering Too (fork): on each crafting list, in Vulcan's list editor.");
-        ImGui.BulletText("Craft Only Missing Final Crafts works without Craft Only Missing Precrafts; GatherBuddy needs both.");
+        ImGui.BulletText("Skip Logged Items (fork), Get Only Missing Items (fork) and the Items choice (gather all, buy instead of waiting, buy "
+          + "instead of gathering): on each gathering list, in the Auto-Gather tab.");
+        ImGui.BulletText("Skip Logged Recipes (fork), Aim for HQ Final Crafts (fork) with Try Each Once a Day (fork), Get Only Missing Materials (fork), "
+          + "and the Materials, Precrafts, Final crafts and Synthesis choices: on each crafting list, in Vulcan's list editor.");
+        ImGui.BulletText("Get Only Missing Final Crafts works without Get Only Missing Precrafts; GatherBuddy needs both.");
+        ImGui.BulletText("Leave Them Out (fork): in the Craft Status window, while a run waits over crafts it cannot make.");
         ImGui.BulletText("Restock from Retainers (fork): on each buy list, in the Vendor Buy List window.");
         ImGui.BulletText("Skip Retainers (fork), Skip Buying (fork), Skip Gathering (fork) and Clear Green Marks (fork): in the Craft Status window.");
         ImGui.BulletText("Skip Retainers (fork): also in the Auto-Gather tab and the Vendor Buy List window, while that run's retainer part waits.");

@@ -303,20 +303,21 @@ public partial class Interface
           + "started, so a log list still gathers an item you have not logged though you hold some.\n"
           + "Formerly 'Count Items Already Held (fork)'. On a crafting list the same option is 'Get Only Missing Materials (fork)'.",
             list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v));
-        ImGuiUtil.Checkbox("Buy Instead of Waiting (fork)##list",
-            "On: an item only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, instead of "
-          + "waiting for the window. Off: it is always gathered, which a log list needs, since an item bought is never logged.",
-            list.BuyInsteadOfWaiting, (v) => _plugin.AutoGatherListsManager.SetBuyInsteadOfWaiting(list, v));
-        ImGui.Indent();
-        ImGui.BeginDisabled(!list.BuyInsteadOfWaiting);
-        ImGuiUtil.Checkbox("Buy Instead of Gathering Too (fork)##list",
-            "Goes further than Buy Instead of Waiting, so it needs that one on: every item a gil vendor sells is bought before gathering, "
-          + "window or not. What no vendor sells is still gathered. A bought item is never logged.\n"
-          + "Formerly 'Buy Instead of Gathering (fork)'.",
-            list.BuyInsteadOfWaiting && list.BuyInsteadOfGathering, (v) => _plugin.AutoGatherListsManager.SetBuyInsteadOfGathering(list, v),
-            ImGuiHoveredFlags.AllowWhenDisabled);
-        ImGui.EndDisabled();
-        ImGui.Unindent();
+        const string master = "Works with 'Buy From Vendors (fork)' on, on the fork's page in the settings.";
+        ForkChoice.Draw("Items", "items", (int)ForkLogic.ListRules.MaterialsOf(list.BuyInsteadOfWaiting, list.BuyInsteadOfGathering),
+        [
+            new("Gather all, waiting for windows", "Every item is gathered, waiting for a time or weather window when it has one, which a log list "
+              + "needs, since an item bought is never logged.\nFormerly 'Buy Instead of Waiting (fork)' off."),
+            new("Buy instead of waiting", "An item only a time or weather window gives is bought from a gil vendor before gathering, when one sells it, "
+              + "instead of waiting for the window; the rest is gathered.\nFormerly 'Buy Instead of Waiting (fork)'. " + master),
+            new("Buy instead of gathering", "Every item a gil vendor sells is bought before gathering, window or not; what no vendor sells is gathered. "
+              + "A bought item is never logged.\nFormerly 'Buy Instead of Gathering Too (fork)'. " + master),
+        ], i =>
+        {
+            var (waiting, gathering) = ForkLogic.ListRules.MaterialsFlags((ForkLogic.Materials)i);
+            _plugin.AutoGatherListsManager.SetBuyInsteadOfWaiting(list, waiting);
+            _plugin.AutoGatherListsManager.SetBuyInsteadOfGathering(list, gathering);
+        });
         if (Helpers.GcMissions.NoteFor(list.Name) is { } missionNote)
         {
             ImGui.PushTextWrapPos();

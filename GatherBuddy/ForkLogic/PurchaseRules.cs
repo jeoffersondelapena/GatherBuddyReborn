@@ -44,7 +44,7 @@ public static class PurchaseRules
     }
 
     public const string NeitherGatheredNorSold = "no class gathers it and no gil vendor sells it";
-    public const string NotBuying = "no class gathers it; a gil vendor sells it, but Buy From Vendors Before Gathering (fork) is off";
+    public const string NotBuying = "no class gathers it; a gil vendor sells it, but Buy From Vendors (fork) is off";
 
     public static string NoWayToGet(int count)
         => $"{count} material(s) the run cannot get itself";

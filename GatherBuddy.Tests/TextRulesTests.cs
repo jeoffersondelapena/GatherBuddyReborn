@@ -189,4 +189,21 @@ public class TextRulesTests
         Assert.Null(TextRules.AsReason(null));
         Assert.Null(TextRules.AsReason("[GatherBuddy] (fork)."));
     }
+
+    [Fact]
+    public void An_hq_try_reports_how_long_an_nq_result_counts()
+    {
+        Assert.Equal("Bronze Awl: HQ", TextRules.HqOutcome("Bronze Awl", true, true, "04:00"));
+        Assert.Equal("Bronze Awl: NQ, counts as done until 04:00", TextRules.HqOutcome("Bronze Awl", false, true, "04:00"));
+        Assert.Equal("Bronze Awl: NQ, counts as done for this run", TextRules.HqOutcome("Bronze Awl", false, false, "04:00"));
+    }
+
+    [Fact]
+    public void A_pause_over_crafts_names_the_button_that_goes_on_without_them()
+    {
+        Assert.Contains(TextRules.LeaveOut, TextRules.CannotMake(2));
+        Assert.Contains("2 craft(s)", TextRules.CannotMakeReason(2));
+        Assert.Contains("'Bronze Awl' is missing Jellyfish Humours (needs 1, you have 0)", TextRules.MissingAtCraft("Bronze Awl", "Jellyfish Humours (needs 1, you have 0)"));
+        Assert.Contains(TextRules.LeaveOut, TextRules.MissingAtCraftReason("Bronze Awl", "x"));
+    }
 }

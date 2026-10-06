@@ -77,6 +77,10 @@ public sealed class CraftingExecutionPlan
     public void RefreshFromCurrentInventory()
         => ApplyResolvedPlan(_planningSnapshot.CreatePlan(false));
 
+    // fork: the same plan again, gates and bags re-read, after the player fixed something at a pause
+    public void Replan()
+        => ApplyResolvedPlan(_planningSnapshot.CreatePlan(_useRetainerCraftableAvailability));
+
     private IReadOnlyDictionary<uint, int>? _heldBefore;
 
     // fork: set once as a run starts, so a later refresh of the plan keeps the same baseline

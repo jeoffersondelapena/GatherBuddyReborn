@@ -45,6 +45,14 @@ public static class CraftingGatherBridge
     private static bool _buyingPaused;
     private static DateTime _buyStartBy;
     private static readonly List<string> _noVendor = new();
+    private static readonly List<string> _boughtInstead = new();
+    private static readonly List<string> _leftOut = new();
+
+    internal static IReadOnlyList<string> BoughtInstead
+        => _boughtInstead;
+
+    internal static IReadOnlyList<string> LeftOut
+        => _leftOut;
 
     public static bool PreserveListOnDisable { get; set; } = false;
 
@@ -267,6 +275,8 @@ public static class CraftingGatherBridge
         _isQueueMode = true;
         _ephemeralListId = ephemeralListId;
         _gatheredInstead.Clear();
+        _boughtInstead.Clear();
+        _leftOut.Clear();
         _activeExecutionPlan = executionPlan;
         if (!executionPlan.CountHeld)
             executionPlan.SourceOnTopOf(executionPlan.Materials.Keys.ToDictionary(id => id, GetInventoryCount));
@@ -278,13 +288,52 @@ public static class CraftingGatherBridge
         _waitingForGatherComplete = true;
         GatherBuddy.Log.Information($"[CraftingGatherBridge] Starting queue automation with {executionPlan.QueueView.Count} recipes, retainerRestock={executionPlan.RetainerRestock}");
         ForkTrace.Info(DescribePlan(executionPlan));
-        _queueProcessor.StartQueue(executionPlan, listConsumables, GatherBuddy.RaphaelSolveCoordinator);
-        var hasRetainerWork = executionPlan.RetainerRestock && AllaganTools.Enabled
-            && (executionPlan.Materials.Count > 0 || executionPlan.RetainerConsumedCraftables.Count > 0);
-        if (!hasRetainerWork)
-            BeginGathering(executionPlan.Materials);
-
+        _queueProcessor.Prepare(executionPlan, listConsumables, GatherBuddy.RaphaelSolveCoordinator);
         GatherBuddy.CraftingStatusWindow?.SetQueueProcessor(_queueProcessor);
+        if (!HoldForOutOfReach(executionPlan))
+            Launch(executionPlan);
+    }
+
+    // crafts the character cannot make are shown before the run sources anything; the player resumes after fixing a cause, or leaves them out
+    private static bool HoldForOutOfReach(CraftingExecutionPlan plan)
+    {
+        var lines = GateRules.Distinct(plan.ResolvedPlan.OutOfReach.Select(o => $"{o.Name} ({o.Why})"));
+        if (lines.Count == 0 || _queueProcessor == null)
+            return false;
+
+        _queueProcessor.PauseForCrafts(lines, TextRules.CannotMake(lines.Count), TextRules.CannotMakeReason(lines.Count),
+            () =>
+            {
+                _leftOut.AddRange(lines);
+                ForkTrace.Info($"crafting run: the player leaves out {string.Join("; ", lines)}");
+                Launch(plan);
+            },
+            () =>
+            {
+                plan.Replan();
+                ForkTrace.Info("crafting run: checked again after a pause; " + DescribePlan(plan));
+                if (!HoldForOutOfReach(plan))
+                    Launch(plan);
+            });
+        return true;
+    }
+
+    private static void Launch(CraftingExecutionPlan plan)
+    {
+        var resolved = plan.ResolvedPlan;
+        var bought   = resolved.BoughtInstead.Select(b => GateRules.Bought(ForkTrace.ItemName(b.ItemId), b.Amount, b.Why)).ToList();
+        _boughtInstead.AddRange(bought.Where(b => !_boughtInstead.Contains(b)));
+        if (bought.Count > 0)
+            ForkChat.List("Bought instead of crafted:", bought, 12, tone: Communicator.Tone.Info);
+        var deferred = GateRules.Distinct(resolved.Deferred.Select(d => $"{d.Name} ({d.Why})"));
+        if (deferred.Count > 0)
+            ForkChat.List("Tried again at the end of the run, in case the class levels into them:", deferred, 12, tone: Communicator.Tone.Info);
+
+        _queueProcessor!.Begin();
+        var hasRetainerWork = plan.RetainerRestock && AllaganTools.Enabled
+            && (plan.Materials.Count > 0 || plan.RetainerConsumedCraftables.Count > 0);
+        if (!hasRetainerWork)
+            BeginGathering(plan.Materials);
     }
     
     // the list's own recipes, even ones the run skips because enough is already held, less any left out for being in the crafting log
@@ -853,6 +902,8 @@ public static class CraftingGatherBridge
     private static void OnQueueCompleted()
     {
         GatherBuddy.Log.Information("[CraftingGatherBridge] Queue completed, will clean up after tasks finish");
+        if (_activeExecutionPlan != null && GatherBuddy.CraftingListManager.GetListByID(_activeExecutionPlan.ListId) is { } list && list.EndTries())
+            GatherBuddy.CraftingListManager.SaveList(list);
     }
 
     private static void TryStartCollectablesInterruption()

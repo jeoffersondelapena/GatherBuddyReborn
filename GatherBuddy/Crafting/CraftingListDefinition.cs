@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using GatherBuddy.ForkLogic;
 using Lumina.Excel.Sheets;
+using Newtonsoft.Json;
 
 namespace GatherBuddy.Crafting;
 
@@ -24,8 +26,8 @@ public class CraftingListDefinition
     public SolverOverrideMode DefaultFinalSolverOverride { get; set; } = SolverOverrideMode.Default;
     
     public Dictionary<uint, uint> PrecraftRecipeOverrides { get; set; } = new();
-    public bool SkipIfEnough { get; set; } = false;
-    public bool SkipFinalIfEnough { get; set; } = false;
+    public bool SkipIfEnough { get; set; } = true;
+    public bool SkipFinalIfEnough { get; set; } = true;
     public bool SkipCraftedRecipes { get; set; } = false;
     public bool QuickSynthAll { get; set; } = false;
     public bool QuickSynthAllPreferNQ { get; set; } = false;
@@ -37,14 +39,34 @@ public class CraftingListDefinition
     public bool RetainerRestock { get; set; } = false;
     public bool CountHeld { get; set; } = true;
     public bool BuyInsteadOfWaiting { get; set; } = true;
-    public bool BuyInsteadOfGathering { get; set; } = false;
-    public bool CountOnlyHqFinals { get; set; } = false;
+    public bool BuyInsteadOfGathering { get; set; } = true;
+    public BuyCrafts BuyPrecrafts { get; set; } = BuyCrafts.Craft;
+    public BuyCrafts BuyFinals { get; set; } = BuyCrafts.Craft;
+    [JsonProperty("CountOnlyHqFinals")]
+    public bool AimForHq { get; set; } = true;
+    public bool HqTryOncePerDay { get; set; } = false;
     public string HqTriedDay { get; set; } = string.Empty;
     public List<uint> HqTried { get; set; } = new();
     public bool Ephemeral { get; set; } = false;
 
+    // fork: what the run does, once aiming for HQ has greyed the choices that would give NQ
+    public BuyCrafts EffectiveBuyPrecrafts
+        => ListRules.Precrafts(AimForHq, BuyPrecrafts);
+
+    public BuyCrafts EffectiveBuyFinals
+        => ListRules.Finals(AimForHq, BuyFinals);
+
+    public Materials MaterialsChoice
+        => ListRules.MaterialsOf(BuyInsteadOfWaiting, BuyInsteadOfGathering);
+
+    public Synthesis SynthesisChoice
+        => ListRules.SynthesisOf(QuickSynthAll, QuickSynthAllPrecraftsOnly);
+
+    public Synthesis EffectiveSynthesis
+        => ListRules.EffectiveSynthesis(AimForHq, SynthesisChoice);
+
     public bool ShouldApplyQuickSynthAllOverrides(bool isOriginalRecipe)
-        => QuickSynthAll && (!QuickSynthAllPrecraftsOnly || !isOriginalRecipe);
+        => !AimForHq && QuickSynthAll && (!QuickSynthAllPrecraftsOnly || !isOriginalRecipe);
 
     public bool ShouldForceQuickSynth(Recipe recipe, bool isOriginalRecipe)
         => ShouldApplyQuickSynthAllOverrides(isOriginalRecipe) && recipe.CanQuickSynth;
@@ -109,7 +131,10 @@ public class CraftingListDefinition
             CountHeld = CountHeld,
             BuyInsteadOfWaiting = BuyInsteadOfWaiting,
             BuyInsteadOfGathering = BuyInsteadOfGathering,
-            CountOnlyHqFinals = CountOnlyHqFinals,
+            BuyPrecrafts = BuyPrecrafts,
+            BuyFinals = BuyFinals,
+            AimForHq = AimForHq,
+            HqTryOncePerDay = HqTryOncePerDay,
             HqTriedDay = HqTriedDay,
             HqTried = new(HqTried),
             Ephemeral = Ephemeral,
@@ -154,12 +179,25 @@ public class CraftingListDefinition
     public Dictionary<uint, int> ListPrecrafts()
         => new(CreatePlan().Precrafts);
 
-    // fork: an NQ copy of a final item counts again once its recipe has had the day's one try
+    // fork: an NQ copy of a final item counts again once its recipe has had its one try
     public bool OnlyHqCountsFor(uint recipeId)
-        => ForkLogic.QueueRules.OnlyHqCounts(CountOnlyHqFinals, HqTriedDay, HqTried, recipeId, ForkLogic.MissionRules.Day(DateTime.UtcNow));
+        => ForkLogic.QueueRules.OnlyHqCounts(AimForHq, HqTriedDay, HqTried, recipeId, ForkLogic.MissionRules.Day(DateTime.UtcNow));
 
     public IReadOnlyList<uint> TriedToday()
         => HqTriedDay == ForkLogic.MissionRules.Day(DateTime.UtcNow) ? HqTried : [];
+
+    public void StartTries()
+        => EndTries();
+
+    public bool EndTries()
+    {
+        if (!ListRules.TriesStartAfresh(AimForHq, HqTryOncePerDay) || HqTried.Count == 0)
+            return false;
+
+        HqTried.Clear();
+        HqTriedDay = ForkLogic.MissionRules.Day(DateTime.UtcNow);
+        return true;
+    }
 
     public bool NoteTried(uint recipeId)
     {

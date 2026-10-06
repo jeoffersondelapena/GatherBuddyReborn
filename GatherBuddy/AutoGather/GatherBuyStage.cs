@@ -78,7 +78,7 @@ internal static class GatherBuyStage
 
     private static void Start()
     {
-        var targets = Targets();
+        var targets = GatherBuddy.Config.VulcanBuyBeforeGathering ? Targets() : [];
         if (targets.Count == 0 || GatherBuddy.VendorBuyListManager is not { } manager)
         {
             _step = Step.Off;

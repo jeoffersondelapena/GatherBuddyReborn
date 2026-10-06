@@ -2,11 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using FFXIVClientStructs.FFXIV.Client.Game;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
 using GatherBuddy.Plugin;
 using Lumina.Excel.Sheets;
 
 namespace GatherBuddy.Crafting;
+
+// fork: a craft the character cannot start is bought, waited for or left out before the run sources anything
+public readonly record struct PlanSourced(uint ItemId, int Amount, string? Why);
+
+public readonly record struct PlanGated(uint RecipeId, string Name, string Why, bool Final);
 
 public sealed class CraftingListPlan
 {
@@ -16,17 +22,38 @@ public sealed class CraftingListPlan
     public Dictionary<uint, int> Precrafts { get; } = new();
     public Dictionary<uint, IngredientQualityDemand> IngredientDemands { get; } = new();
     public Dictionary<uint, int> RetainerConsumedCraftables { get; } = new();
+    public List<PlanSourced> BoughtInstead { get; } = new();
+    public List<PlanGated> OutOfReach { get; } = new();
+    public List<PlanGated> Deferred { get; } = new();
+    internal List<PlanGated> Blocked { get; } = new();
 }
 
 public readonly record struct CraftingListPlannerOptions(
     bool UseRetainerCraftableAvailability = false,
     bool ConsumeIntermediateAvailability = true,
-    bool ConsumeFinalAvailability = true);
+    bool ConsumeFinalAvailability = true,
+    IReadOnlyCollection<uint>? LeaveOut = null);
 
 public static class CraftingListPlanner
 {
+    // a final whose precraft turns out blocked is planned again without it, so none of its other materials are sourced
     public static CraftingListPlan Build(CraftingListDefinition list, CraftingListPlannerOptions options = default)
-        => new Planner(list, options).Build();
+    {
+        var leaveOut = new HashSet<uint>(options.LeaveOut ?? []);
+        var blocked  = new List<PlanGated>();
+        for (var pass = 0; ; pass++)
+        {
+            var plan = new Planner(list, options with { LeaveOut = leaveOut }).Build();
+            if (plan.Blocked.Count == 0 || pass == 3)
+            {
+                plan.OutOfReach.AddRange(blocked);
+                return plan;
+            }
+
+            blocked.AddRange(plan.Blocked);
+            leaveOut.UnionWith(plan.Blocked.Select(b => b.RecipeId));
+        }
+    }
 
     private sealed class Planner
     {
@@ -36,7 +63,10 @@ public static class CraftingListPlanner
         private readonly bool _useRetainers;
         private readonly bool _consumeIntermediateAvailability;
         private readonly bool _consumeFinalAvailability;
+        private readonly IReadOnlyCollection<uint> _leaveOut;
         private readonly Dictionary<uint, CraftingListItem> _originalRecipeLookup;
+        private readonly Dictionary<uint, Gate?> _gates = new();
+        private CraftingListItem? _original;
 
         public Planner(CraftingListDefinition list, CraftingListPlannerOptions options)
         {
@@ -44,6 +74,7 @@ public static class CraftingListPlanner
             _useRetainers = options.UseRetainerCraftableAvailability;
             _consumeIntermediateAvailability = options.ConsumeIntermediateAvailability;
             _consumeFinalAvailability = options.ConsumeFinalAvailability;
+            _leaveOut = options.LeaveOut ?? [];
             _availability = new AvailabilityLedger(_useRetainers);
             _originalRecipeLookup = list.Recipes
                 .GroupBy(item => item.RecipeId)
@@ -53,11 +84,10 @@ public static class CraftingListPlanner
         public CraftingListPlan Build()
         {
             var skippedCrafted = 0;
-            var locked         = new List<string>();
             var remembered     = new List<string>();
             foreach (var item in GetOriginalRecipesInDependencyOrder())
             {
-                if (item.Options.Skipping || item.Quantity <= 0)
+                if (item.Options.Skipping || item.Quantity <= 0 || _leaveOut.Contains(item.RecipeId))
                     continue;
                 if (_list.SkipCraftedRecipes && QuestManager.IsRecipeComplete(item.RecipeId))
                 {
@@ -68,29 +98,17 @@ public static class CraftingListPlanner
                 var recipe = RecipeManager.GetRecipe(item.RecipeId);
                 if (!recipe.HasValue)
                     continue;
-                if (CraftingGameInterop.RecipeLocked(recipe.Value, out var need))
-                {
-                    locked.Add($"{recipe.Value.ItemResult.Value.Name.ExtractText()} (needs {need})");
-                    continue;
-                }
                 if (SkippedRecipes.IsRemembered(item.RecipeId))
                 {
                     remembered.Add(recipe.Value.ItemResult.Value.Name.ExtractText());
                     continue;
                 }
 
+                _original = item;
                 PlanOriginalRecipe(item, recipe.Value);
             }
             if (skippedCrafted > 0)
                 GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Logged Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
-            SkippedRecipes.LockedThisRun.Clear();
-            SkippedRecipes.LockedThisRun.AddRange(locked);
-            if (locked.Count > 0)
-            {
-                ForkChat.List($"Left out {locked.Count} recipe(s) the game does not offer yet, materials included:", locked, 10,
-                    tone: Communicator.Tone.Info);
-                GatherBuddy.Log.Warning($"[CraftingListPlanner] Locked recipes left out of list '{_list.Name}': {string.Join(", ", locked)}");
-            }
             SkippedRecipes.LeftOutThisRun.Clear();
             if (remembered.Count > 0)
             {
@@ -176,6 +194,21 @@ public static class CraftingListPlanner
             if (remainingItemCount <= 0)
                 return;
 
+            var gate = Gate(recipe);
+            switch (GateRules.Decide(gate, _list.EffectiveBuyFinals, MaterialSourceClassifier.IsSoldForGil(resultItemId)))
+            {
+                case Gated.Buy:
+                    AddCount(_plan.Materials, resultItemId, remainingItemCount);
+                    _plan.BoughtInstead.Add(new PlanSourced(resultItemId, remainingItemCount, gate?.Need));
+                    return;
+                case Gated.Block:
+                    _plan.OutOfReach.Add(new PlanGated(item.RecipeId, Name(recipe), gate!.Value.Need, true));
+                    return;
+                case Gated.Defer:
+                    _plan.Deferred.Add(new PlanGated(item.RecipeId, Name(recipe), gate!.Value.Need, true));
+                    break;
+            }
+
             var craftCount = DivideRoundUp(remainingItemCount, (int)recipe.AmountResult);
             AddRecipe(_plan.OriginalRecipes, item.RecipeId, craftCount, true);
             AddRecipe(_plan.Recipes, item.RecipeId, craftCount, true);
@@ -205,6 +238,27 @@ public static class CraftingListPlanner
             }
         }
 
+        private static string Name(Recipe recipe)
+            => recipe.ItemResult.Value.Name.ExtractText();
+
+        private Gate? Gate(Recipe recipe)
+        {
+            if (_gates.TryGetValue(recipe.RowId, out var gate))
+                return gate;
+
+            try
+            {
+                gate = CraftingGameInterop.GateFor(recipe);
+            }
+            catch (Exception e)
+            {
+                GatherBuddy.Log.Warning($"[CraftingListPlanner] the gates of recipe {recipe.RowId} could not be read: {e.Message}");
+                gate = null;
+            }
+
+            return _gates[recipe.RowId] = gate;
+        }
+
         private void PlanPrecraftDemand(Recipe recipe, IngredientQualityDemand itemDemand)
         {
             var resultItemId = recipe.ItemResult.RowId;
@@ -225,6 +279,24 @@ public static class CraftingListPlanner
 
             if (remainingDemand.Total <= 0)
                 return;
+
+            var gate = Gate(recipe);
+            switch (GateRules.Decide(gate, _list.EffectiveBuyPrecrafts, MaterialSourceClassifier.IsSoldForGil(resultItemId)))
+            {
+                case Gated.Buy:
+                    _plan.Precrafts[resultItemId] = Math.Max(0, _plan.Precrafts.GetValueOrDefault(resultItemId) - remainingDemand.Total);
+                    AddCount(_plan.Materials, resultItemId, remainingDemand.Total);
+                    _plan.BoughtInstead.Add(new PlanSourced(resultItemId, remainingDemand.Total, gate?.Need));
+                    return;
+                case Gated.Block:
+                    if (_original is { } original)
+                        _plan.Blocked.Add(new PlanGated(original.RecipeId, RecipeManager.GetRecipe(original.RecipeId) is { } final ? Name(final) : $"recipe {original.RecipeId}",
+                            GateRules.Blocked(Name(recipe), gate!.Value.Need), true));
+                    return;
+                case Gated.Defer:
+                    _plan.Deferred.Add(new PlanGated(recipe.RowId, Name(recipe), gate!.Value.Need, false));
+                    break;
+            }
 
             var craftCount = DivideRoundUp(remainingDemand.Total, (int)recipe.AmountResult);
             AddRecipe(_plan.Recipes, recipe.RowId, craftCount, false);

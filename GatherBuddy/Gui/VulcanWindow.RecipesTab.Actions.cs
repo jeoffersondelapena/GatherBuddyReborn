@@ -221,6 +221,7 @@ public partial class VulcanWindow
             Name = recipe.ItemResult.Value.Name.ExtractText(),
             SkipIfEnough = true,
             SkipFinalIfEnough = false,
+            AimForHq = false,
             RetainerRestock = retainerRestock,
         };
 

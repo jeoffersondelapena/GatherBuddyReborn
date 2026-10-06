@@ -29,6 +29,26 @@ public static class TextRules
     public const string SkipRetainers = "Skip Retainers (fork)";
     public const string SkipBuying    = "Skip Buying (fork)";
     public const string SkipGathering = "Skip Gathering (fork)";
+    public const string Crafts        = "Crafts";
+    public const string LeaveOut      = "Leave Them Out (fork)";
+
+    // before setting out, the run found crafts the character cannot start for a reason no run can change
+    public static string CannotMake(int count)
+        => $"[GatherBuddy] This crafting run has {count} craft(s) it cannot make, each listed below with the reason. Fix the cause and press "
+         + $"Resume to check again, or press {LeaveOut} in the Craft Status window to go on without them (fork).";
+
+    public static string CannotMakeReason(int count)
+        => $"{count} craft(s) the run cannot make. Fix the cause and press Resume, or {LeaveOut}.";
+
+    public static string MissingAtCraft(string item, string missing)
+        => $"[GatherBuddy] '{item}' is missing {missing}. Get it and press Resume to craft it, or press {LeaveOut} in the Craft Status "
+         + "window to skip it and whatever else needs it (fork).";
+
+    public static string MissingAtCraftReason(string item, string missing)
+        => $"'{item}' is missing {missing}. Get it and press Resume, or {LeaveOut}.";
+
+    public static string HqOutcome(string item, bool hq, bool oncePerDay, string reset)
+        => hq ? $"{item}: HQ" : $"{item}: NQ, counts as done {(oncePerDay ? $"until {reset}" : "for this run")}";
 
     public static string StoppedShort(string part, string? why, string run = Crafting)
     {

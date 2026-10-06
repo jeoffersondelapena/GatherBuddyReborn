@@ -71,7 +71,13 @@ public class CraftingQueueProcessor
     private uint _jobSwitchRequestedFor = 0u;
     private Dictionary<uint, int> _missingIngredientFailures = new();
     private readonly HashSet<uint> _deferredForLevel = new();
-    private readonly HashSet<uint> _deferredForMaterials = new();
+
+    // fork: a pause over crafts the run cannot make; each button's continuation is decided by whoever paused
+    private bool _craftsHeld;
+    private System.Action? _onLeaveOut;
+    private System.Action? _onRecheck;
+    private readonly Dictionary<uint, bool> _hqOutcomes = new();
+    private int _hqBefore;
     private readonly Dictionary<uint, string> _runReasons = new();
     private string _pauseReason = string.Empty;
 
@@ -108,6 +114,13 @@ public class CraftingQueueProcessor
 
     public void StartQueue(CraftingExecutionPlan executionPlan, CraftingListConsumableSettings? listConsumables = null, RaphaelSolveCoordinator? raphaelCoordinator = null)
     {
+        Prepare(executionPlan, listConsumables, raphaelCoordinator);
+        Begin();
+    }
+
+    // fork: a run prepared but not begun can pause over crafts it cannot make before anything moves
+    public void Prepare(CraftingExecutionPlan executionPlan, CraftingListConsumableSettings? listConsumables = null, RaphaelSolveCoordinator? raphaelCoordinator = null)
+    {
         YesAlready.Lock();
         _executionPlan = executionPlan;
         _currentQueueIndex = 0;
@@ -118,7 +131,10 @@ public class CraftingQueueProcessor
         _jobSwitchRequestedFor = 0u;
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
-        _deferredForMaterials.Clear();
+        _craftsHeld = false;
+        _onLeaveOut = null;
+        _onRecheck = null;
+        _hqOutcomes.Clear();
         _runReasons.Clear();
         _pauseReason = string.Empty;
         _retainerRestock = executionPlan.RetainerRestock;
@@ -128,6 +144,11 @@ public class CraftingQueueProcessor
         _bellTravelTried = false;
         _setOut = false;
         _neededMarkedAt = (-1, -1);
+        _currentState = QueueState.WaitingForGather;
+    }
+
+    public void Begin()
+    {
         var hasRetainerWork = _retainerRestock && AllaganTools.Enabled
             && (MaterialTargets.Count > 0 || RetainerPrecraftTargets.Count > 0);
 
@@ -682,6 +703,7 @@ public class CraftingQueueProcessor
         GatherBuddy.Log.Debug($"[CraftingQueueProcessor] Effective solver mode for this craft: {effectiveSolverMode}");
 
         _lastCraftWasQuickSynth = useQuickSynthesis;
+        _hqBefore = HqHeld(recipe.Value.ItemResult.RowId);
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Starting craft {_currentQueueIndex + 1}/{QueueItems.Count}: {recipe.Value.ItemResult.Value.Name} x{craftQuantity}");
         CraftingGameInterop.StartCraft(recipe.Value, craftQuantity, useQuickSynthesis);
         _setOut       = true;
@@ -777,12 +799,17 @@ public class CraftingQueueProcessor
             return;
         }
 
-        if (recipe != null && _executionPlan != null && GatherBuddy.CraftingListManager.GetListByID(_executionPlan.ListId) is { CountOnlyHqFinals: true } list
-         && list.Recipes.Any(r => r.RecipeId == recipe.Value.RowId) && list.NoteTried(recipe.Value.RowId))
+        if (recipe != null && _executionPlan != null && GatherBuddy.CraftingListManager.GetListByID(_executionPlan.ListId) is { AimForHq: true } list
+         && list.Recipes.Any(r => r.RecipeId == recipe.Value.RowId))
         {
-            ForkTrace.Info($"only HQ counts: {recipe.Value.ItemResult.Value.Name.ExtractText()} has had today's try on '{list.Name}'");
-            GatherBuddy.CraftingListManager.SaveList(list);
-            GcMissions.TriedChanged(list);
+            var hq = HqHeld(recipe.Value.ItemResult.RowId) > _hqBefore;
+            _hqOutcomes[recipe.Value.RowId] = hq || _hqOutcomes.GetValueOrDefault(recipe.Value.RowId);
+            if (list.NoteTried(recipe.Value.RowId))
+            {
+                ForkTrace.Info($"only HQ counts: {recipe.Value.ItemResult.Value.Name.ExtractText()} has had its try on '{list.Name}', came out {(hq ? "HQ" : "NQ")}");
+                GatherBuddy.CraftingListManager.SaveList(list);
+                GcMissions.TriedChanged(list);
+            }
         }
 
         if (!_lastCraftWasQuickSynth)
@@ -866,22 +893,39 @@ public class CraftingQueueProcessor
             StateChanged?.Invoke(_currentState);
             return true;
         }
-        var endBeforeDeferral = QueueItems.Count;
-        if (_deferredForMaterials.Add(failure.RecipeId))
-        {
-            var deferred = DeferRemainingInstances(failure.RecipeId);
-            _missingIngredientFailures.Remove(failure.RecipeId);
-            _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
-            Communicator.PrintError($"[GatherBuddy] '{itemName}' is missing {Missing(failure)}; trying it again at the end of the run (fork).");
-            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) to the end of the run: {failure.Details}");
-            SkipRemainingRecipeInstances(failure.RecipeId, endBeforeDeferral);
-            return true;
-        }
-        _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
-        Communicator.PrintError($"[GatherBuddy] '{itemName}' is still missing {Missing(failure)}; skipping it (fork).");
-        GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Missing materials caused {failureContext} to fail again for '{itemName}' (recipe {failure.RecipeId}): {failure.Details}. Skipping this and remaining instances of the recipe.");
-        SkipRemainingRecipeInstances(failure.RecipeId);
+        _missingIngredientFailures.Remove(failure.RecipeId);
+        GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Missing materials caused {failureContext} to fail again for '{itemName}' (recipe {failure.RecipeId}): {failure.Details}. Pausing for the player.");
+        var short_ = QueueItems.Where(i => !i.Options.Skipping && (i.RecipeId == failure.RecipeId || failure.ItemId != 0 && Needs(i.RecipeId, failure.ItemId)))
+            .Select(i => i.RecipeId).Distinct().ToList();
+        var missing = Missing(failure);
+        PauseForCrafts(short_.Select(id => $"{SkippedRecipes.NameOf(id)} (missing {missing})").ToList(),
+            TextRules.MissingAtCraft(itemName, missing), TextRules.MissingAtCraftReason(itemName, missing),
+            () =>
+            {
+                foreach (var id in short_)
+                {
+                    _runReasons[id] = $"missing {MissingName(failure)}";
+                    SkipRemainingRecipeInstances(id);
+                }
+                ForkTrace.Info($"crafting run: the player leaves out {string.Join(", ", short_.Select(SkippedRecipes.NameOf))}");
+                _currentState = QueueState.WaitingForJobSwitch;
+                StateChanged?.Invoke(_currentState);
+            },
+            () =>
+            {
+                _currentState = QueueState.WaitingForJobSwitch;
+                StateChanged?.Invoke(_currentState);
+            });
         return true;
+    }
+
+    private static bool Needs(uint recipeId, uint itemId)
+        => RecipeManager.GetRecipe(recipeId) is { } recipe && RecipeManager.GetIngredients(recipe).Any(i => i.itemId == itemId);
+
+    private static unsafe int HqHeld(uint itemId)
+    {
+        var manager = InventoryManager.Instance();
+        return manager == null ? 0 : Math.Max(0, manager->GetInventoryItemCount(itemId, true, false, true));
     }
 
     private int DeferRemainingInstances(uint recipeId)
@@ -1019,13 +1063,19 @@ public class CraftingQueueProcessor
         AnnounceRunEnd();
         if (CraftingGatherBridge.GatheredInstead is { Count: > 0 } gatheredInstead)
             ForkChat.List($"{gatheredInstead.Count} item(s) could not be bought, so the run gathered them instead:", gatheredInstead, 12);
-        if (SkippedRecipes.LockedThisRun.Count > 0)
-            ForkChat.List($"Left out {SkippedRecipes.LockedThisRun.Count} recipe(s) the game does not offer yet:", SkippedRecipes.LockedThisRun, 10,
+        if (CraftingGatherBridge.BoughtInstead is { Count: > 0 } boughtInstead)
+            ForkChat.List("Bought instead of crafted:", boughtInstead, 12, tone: Communicator.Tone.Info);
+        if (CraftingGatherBridge.LeftOut is { Count: > 0 } leftOut)
+            ForkChat.List("Left out, out of reach:", leftOut, 12, tone: Communicator.Tone.Info);
+        if (_executionPlan != null && GatherBuddy.CraftingListManager.GetListByID(_executionPlan.ListId) is { AimForHq: true } hqList && _hqOutcomes.Count > 0)
+        {
+            var reset = MissionRules.NextReset(DateTime.UtcNow).ToLocalTime().ToString("HH:mm");
+            ForkChat.List("HQ tries:", _hqOutcomes.Select(o => TextRules.HqOutcome(SkippedRecipes.NameOf(o.Key), o.Value, hqList.HqTryOncePerDay, reset)).ToList(), 12,
                 tone: Communicator.Tone.Info);
+        }
         if (SkippedRecipes.Count > 0)
             ForkChat.List($"{SkippedRecipes.Count} recipe(s) the game would not start stay out of runs:", SkippedRecipes.Names(), 10,
                 "Retry skipped (fork) in the Crafting Lists tab tries them again.", Communicator.Tone.Info);
-        SkippedRecipes.LockedThisRun.Clear();
         SkippedRecipes.LeftOutThisRun.Clear();
         YesAlready.Unlock();
         GatherBuddy.AutoGather.Enabled = false;
@@ -1653,6 +1703,7 @@ public class CraftingQueueProcessor
         Nothing,
         Buying,
         Retainers,
+        Crafts,
     }
 
     public void Resume()
@@ -1677,6 +1728,18 @@ public class CraftingQueueProcessor
                 TransitionFromRetainerWithdrawComplete();
                 return;
             }
+        }
+
+        if (_craftsHeld)
+        {
+            _craftsHeld = false;
+            var (leaveOut, recheck) = (_onLeaveOut, _onRecheck);
+            (_onLeaveOut, _onRecheck) = (null, null);
+            if (skip == Skip.Crafts)
+                leaveOut?.Invoke();
+            else
+                recheck?.Invoke();
+            return;
         }
 
         if (_currentState == QueueState.NavigatingToRetainerBell)
@@ -1774,7 +1837,9 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
-        _deferredForMaterials.Clear();
+        _craftsHeld = false;
+        _onLeaveOut = null;
+        _onRecheck = null;
         _runReasons.Clear();
         _enqueuedRaphaelRequests.Clear();
         _jobSwitchRequestedFor = 0u;
@@ -1835,6 +1900,30 @@ public class CraftingQueueProcessor
 
     public bool PausedInRetainers
         => _paused && _retainersHeld;
+
+    public bool PausedForCrafts
+        => _paused && _craftsHeld;
+
+    public void LeaveOut()
+    {
+        if (PausedForCrafts)
+            Resume(Skip.Crafts);
+    }
+
+    public void PauseForCrafts(IReadOnlyList<string> crafts, string message, string status, System.Action leaveOut, System.Action recheck)
+    {
+        _craftsHeld = true;
+        _onLeaveOut = leaveOut;
+        _onRecheck  = recheck;
+        Communicator.PrintRun(message);
+        ForkTrace.Info($"crafting run paused over crafts it cannot make: {string.Join("; ", crafts)}");
+        ForkChat.List("Cannot make:", crafts, 12);
+        Pause(status);
+        if (_setOut)
+            PauseHome.Request("crafting");
+        else
+            ForkTrace.Info("crafting run paused before it went anywhere, so it stays where it was started");
+    }
 
     public void SkipRetainers()
     {

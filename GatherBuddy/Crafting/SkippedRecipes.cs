@@ -24,7 +24,6 @@ public static class SkippedRecipes
     private static Store           _store = new();
 
     public static List<string> LeftOutThisRun { get; } = new();
-    public static List<string> LockedThisRun  { get; } = new();
 
     public static int Count
     {
