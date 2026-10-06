@@ -43,6 +43,10 @@ public static class PurchaseRules
         return beyond;
     }
 
+    // a buy run subtracts what the bags hold, so a bought craft's target counts the copies the plan already spent from them
+    public static int BoughtTarget(int remaining, int spentFromBags)
+        => remaining + Math.Max(0, spentFromBags);
+
     public const string NeitherGatheredNorSold = "no class gathers it and no gil vendor sells it";
     public const string NotBuying = "no class gathers it; a gil vendor sells it, but Buy From Vendors (fork) is off";
 

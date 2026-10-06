@@ -66,6 +66,7 @@ public static class CraftingListPlanner
         private readonly IReadOnlyCollection<uint> _leaveOut;
         private readonly Dictionary<uint, CraftingListItem> _originalRecipeLookup;
         private readonly Dictionary<uint, Gate?> _gates = new();
+        private readonly Dictionary<uint, int> _bought = new();
         private CraftingListItem? _original;
 
         public Planner(CraftingListDefinition list, CraftingListPlannerOptions options)
@@ -107,6 +108,9 @@ public static class CraftingListPlanner
                 _original = item;
                 PlanOriginalRecipe(item, recipe.Value);
             }
+            // the buy run subtracts the bags again, so a bought craft's target carries what the plan already spent from them
+            foreach (var (itemId, amount) in _bought)
+                AddCount(_plan.Materials, itemId, PurchaseRules.BoughtTarget(amount, _availability.InventoryTaken(itemId)));
             if (skippedCrafted > 0)
                 GatherBuddy.Log.Information($"[CraftingListPlanner] Skip Logged Recipes left out {skippedCrafted} recipe(s) already in the crafting log for list '{_list.Name}'");
             SkippedRecipes.LeftOutThisRun.Clear();
@@ -198,7 +202,7 @@ public static class CraftingListPlanner
             switch (GateRules.Decide(gate, _list.EffectiveBuyFinals, MaterialSourceClassifier.IsSoldForGil(resultItemId)))
             {
                 case Gated.Buy:
-                    AddCount(_plan.Materials, resultItemId, remainingItemCount);
+                    AddCount(_bought, resultItemId, remainingItemCount);
                     _plan.BoughtInstead.Add(new PlanSourced(resultItemId, remainingItemCount, gate?.Need));
                     return;
                 case Gated.Block:
@@ -285,7 +289,7 @@ public static class CraftingListPlanner
             {
                 case Gated.Buy:
                     _plan.Precrafts[resultItemId] = Math.Max(0, _plan.Precrafts.GetValueOrDefault(resultItemId) - remainingDemand.Total);
-                    AddCount(_plan.Materials, resultItemId, remainingDemand.Total);
+                    AddCount(_bought, resultItemId, remainingDemand.Total);
                     _plan.BoughtInstead.Add(new PlanSourced(resultItemId, remainingDemand.Total, gate?.Need));
                     return;
                 case Gated.Block:
@@ -376,6 +380,10 @@ public static class CraftingListPlanner
         private readonly Dictionary<uint, PlannedAvailability> _plannedAvailable = new();
         private readonly Dictionary<uint, (int NQ, int HQ)> _inventoryAvailable = new();
         private readonly Dictionary<uint, (int NQ, int HQ)> _retainerAvailable = new();
+        private readonly Dictionary<uint, int> _inventoryTaken = new();
+
+        public int InventoryTaken(uint itemId)
+            => _inventoryTaken.GetValueOrDefault(itemId);
 
         public AvailabilityLedger(bool useRetainers)
         {
@@ -406,7 +414,11 @@ public static class CraftingListPlanner
         }
 
         public int ConsumeInventory(uint itemId, int requested, bool onlyHq = false)
-            => ConsumeTotal(_inventoryAvailable, itemId, requested, GetInventorySplitCounts, onlyHq);
+        {
+            var taken = ConsumeTotal(_inventoryAvailable, itemId, requested, GetInventorySplitCounts, onlyHq);
+            _inventoryTaken[itemId] = InventoryTaken(itemId) + taken;
+            return taken;
+        }
 
         public IngredientQualityDemand ConsumePlanned(uint itemId, IngredientQualityDemand demand)
         {
@@ -427,7 +439,11 @@ public static class CraftingListPlanner
         }
 
         public IngredientQualityDemand ConsumeInventory(uint itemId, IngredientQualityDemand demand)
-            => ConsumeSplit(_inventoryAvailable, itemId, demand, GetInventorySplitCounts);
+        {
+            var left = ConsumeSplit(_inventoryAvailable, itemId, demand, GetInventorySplitCounts);
+            _inventoryTaken[itemId] = InventoryTaken(itemId) + demand.Total - left.Total;
+            return left;
+        }
 
         public IngredientQualityDemand ConsumeRetainers(uint itemId, IngredientQualityDemand demand)
             => _useRetainers

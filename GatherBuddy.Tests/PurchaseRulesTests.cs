@@ -116,4 +116,14 @@ public class PurchaseRulesTests
         Assert.False(PurchaseRules.GatheredWithoutWaiting(null, 40, false));
         Assert.False(PurchaseRules.GatheredWithoutWaiting(null, null, false));
     }
+
+    [Fact]
+    public void A_bought_craft_s_target_keeps_the_copies_the_plan_already_spent_from_the_bags()
+    {
+        // one Bronze Ingot held, two recipes wanting one each: the first is skipped for the held one, the second is bought
+        var target = PurchaseRules.BoughtTarget(1, 1);
+        Assert.Equal(2, target);
+        Assert.Equal([(Rivets, 2u, 1)], PurchaseRules.BeforeGathering(new Dictionary<uint, int> { [Rivets] = target }, Gathered.Contains, SoldForGil.Contains, _ => 1));
+        Assert.Equal(3, PurchaseRules.BoughtTarget(3, 0));
+    }
 }
