@@ -296,13 +296,6 @@ public partial class Interface
         ImGuiUtil.Checkbox("Skip Logged Items (fork)##list",
             "Skip items this character has already gathered or caught, according to the gathering and fishing logs.",
             list.SkipLoggedItems, (v) => _plugin.AutoGatherListsManager.SetSkipLoggedItems(list, v));
-        ImGui.SameLine();
-        ImGuiUtil.Checkbox("Get Only Missing Items (fork)##list",
-            "On: an item is done once your bags (and your retainers, with Check Retainer Inventories on) hold its amount, as GatherBuddy "
-          + "always did, and a run first takes what your retainers hold. Off: the run gathers the amount on top of what your bags held when it "
-          + "started, so a log list still gathers an item you have not logged though you hold some.\n"
-          + "Formerly 'Count Items Already Held (fork)'. On a crafting list the same option is 'Get Only Missing Materials (fork)'.",
-            list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v));
         const string master = "Works with 'Buy From Vendors (fork)' on, on the fork's page in the settings.";
         ForkChoice.Draw("Items", "items", (int)ForkLogic.ListRules.MaterialsOf(list.BuyInsteadOfWaiting, list.BuyInsteadOfGathering),
         [
@@ -317,7 +310,12 @@ public partial class Interface
             var (waiting, gathering) = ForkLogic.ListRules.MaterialsFlags((ForkLogic.Materials)i);
             _plugin.AutoGatherListsManager.SetBuyInsteadOfWaiting(list, waiting);
             _plugin.AutoGatherListsManager.SetBuyInsteadOfGathering(list, gathering);
-        });
+        }, () => ImGuiUtil.Checkbox("Get Only Missing Items (fork)##list",
+            "On: an item is done once your bags (and your retainers, with Check Retainer Inventories on) hold its amount, as GatherBuddy "
+          + "always did, and a run first takes what your retainers hold. Off: the run gathers the amount on top of what your bags held when it "
+          + "started, so a log list still gathers an item you have not logged though you hold some.\n"
+          + "Formerly 'Count Items Already Held (fork)'. On a crafting list the same option is 'Get Only Missing Materials (fork)'.",
+            list.CountHeld, (v) => _plugin.AutoGatherListsManager.SetCountHeld(list, v)));
         if (Helpers.GcMissions.NoteFor(list.Name) is { } missionNote)
         {
             ImGui.PushTextWrapPos();

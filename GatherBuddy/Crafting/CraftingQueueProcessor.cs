@@ -71,6 +71,7 @@ public class CraftingQueueProcessor
     private uint _jobSwitchRequestedFor = 0u;
     private Dictionary<uint, int> _missingIngredientFailures = new();
     private readonly HashSet<uint> _deferredForLevel = new();
+    private readonly HashSet<uint> _deferredBehindLevel = new();
 
     // fork: a pause over crafts the run cannot make; each button's continuation is decided by whoever paused
     private bool _craftsHeld;
@@ -131,6 +132,7 @@ public class CraftingQueueProcessor
         _jobSwitchRequestedFor = 0u;
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
+        _deferredBehindLevel.Clear();
         _craftsHeld = false;
         _onLeaveOut = null;
         _onRecheck = null;
@@ -894,6 +896,17 @@ public class CraftingQueueProcessor
             return true;
         }
         _missingIngredientFailures.Remove(failure.RecipeId);
+        // a precraft put off to the end of the run is not a shortage yet: the craft that needs it follows it there
+        if (failure.ItemId != 0 && _deferredForLevel.Any(id => RecipeManager.GetRecipe(id)?.ItemResult.RowId == failure.ItemId) && _deferredBehindLevel.Add(failure.RecipeId))
+        {
+            var end      = QueueItems.Count;
+            var deferred = DeferRemainingInstances(failure.RecipeId);
+            _runReasons[failure.RecipeId] = $"missing {MissingName(failure)}";
+            Communicator.PrintError($"[GatherBuddy] '{itemName}' is missing {Missing(failure)}, which is tried again at the end of the run; so is this (fork).");
+            GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Deferred {deferred} instance(s) of '{itemName}' (recipe {failure.RecipeId}) behind its precraft: {failure.Details}");
+            SkipRemainingRecipeInstances(failure.RecipeId, end);
+            return true;
+        }
         GatherBuddy.Log.Warning($"[CraftingQueueProcessor] Missing materials caused {failureContext} to fail again for '{itemName}' (recipe {failure.RecipeId}): {failure.Details}. Pausing for the player.");
         var short_ = QueueItems.Where(i => !i.Options.Skipping && (i.RecipeId == failure.RecipeId || failure.ItemId != 0 && Needs(i.RecipeId, failure.ItemId)))
             .Select(i => i.RecipeId).Distinct().ToList();
@@ -1837,6 +1850,7 @@ public class CraftingQueueProcessor
         _craftHangSince = DateTime.MinValue;
         _missingIngredientFailures.Clear();
         _deferredForLevel.Clear();
+        _deferredBehindLevel.Clear();
         _craftsHeld = false;
         _onLeaveOut = null;
         _onRecheck = null;

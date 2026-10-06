@@ -8,10 +8,11 @@ internal static class ForkChoice
 {
     public readonly record struct Option(string Label, string Tip, bool Enabled = true);
 
-    public static void Draw(string caption, string id, int effective, ReadOnlySpan<Option> options, Action<int> choose)
+    public static void Draw(string caption, string id, int effective, ReadOnlySpan<Option> options, Action<int> choose, Action? head = null)
     {
         ImGui.TextUnformatted(caption);
         ImGui.Indent();
+        head?.Invoke();
         for (var i = 0; i < options.Length; i++)
         {
             var option = options[i];

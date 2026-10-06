@@ -184,6 +184,56 @@ public class CraftingListEditor
         TriggerMaterialsRegeneration();
     }
 
+    private void DrawGetOnlyMissingFinals()
+    {
+        var skipFinalIfEnough = _list.SkipFinalIfEnough;
+        if (ImGui.Checkbox("Get Only Missing Final Crafts##sife", ref skipFinalIfEnough))
+        {
+            _list.SkipFinalIfEnough = skipFinalIfEnough;
+            InvalidateQueueCache();
+            InvalidateMaterialCaches();
+            InvalidatePresentationCaches();
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            TriggerQueueRegeneration();
+            RefreshInventoryCounts();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("A final craft is not made when enough of it is already held (an HQ copy, while aiming for HQ). Useful for resuming an interrupted list.\n"
+              + "Formerly 'Craft Only Missing Final Crafts'. GatherBuddy's name: 'Include Final Crafts', which there only works with the precraft option on; here it "
+              + "works by itself.");
+    }
+
+    private void DrawGetOnlyMissingPrecrafts()
+    {
+        var skipIfEnough = _list.SkipIfEnough;
+        if (ImGui.Checkbox("Get Only Missing Precrafts##sie", ref skipIfEnough))
+        {
+            _list.SkipIfEnough    = skipIfEnough;
+            InvalidateQueueCache();
+            InvalidateMaterialCaches();
+            InvalidatePresentationCaches();
+            GatherBuddy.CraftingListManager.SaveList(_list);
+            TriggerQueueRegeneration();
+            RefreshInventoryCounts();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("A precraft is not made when enough of it is already held.\nFormerly 'Craft Only Missing Precrafts'. GatherBuddy's name: 'Skip if "
+              + "Already Have Enough'.");
+    }
+
+    private void DrawGetOnlyMissingMaterials()
+    {
+        ImGuiUtil.Checkbox("Get Only Missing Materials (fork)##cih",
+            "On: a run gathers or buys only the materials the bags are short of, as always. Off: it gets the full amounts on top of what "
+          + "the bags held when it started, so what was held is still there afterwards; every new run gets the full amounts again.\n"
+          + "Formerly 'Count Items Already Held (fork)'. On a gathering list the same option is 'Get Only Missing Items (fork)'.",
+            _list.CountHeld, v =>
+            {
+                _list.CountHeld = v;
+                GatherBuddy.CraftingListManager.SaveList(_list);
+            });
+    }
+
     private const string MasterSwitch = "Works with 'Buy From Vendors (fork)' on, on the fork's page in the settings.";
 
     private const string Gates = "class not unlocked, level too low, book unread, quest not done, no gearset, stats too low, specialist only, or a required item "
@@ -205,7 +255,7 @@ public class CraftingListEditor
         {
             (_list.BuyInsteadOfWaiting, _list.BuyInsteadOfGathering) = ListRules.MaterialsFlags((Materials)i);
             GatherBuddy.CraftingListManager.SaveList(_list);
-        });
+        }, DrawGetOnlyMissingMaterials);
 
         ForkChoice.Draw("Precrafts", "pre", (int)_list.EffectiveBuyPrecrafts,
         [
@@ -219,7 +269,7 @@ public class CraftingListEditor
         {
             _list.BuyPrecrafts = (BuyCrafts)i;
             SaveAndReplan();
-        });
+        }, DrawGetOnlyMissingPrecrafts);
 
         ForkChoice.Draw("Final crafts", "fin", (int)_list.EffectiveBuyFinals,
         [
@@ -233,7 +283,7 @@ public class CraftingListEditor
         {
             _list.BuyFinals = (BuyCrafts)i;
             SaveAndReplan();
-        });
+        }, DrawGetOnlyMissingFinals);
 
         ForkChoice.Draw("Synthesis", "syn", (int)_list.EffectiveSynthesis,
         [
@@ -718,7 +768,7 @@ public class CraftingListEditor
 
         ImGui.Checkbox("Show Precrafts##sp", ref _showPrecrafts);
 
-        // fork: first what the run works on, then how it gets each part: retainers, vendors, gathering, crafting
+        // fork: list-wide options first; each section below owns its missing-only rule
         ImGuiUtil.Checkbox("Skip Logged Recipes (fork)##scr",
             "Skip recipes this character has already crafted, according to the crafting log.\n"
           + "The game keeps no log for master recipes and newer special recipes, so those are never skipped.",
@@ -745,48 +795,6 @@ public class CraftingListEditor
                 RefreshInventoryCounts();
             });
         DrawHqTries();
-
-        var skipFinalIfEnough = _list.SkipFinalIfEnough;
-        if (ImGui.Checkbox("Get Only Missing Final Crafts##sife", ref skipFinalIfEnough))
-        {
-            _list.SkipFinalIfEnough = skipFinalIfEnough;
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            TriggerQueueRegeneration();
-            RefreshInventoryCounts();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("A final craft is not made when enough of it is already held (an HQ copy, while aiming for HQ). Useful for resuming an interrupted list.\n"
-              + "Formerly 'Craft Only Missing Final Crafts'. GatherBuddy's name: 'Include Final Crafts', which there only works with the precraft option on; here it "
-              + "works by itself.");
-
-        var skipIfEnough = _list.SkipIfEnough;
-        if (ImGui.Checkbox("Get Only Missing Precrafts##sie", ref skipIfEnough))
-        {
-            _list.SkipIfEnough    = skipIfEnough;
-            InvalidateQueueCache();
-            InvalidateMaterialCaches();
-            InvalidatePresentationCaches();
-            GatherBuddy.CraftingListManager.SaveList(_list);
-            TriggerQueueRegeneration();
-            RefreshInventoryCounts();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("A precraft is not made when enough of it is already held.\nFormerly 'Craft Only Missing Precrafts'. GatherBuddy's name: 'Skip if "
-              + "Already Have Enough'.");
-
-        ImGuiUtil.Checkbox("Get Only Missing Materials (fork)##cih",
-            "On: a run gathers or buys only the materials the bags are short of, as always. Off: it gets the full amounts on top of what "
-          + "the bags held when it started, so what was held is still there afterwards; every new run gets the full amounts again. What "
-          + "is made follows the two options above.\n"
-          + "Formerly 'Count Items Already Held (fork)'. On a gathering list the same option is 'Get Only Missing Items (fork)'.",
-            _list.CountHeld, v =>
-            {
-                _list.CountHeld = v;
-                GatherBuddy.CraftingListManager.SaveList(_list);
-            });
 
         ImGui.Separator();
 
