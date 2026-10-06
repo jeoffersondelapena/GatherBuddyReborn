@@ -318,11 +318,28 @@ public static unsafe class GearsetStatsReader
         };
     }
 
+    // fork: the list editor plans off the main thread, where the object table refuses the local player
+    public static bool HasGearset(uint jobId)
+    {
+        var gearsetModule = RaptureGearsetModule.Instance();
+        if (gearsetModule == null)
+            return false;
+
+        fixed (RaptureGearsetModule.GearsetEntry* entries = gearsetModule->Entries)
+        {
+            for (var i = 0; i < 100; i++)
+                if ((entries[i].Flags & RaptureGearsetModule.GearsetFlag.Exists) != 0 && entries[i].ClassJob == jobId)
+                    return true;
+        }
+
+        return false;
+    }
+
     public static GameStateBuilder.PlayerStats? ReadGearsetStatsForJob(uint jobId)
     {
         try
         {
-            var currentJob = Dalamud.Objects.LocalPlayer?.ClassJob.RowId ?? 0;
+            var currentJob = Dalamud.Framework.IsInFrameworkUpdateThread ? Dalamud.Objects.LocalPlayer?.ClassJob.RowId ?? 0 : 0;
             
             if (currentJob == jobId)
             {
