@@ -708,7 +708,6 @@ public class CraftingQueueProcessor
         _hqBefore = HqHeld(recipe.Value.ItemResult.RowId);
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Starting craft {_currentQueueIndex + 1}/{QueueItems.Count}: {recipe.Value.ItemResult.Value.Name} x{craftQuantity}");
         CraftingGameInterop.StartCraft(recipe.Value, craftQuantity, useQuickSynthesis);
-        _setOut       = true;
         _currentState = QueueState.Crafting;
         StateChanged?.Invoke(_currentState);
     }
@@ -789,6 +788,8 @@ public class CraftingQueueProcessor
         if (recipe != null)
             _missingIngredientFailures.Remove(recipe.Value.RowId);
 
+        // an attempt the recipe note refused made nothing, so only a finished craft counts as having set out
+        _setOut |= !cancelled;
         if (cancelled)
         {
             if (IsInventoryFull())
