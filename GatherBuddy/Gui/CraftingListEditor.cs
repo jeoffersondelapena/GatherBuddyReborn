@@ -1241,6 +1241,9 @@ public class CraftingListEditor
             ImGui.TextDisabled($"({selectionCount} selected)");
         }
         var recipeRows = GetRecipeDisplayRows();
+        _yieldColumn   = recipeRows.Any(r => r.Recipe.AmountResult > 1)
+            ? ImGui.CalcTextSize(TextRules.Yield(999, 9)!).X + ImGui.GetStyle().ItemInnerSpacing.X
+            : 0f;
         var clipper = ImGui.ImGuiListClipper();
         clipper.Begin(recipeRows.Count);
         while (clipper.Step())
@@ -1604,6 +1607,8 @@ public class CraftingListEditor
         return rows;
     }
 
+    private float _yieldColumn;
+
     private void DrawRecipeListRow(RecipeDisplayRow row, List<int> indicesToRemove)
     {
         if (row.ListIndex >= _list.Recipes.Count)
@@ -1629,10 +1634,9 @@ public class CraftingListEditor
         var rowStartY = ImGui.GetCursorPosY();
         var qtyTotalWidth = qtyTextWidth + 2 * (frameHeight + innerSpacing);
         var iconBtnSize = new Vector2(frameHeight, frameHeight);
-        var perCraft  = row.Recipe is { } yielding ? Math.Max(1, (int)yielding.AmountResult) : 1;
+        var perCraft  = Math.Max(1, (int)row.Recipe.AmountResult);
         var yieldText = TextRules.Yield(item.Quantity, perCraft);
-        var yieldWidth = yieldText == null ? 0f : ImGui.CalcTextSize(yieldText).X + innerSpacing;
-        var selectableWidth = Math.Max(50f, ImGui.GetContentRegionAvail().X - qtyTotalWidth - 2 * frameHeight - 3 * innerSpacing - sourceIconSize - innerSpacing - yieldWidth);
+        var selectableWidth = Math.Max(50f, ImGui.GetContentRegionAvail().X - qtyTotalWidth - 2 * frameHeight - 3 * innerSpacing - sourceIconSize - innerSpacing - _yieldColumn);
         var crafterIcon = CraftingRowIcons.GetCrafterIcon(row.Recipe);
         ImGui.PushStyleColor(ImGuiCol.Text, row.TextColor);
         using var selectableAlign = ImRaii.PushStyle(ImGuiStyleVar.SelectableTextAlign, new Vector2(0f, 0.5f));
@@ -1689,13 +1693,20 @@ public class CraftingListEditor
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Click +/- to adjust quantity by 1.\nHold Ctrl: ±10\nHold Shift: ±100"
               + (perCraft > 1 ? "\n" + TextRules.YieldTip(item.Quantity, perCraft) : ""));
-        if (yieldText != null)
+        if (_yieldColumn > 0f)
         {
             ImGui.SameLine(0, innerSpacing);
-            ImGui.AlignTextToFramePadding();
-            ImGui.TextDisabled(yieldText);
-            if (ImGui.IsItemHovered())
-                ImGui.SetTooltip(TextRules.YieldTip(item.Quantity, perCraft));
+            var columnStart = ImGui.GetCursorPosX();
+            if (yieldText != null)
+            {
+                ImGui.AlignTextToFramePadding();
+                ImGui.TextDisabled(yieldText);
+                if (ImGui.IsItemHovered())
+                    ImGui.SetTooltip(TextRules.YieldTip(item.Quantity, perCraft));
+            }
+            ImGui.SameLine();
+            ImGui.SetCursorPosX(columnStart + _yieldColumn - innerSpacing);
+            ImGui.Dummy(Vector2.Zero);
         }
 
         ImGui.SameLine(0, innerSpacing);
