@@ -47,13 +47,15 @@ public class CraftingListManager
             proposedId = rng.Next(100, 50000);
         }
 
+        // fork: a list made by hand buys a precraft it cannot craft; lists saved before the choice existed load as Craft
         var list = new CraftingListDefinition
         {
             ID = proposedId,
             Name = name,
             FolderPath = normalizedFolderPath,
             Order = GetNextOrderForFolder(normalizedFolderPath),
-            Ephemeral = ephemeral
+            Ephemeral = ephemeral,
+            BuyPrecrafts = ForkLogic.BuyCrafts.WhenOutOfReach,
         };
         
         _lists.Add(list);
