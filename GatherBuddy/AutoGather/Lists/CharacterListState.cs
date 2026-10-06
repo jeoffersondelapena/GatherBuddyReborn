@@ -6,8 +6,7 @@ using GatherBuddy.Helpers;
 
 namespace GatherBuddy.AutoGather.Lists;
 
-// Fork only. Which lists are on and which items are ticked belongs to a character: two game windows load the same
-// list file, and each window's run must not change what the other character has switched on.
+// Fork only. On/off is per character: two game windows share one list file.
 public static class CharacterListState
 {
     private static (string Key, string Text)? _lastWritten;

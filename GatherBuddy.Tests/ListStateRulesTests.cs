@@ -3,40 +3,31 @@ using Xunit;
 
 public class ListStateRulesTests
 {
-    private static ListStateRules.ListView View(string key, bool enabled, params uint[] off)
-        => new(key, enabled, off);
+    private static ListStateRules.ListView View(string key, bool enabled)
+        => new(key, enabled);
 
     [Fact]
-    public void Only_lists_that_differ_from_the_shared_file_are_kept()
+    public void Only_lists_that_are_on_are_kept()
     {
         var state = ListStateRules.Capture(new[]
         {
             View("Gathering Log/Miner/MIN Lv 1-15", true),
             View("Gathering Log/Miner/MIN Lv 16-30", false),
-            View("Fishing Log/FSH Lv 1-15", false, 4925, 4869, 4925),
+            View("Fishing Log/FSH Lv 1-15", true),
         });
 
         Assert.Equal(new[] { "Fishing Log/FSH Lv 1-15", "Gathering Log/Miner/MIN Lv 1-15" }, state.Keys.OrderBy(k => k));
         Assert.True(state["Gathering Log/Miner/MIN Lv 1-15"].Enabled);
-        Assert.Empty(state["Gathering Log/Miner/MIN Lv 1-15"].Off);
-        Assert.False(state["Fishing Log/FSH Lv 1-15"].Enabled);
-        Assert.Equal(new uint[] { 4869, 4925 }, state["Fishing Log/FSH Lv 1-15"].Off);
     }
 
     [Fact]
-    public void A_list_the_file_does_not_name_is_off_with_every_item_ticked()
+    public void A_list_the_file_does_not_name_is_off()
     {
-        var state = ListStateRules.Capture(new[] { View("a/on", true, 7) });
+        var state = ListStateRules.Capture(new[] { View("a/on", true) });
 
-        var known = ListStateRules.For(state, "a/on");
-        Assert.True(known.Enabled);
-        Assert.Equal(new uint[] { 7 }, known.Off);
-
-        foreach (var entry in new[] { ListStateRules.For(state, "a/other"), ListStateRules.For(null, "a/on") })
-        {
-            Assert.False(entry.Enabled);
-            Assert.Empty(entry.Off);
-        }
+        Assert.True(ListStateRules.For(state, "a/on").Enabled);
+        Assert.False(ListStateRules.For(state, "a/other").Enabled);
+        Assert.False(ListStateRules.For(null, "a/on").Enabled);
     }
 
     [Theory]
@@ -64,34 +55,29 @@ public class ListStateRulesTests
         Save("first", "second", View("x/list", true));
         Assert.False(files.ContainsKey("second"));
 
-        Save("second", "second", View("x/list", false, 5));
+        Save("second", "second", View("x/list", false));
         Assert.True(ListStateRules.For(ListStateRules.Deserialize(files["first"]), "x/list").Enabled);
-        var second = ListStateRules.For(ListStateRules.Deserialize(files["second"]), "x/list");
-        Assert.False(second.Enabled);
-        Assert.Equal(new uint[] { 5 }, second.Off);
+        Assert.False(ListStateRules.For(ListStateRules.Deserialize(files["second"]), "x/list").Enabled);
     }
 
     [Fact]
-    public void State_round_trips_and_reads_what_the_list_generator_writes()
+    public void State_round_trips_and_an_older_files_ticks_are_ignored()
     {
-        var state = ListStateRules.Capture(new[] { View("Gathering Log/Botanist/BTN Lv 1-15", true, 5, 2) });
+        var state = ListStateRules.Capture(new[] { View("Gathering Log/Botanist/BTN Lv 1-15", true) });
         var back  = ListStateRules.Deserialize(ListStateRules.Serialize(state));
         Assert.True(back["Gathering Log/Botanist/BTN Lv 1-15"].Enabled);
-        Assert.Equal(new uint[] { 2, 5 }, back["Gathering Log/Botanist/BTN Lv 1-15"].Off);
 
-        var generated = "{\n  \"Gathering Log/Miner/MIN Lv 1-15\": {\n    \"Enabled\": true,\n    \"Off\": [\n      5106\n    ]\n  }\n}";
-        var read = ListStateRules.Deserialize(generated);
-        Assert.True(read["Gathering Log/Miner/MIN Lv 1-15"].Enabled);
-        Assert.Equal(new uint[] { 5106 }, read["Gathering Log/Miner/MIN Lv 1-15"].Off);
+        var older = "{\n  \"Gathering Log/Miner/MIN Lv 1-15\": {\n    \"Enabled\": true,\n    \"Off\": [\n      5106\n    ]\n  }\n}";
+        Assert.True(ListStateRules.Deserialize(older)["Gathering Log/Miner/MIN Lv 1-15"].Enabled);
     }
 
     [Fact]
     public void A_hand_edited_file_with_gaps_still_loads()
     {
-        var read = ListStateRules.Deserialize("{ \"a/x\": null, \"a/y\": { \"Enabled\": true, \"Off\": null }, \"a/z\": { \"Enabled\": false } }");
+        var read = ListStateRules.Deserialize("{ \"a/x\": null, \"a/y\": { \"Enabled\": true }, \"a/z\": { \"Enabled\": false } }");
         Assert.Equal(new[] { "a/y", "a/z" }, read.Keys.OrderBy(k => k));
-        Assert.Empty(read["a/y"].Off);
-        Assert.Empty(read["a/z"].Off);
+        Assert.True(read["a/y"].Enabled);
+        Assert.False(read["a/z"].Enabled);
         Assert.Empty(ListStateRules.Deserialize("{}"));
     }
 
@@ -121,7 +107,7 @@ public class ListStateRulesTests
         var state = new Dictionary<string, ListStateRules.Entry>
         {
             ["Gathering Log/1. Miner/MIN Lv 1-15"] = new() { Enabled = true },
-            ["Gathering Log/1. Miner/Lv 1-15"]     = new() { Off = [5106] },
+            ["Gathering Log/1. Miner/Lv 1-15"]     = new() { Enabled = true },
             ["/My own"]                            = new() { Enabled = true },
         };
         var generated = new HashSet<string> { "Gathering Log/1. Miner/MIN Lv 1-15", "Gathering Log/1. Miner/Lv 1-15", "Gathering Log/1. Miner/MIN Lv 16-30" };

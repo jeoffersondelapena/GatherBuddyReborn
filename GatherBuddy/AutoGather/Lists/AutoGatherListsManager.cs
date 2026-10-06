@@ -198,25 +198,16 @@ public partial class AutoGatherListsManager : IDisposable
         return lists;
     }
 
-    // The shared file holds what the lists are; whether one is on, and which items are ticked, is kept per character.
+    // on/off is the run, so it is kept per character; everything else, ticks included, is the list
     private static string SharedJson(IEnumerable<AutoGatherList> lists)
-        => JsonConvert.SerializeObject(lists.Select(l =>
-        {
-            var cfg = new AutoGatherList.Config(l) { Enabled = false };
-            foreach (var id in cfg.EnabledItems.Keys.ToList())
-                cfg.EnabledItems[id] = true;
-            return cfg;
-        }), Formatting.Indented);
+        => JsonConvert.SerializeObject(lists.Select(l => new AutoGatherList.Config(l) { Enabled = false }), Formatting.Indented);
 
     private void ApplyCharacterState(string? key)
     {
         var state = key == null ? null : CharacterListState.Load(key);
         foreach (var list in SharedLists())
         {
-            var entry = ListStateRules.For(state, CharacterListState.KeyOf(list));
-            list.Enabled = entry.Enabled;
-            foreach (var item in list.Items.ToList())
-                list.SetEnabled(item, !entry.Off.Contains(item.ItemId));
+            list.Enabled = ListStateRules.For(state, CharacterListState.KeyOf(list)).Enabled;
         }
 
         PausedByRun.Clear();
@@ -231,9 +222,7 @@ public partial class AutoGatherListsManager : IDisposable
             return;
 
         CharacterListState.Save(key!, ListStateRules.Capture(lists.Select(l => new ListStateRules.ListView(
-            CharacterListState.KeyOf(l),
-            l.Enabled || PausedByRun.Contains(l),
-            l.EnabledItems.Where(kv => !kv.Value).Select(kv => kv.Key.ItemId).ToList()))));
+            CharacterListState.KeyOf(l), l.Enabled || PausedByRun.Contains(l)))));
     }
 
     // checked every frame: a missed or early login event must not leave one character's lists under another's name

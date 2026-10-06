@@ -9,13 +9,13 @@ namespace GatherBuddy.ForkLogic;
 // Fork only. Nothing in this folder uses a game or plugin type, so GatherBuddy.Tests compiles these files as they ship.
 public static class ListStateRules
 {
+    // a list's ticks are shared with its items since 2026-10-06; an older file's "Off" lists are ignored on load
     public sealed class Entry
     {
-        public bool       Enabled { get; set; }
-        public List<uint> Off     { get; set; } = new();
+        public bool Enabled { get; set; }
     }
 
-    public readonly record struct ListView(string Key, bool Enabled, IReadOnlyCollection<uint> Off);
+    public readonly record struct ListView(string Key, bool Enabled);
 
     private static readonly JsonSerializerOptions Indented = new() { WriteIndented = true };
 
@@ -26,11 +26,8 @@ public static class ListStateRules
     {
         var state = new Dictionary<string, Entry>();
         foreach (var list in lists)
-        {
-            var off = list.Off.Distinct().OrderBy(id => id).ToList();
-            if (list.Enabled || off.Count > 0)
-                state[list.Key] = new Entry { Enabled = list.Enabled, Off = off };
-        }
+            if (list.Enabled)
+                state[list.Key] = new Entry { Enabled = true };
 
         return state;
     }
@@ -56,8 +53,7 @@ public static class ListStateRules
     public static Dictionary<string, Entry> Deserialize(string text)
     {
         var state = JsonSerializer.Deserialize<Dictionary<string, Entry?>>(text) ?? new();
-        return state.Where(kv => kv.Value != null)
-            .ToDictionary(kv => kv.Key, kv => new Entry { Enabled = kv.Value!.Enabled, Off = kv.Value.Off ?? new() });
+        return state.Where(kv => kv.Value != null).ToDictionary(kv => kv.Key, kv => new Entry { Enabled = kv.Value!.Enabled });
     }
 
     public static bool SameJson(string a, string b)
