@@ -1676,7 +1676,7 @@ public partial class Interface
                         layout.Child.Draw(ForkSettingsPage.DrawAfterRunThreshold);
                 }),
             new("Buttons fork",                                   ForkSettingsPage.DrawButtonsCaption),
-            new("GC Mission Lists Clear Green Marks Keep fork",   ForkSettingsPage.DrawEverydayButtons),
+            new("Clear Green Marks Keep GC Mission Lists fork",   ForkSettingsPage.DrawEverydayButtons),
             new("Reset generated lists Reset settings to policy fork", ForkSettingsPage.DrawResetButtons),
             new("Skip Logged Items Skip Logged Recipes Skip Retainers Skip Buying Skip Gathering Retry skipped fork", ForkSettingsPage.DrawElsewhere),
         ]),

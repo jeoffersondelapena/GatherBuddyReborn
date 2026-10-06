@@ -147,9 +147,9 @@ internal static class ForkSettingsPage
 
     public static void DrawEverydayButtons()
     {
-        DrawGcMissionLists();
-        ImGui.SameLine();
         KeepMarkButton.DrawGreen();
+        ImGui.SameLine();
+        DrawGcMissionLists();
     }
 
     public static void DrawResetButtons()
