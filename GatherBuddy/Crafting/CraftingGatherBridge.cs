@@ -364,7 +364,7 @@ public static class CraftingGatherBridge
           + $" | to source {Items(plan.MaterialsView)} | precrafts {Items(plan.PrecraftsView)}"
           + $" | from retainers {Items(plan.RetainerConsumedCraftablesView)}"
           + $" | skipIfEnough={plan.SkipIfEnough} skipFinalIfEnough={plan.SkipFinalIfEnough} retainerRestock={plan.RetainerRestock}"
-          + $" countHeld={plan.CountHeld}";
+          + $" countHeld={plan.CountHeld} master={CraftingListDefinition.Master}";
     }
 
     public static bool IsBuying

@@ -77,6 +77,14 @@ public partial class AutoGatherListsManager : IDisposable
         => !_localInventoryActiveItems.Contains(item) && !_onTopActiveItems.Contains(item);
 
     // fork: what a gathering run buys first: of each item a gil vendor sells, the share of the lists that buy it
+    // the master switch on the fork page can forbid buying or buy whatever is sold, whatever a list says
+    private static bool Buys(bool insteadOfWaiting, bool insteadOfGathering, bool waits)
+    {
+        var (waiting, gathering) = ListRules.MaterialsFlags(ListRules.EffectiveMaterials(Crafting.CraftingListDefinition.Master,
+            ListRules.MaterialsOf(insteadOfWaiting, insteadOfGathering)));
+        return GatherRules.Buys(waiting, gathering, waits);
+    }
+
     internal List<(uint ItemId, uint Target)> BuyTargets()
     {
         var targets = new List<(uint, uint)>();
@@ -311,7 +319,7 @@ public partial class AutoGatherListsManager : IDisposable
             .GroupBy(i => (i.Item, i.Fallback))
             .Select(x => (x.Key.Item, Quantity: (uint)Math.Min(x.Sum(g => g.Quantity), uint.MaxValue), x.Key.Fallback, UsesRetainerInventory: x.All(g => g.UsesRetainerInventory),
                 OnTop: x.Any(g => !g.CountHeld),
-                KeptForGathering: (uint)Math.Min(x.Where(g => !GatherRules.Buys(g.BuyInsteadOfWaiting, g.BuyInsteadOfGathering, Waits(x.Key.Item)))
+                KeptForGathering: (uint)Math.Min(x.Where(g => !Buys(g.BuyInsteadOfWaiting, g.BuyInsteadOfGathering, Waits(x.Key.Item)))
                     .Sum(g => (long)g.Quantity), uint.MaxValue)));
 
         ReportSkippedAsLogged();

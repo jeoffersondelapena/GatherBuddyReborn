@@ -27,4 +27,21 @@ internal static class ForkChoice
 
         ImGui.Unindent();
     }
+
+    public static void Note(string text)
+    {
+        ImGui.PushTextWrapPos();
+        ImGui.TextDisabled(text);
+        ImGui.PopTextWrapPos();
+    }
+
+    public const string MasterOff = "Buy From Vendors (fork) is off (fork page in the settings): nothing is bought, so the buying choices below are greyed, "
+      + "and a material only a vendor sells stops a run before it sets out.";
+
+    public const string MasterEverything = "Buy From Vendors (fork) buys whatever is sold on every list (fork page in the settings): the narrower choices "
+      + "below are greyed until it is back on 'as each list says'.";
+
+    public const string ByMasterOff = " Greyed: Buy From Vendors (fork) is off.";
+
+    public const string ByMasterEverything = " Greyed: Buy From Vendors (fork) buys whatever is sold on every list.";
 }

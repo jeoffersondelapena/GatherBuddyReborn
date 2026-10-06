@@ -13,16 +13,20 @@ internal static class ForkSettingsPage
 {
     public static void DrawBuyBeforeGathering()
     {
-        var buy = GatherBuddy.Config.VulcanBuyBeforeGathering;
-        if (ImGui.Checkbox("Buy From Vendors (fork)", ref buy))
+        ForkChoice.Draw("Buy From Vendors (fork)", "master", (int)CraftingListDefinition.Master,
+        [
+            new("Off", "No run visits a vendor. Every list's buying choices are greyed, and a material only a vendor sells stops a run before it sets out."),
+            new("As each list says", "A crafting or gathering run first buys from gil vendors what its own list says to buy (the Materials, Precrafts and "
+              + "Final crafts choices, Items on a gathering list), only what the bags lack, then gathers and crafts. The usual setting; formerly the "
+              + "ticked 'Buy From Vendors Before Gathering (fork)'."),
+            new("Buy whatever is sold on every list", "For a while: every run buys every material, item and precraft a gil vendor sells, whatever its list "
+              + "says; the lists' narrower choices are greyed, not changed, and come back as they were. A list aiming for HQ still buys precrafts only "
+              + "when out of reach, and final crafts are never bought on this switch's account."),
+        ], i =>
         {
-            GatherBuddy.Config.VulcanBuyBeforeGathering = buy;
+            (GatherBuddy.Config.VulcanBuyBeforeGathering, GatherBuddy.Config.VulcanBuyEverythingSold) = ListRules.MasterFlags((VendorRuns)i);
             GatherBuddy.Config.Save();
-        }
-        if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("The master switch for vendor runs. On: a crafting or gathering run first buys from gil vendors what its list says to buy "
-              + "(each list's Materials, Precrafts and Final crafts choices), only what your bags lack, then gathers and crafts. Off: no run visits a "
-              + "vendor, and a material only a vendor sells stops the run before it sets out.\nFormerly 'Buy From Vendors Before Gathering (fork)'.");
+        });
     }
 
     public static void DrawSprint()

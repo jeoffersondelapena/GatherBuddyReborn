@@ -242,15 +242,25 @@ public class CraftingListEditor
     // fork: the vendor choices for materials, precrafts and final crafts, and the synthesis; aiming for HQ greys what would give NQ
     private void DrawSourcing()
     {
-        var hq = _list.AimForHq;
-        ForkChoice.Draw("Materials", "mat", (int)_list.MaterialsChoice,
+        var hq     = _list.AimForHq;
+        var master = CraftingListDefinition.Master;
+        var locked = master != VendorRuns.AsListsSay;
+        var byMaster = master == VendorRuns.Off ? ForkChoice.ByMasterOff : master == VendorRuns.EverythingSold ? ForkChoice.ByMasterEverything : "";
+        if (hq)
+            ForkChoice.Note("Aiming for HQ final crafts: quick synthesis, buying precrafts instead of crafting and buying final crafts are greyed below.");
+        if (master == VendorRuns.Off)
+            ForkChoice.Note(ForkChoice.MasterOff);
+        else if (master == VendorRuns.EverythingSold)
+            ForkChoice.Note(ForkChoice.MasterEverything + (hq ? " This list aims for HQ, so its precrafts are bought only when out of reach." : ""));
+
+        ForkChoice.Draw("Materials", "mat", (int)_list.EffectiveMaterials,
         [
             new("Gather all, waiting for windows", "Every material a class can gather is gathered, waiting for a time or weather window when it has one. "
-              + "What no class gathers is bought from a gil vendor when one sells it.\nFormerly 'Buy Instead of Waiting (fork)' off. " + MasterSwitch),
+              + "What no class gathers is bought from a gil vendor when one sells it.\nFormerly 'Buy Instead of Waiting (fork)' off. " + MasterSwitch + byMaster, !locked),
             new("Buy instead of waiting", "A material only a time or weather window gives is bought from a gil vendor when one sells it, instead of waiting for the "
-              + "window; the rest is gathered.\nFormerly 'Buy Instead of Waiting (fork)'. " + MasterSwitch),
+              + "window; the rest is gathered.\nFormerly 'Buy Instead of Waiting (fork)'. " + MasterSwitch + byMaster, !locked),
             new("Buy instead of gathering", "Every material a gil vendor sells is bought; what no vendor sells is gathered, and what the vendors could not supply "
-              + "is gathered instead.\nFormerly 'Buy Instead of Gathering Too (fork)'. " + MasterSwitch),
+              + "is gathered instead.\nFormerly 'Buy Instead of Gathering Too (fork)'. " + MasterSwitch + byMaster, !locked),
         ], i =>
         {
             (_list.BuyInsteadOfWaiting, _list.BuyInsteadOfGathering) = ListRules.MaterialsFlags((Materials)i);
@@ -260,25 +270,26 @@ public class CraftingListEditor
         ForkChoice.Draw("Precrafts", "pre", (int)_list.EffectiveBuyPrecrafts,
         [
             new("Craft", $"Every precraft is crafted. One the character cannot start ({Gates}) is tried again at the end of the run when only the level is "
-              + "short; for any other reason the run pauses before it sources anything and asks."),
+              + "short; for any other reason the run pauses before it sources anything and asks." + byMaster, !locked),
             new("Buy when out of reach", "A precraft the character cannot start now is bought from a gil vendor when one sells it, NQ, and its own materials are "
-              + "not sourced; the rest is crafted. " + MasterSwitch),
+              + "not sourced; the rest is crafted. " + MasterSwitch + byMaster, !locked),
             new("Buy instead of crafting", "Every precraft a gil vendor sells is bought, NQ, instead of crafted. Greyed while aiming for HQ, since a bought "
-              + "precraft is NQ. " + MasterSwitch, !hq),
+              + "precraft is NQ. " + MasterSwitch + byMaster, !hq && !locked),
         ], i =>
         {
             _list.BuyPrecrafts = (BuyCrafts)i;
             SaveAndReplan();
         }, DrawGetOnlyMissingPrecrafts);
 
+        var off = master == VendorRuns.Off;
         ForkChoice.Draw("Final crafts", "fin", (int)_list.EffectiveBuyFinals,
         [
             new("Craft", $"Every final craft is crafted. One the character cannot start ({Gates}) is tried again at the end of the run when only the level is "
-              + "short; for any other reason the run pauses before it sources anything and asks."),
+              + "short; for any other reason the run pauses before it sources anything and asks." + (off ? byMaster : ""), !off),
             new("Buy when out of reach", "A final craft the character cannot start now is bought from a gil vendor when one sells it, NQ. Greyed while aiming for "
-              + "HQ. Pointless on a log list: a bought item is never logged. " + MasterSwitch, !hq),
+              + "HQ. Pointless on a log list: a bought item is never logged. " + MasterSwitch + (off ? byMaster : ""), !hq && !off),
             new("Buy instead of crafting", "Every final craft a gil vendor sells is bought, NQ, for a list that only wants the items. Greyed while aiming for HQ. "
-              + MasterSwitch, !hq),
+              + MasterSwitch + (off ? byMaster : ""), !hq && !off),
         ], i =>
         {
             _list.BuyFinals = (BuyCrafts)i;

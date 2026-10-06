@@ -49,15 +49,21 @@ public class CraftingListDefinition
     public List<uint> HqTried { get; set; } = new();
     public bool Ephemeral { get; set; } = false;
 
-    // fork: what the run does, once aiming for HQ has greyed the choices that would give NQ
+    public static VendorRuns Master
+        => ListRules.Master(GatherBuddy.Config.VulcanBuyBeforeGathering, GatherBuddy.Config.VulcanBuyEverythingSold);
+
+    // fork: what the run does, once the master switch and aiming for HQ have greyed choices
     public BuyCrafts EffectiveBuyPrecrafts
-        => ListRules.Precrafts(AimForHq, BuyPrecrafts);
+        => ListRules.EffectivePrecrafts(Master, AimForHq, BuyPrecrafts);
 
     public BuyCrafts EffectiveBuyFinals
-        => ListRules.Finals(AimForHq, BuyFinals);
+        => ListRules.EffectiveFinals(Master, AimForHq, BuyFinals);
 
     public Materials MaterialsChoice
         => ListRules.MaterialsOf(BuyInsteadOfWaiting, BuyInsteadOfGathering);
+
+    public Materials EffectiveMaterials
+        => ListRules.EffectiveMaterials(Master, MaterialsChoice);
 
     public Synthesis SynthesisChoice
         => ListRules.SynthesisOf(QuickSynthAll, QuickSynthAllPrecraftsOnly);

@@ -48,8 +48,7 @@ public sealed class CraftingExecutionPlan
         SkipFinalIfEnough = planningSnapshot.SkipFinalIfEnough;
         RetainerRestock = planningSnapshot.RetainerRestock;
         CountHeld = planningSnapshot.CountHeld;
-        BuyInsteadOfWaiting = planningSnapshot.BuyInsteadOfWaiting;
-        BuyInsteadOfGathering = planningSnapshot.BuyInsteadOfGathering;
+        (BuyInsteadOfWaiting, BuyInsteadOfGathering) = ForkLogic.ListRules.MaterialsFlags(planningSnapshot.EffectiveMaterials);
         ApplyResolvedPlan(resolvedPlan);
     }
 

@@ -24,6 +24,13 @@ public enum Synthesis
     QuickSynthEverything,
 }
 
+public enum VendorRuns
+{
+    Off,
+    AsListsSay,
+    EverythingSold,
+}
+
 public static class ListRules
 {
     public static BuyCrafts Precrafts(bool aimForHq, BuyCrafts chosen)
@@ -52,4 +59,30 @@ public static class ListRules
 
     public static bool TriesStartAfresh(bool aimForHq, bool oncePerDay)
         => aimForHq && !oncePerDay;
+
+    public static VendorRuns Master(bool on, bool everythingSold)
+        => !on ? VendorRuns.Off : everythingSold ? VendorRuns.EverythingSold : VendorRuns.AsListsSay;
+
+    public static (bool On, bool EverythingSold) MasterFlags(VendorRuns master)
+        => (master != VendorRuns.Off, master == VendorRuns.EverythingSold);
+
+    public static Materials EffectiveMaterials(VendorRuns master, Materials chosen)
+        => master switch
+        {
+            VendorRuns.Off            => Materials.GatherAll,
+            VendorRuns.EverythingSold => Materials.BuyInsteadOfGathering,
+            _                         => chosen,
+        };
+
+    // the override buys as much as a list aiming for HQ allows; final crafts are never bought on its account
+    public static BuyCrafts EffectivePrecrafts(VendorRuns master, bool aimForHq, BuyCrafts chosen)
+        => master switch
+        {
+            VendorRuns.Off            => BuyCrafts.Craft,
+            VendorRuns.EverythingSold => Precrafts(aimForHq, BuyCrafts.InsteadOfCrafting),
+            _                         => Precrafts(aimForHq, chosen),
+        };
+
+    public static BuyCrafts EffectiveFinals(VendorRuns master, bool aimForHq, BuyCrafts chosen)
+        => master == VendorRuns.Off ? BuyCrafts.Craft : Finals(aimForHq, chosen);
 }

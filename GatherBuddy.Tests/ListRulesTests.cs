@@ -61,4 +61,33 @@ public class ListRulesTests
         Assert.False(ListRules.TriesStartAfresh(true, true));
         Assert.False(ListRules.TriesStartAfresh(false, false));
     }
+
+    [Fact]
+    public void The_master_switch_maps_onto_its_two_flags_both_ways()
+    {
+        foreach (var master in new[] { VendorRuns.Off, VendorRuns.AsListsSay, VendorRuns.EverythingSold })
+        {
+            var (on, everything) = ListRules.MasterFlags(master);
+            Assert.Equal(master, ListRules.Master(on, everything));
+        }
+    }
+
+    [Fact]
+    public void Off_buys_nothing_and_the_override_buys_whatever_is_sold_without_touching_the_stored_choice()
+    {
+        Assert.Equal(Materials.GatherAll, ListRules.EffectiveMaterials(VendorRuns.Off, Materials.BuyInsteadOfGathering));
+        Assert.Equal(Materials.BuyInsteadOfGathering, ListRules.EffectiveMaterials(VendorRuns.EverythingSold, Materials.GatherAll));
+        Assert.Equal(Materials.BuyInsteadOfWaiting, ListRules.EffectiveMaterials(VendorRuns.AsListsSay, Materials.BuyInsteadOfWaiting));
+        Assert.Equal(BuyCrafts.Craft, ListRules.EffectivePrecrafts(VendorRuns.Off, false, BuyCrafts.InsteadOfCrafting));
+        Assert.Equal(BuyCrafts.InsteadOfCrafting, ListRules.EffectivePrecrafts(VendorRuns.EverythingSold, false, BuyCrafts.Craft));
+        Assert.Equal(BuyCrafts.WhenOutOfReach, ListRules.EffectivePrecrafts(VendorRuns.EverythingSold, true, BuyCrafts.Craft));
+    }
+
+    [Fact]
+    public void Final_crafts_are_never_bought_on_the_override_s_account()
+    {
+        Assert.Equal(BuyCrafts.Craft, ListRules.EffectiveFinals(VendorRuns.EverythingSold, false, BuyCrafts.Craft));
+        Assert.Equal(BuyCrafts.InsteadOfCrafting, ListRules.EffectiveFinals(VendorRuns.EverythingSold, false, BuyCrafts.InsteadOfCrafting));
+        Assert.Equal(BuyCrafts.Craft, ListRules.EffectiveFinals(VendorRuns.Off, false, BuyCrafts.InsteadOfCrafting));
+    }
 }
