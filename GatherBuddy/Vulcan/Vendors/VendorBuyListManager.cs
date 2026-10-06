@@ -608,6 +608,9 @@ public sealed partial class VendorBuyListManager : IDisposable
     {
         var entries  = VendorShopResolver.GilShopEntries.Where(e => e.ItemId == itemId).ToList();
         var sellers  = entries.SelectMany(e => e.Npcs).Select(n => n.Name).Where(n => n.Length > 0).Distinct().ToList();
+        var quest    = string.Empty;
+        if (sellers.Count > 0 && entries.All(e => e.Npcs.All(n => ShopGates.Locked(n.ShopId, itemId, out quest))))
+            return ForkLogic.PurchaseRules.NoVendor(sellers, ForkLogic.PurchaseRules.NoVendorCause.Quest, quest);
         var workable = entries.Any(e => e.Npcs.Any(n => VendorPurchaseManager.IsPurchaseSupported(e, n)));
         return ForkLogic.PurchaseRules.NoVendor(sellers,
             workable ? ForkLogic.PurchaseRules.NoVendorCause.LeftOut : ForkLogic.PurchaseRules.NoVendorCause.ShopKind);

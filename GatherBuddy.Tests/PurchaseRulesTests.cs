@@ -126,4 +126,9 @@ public class PurchaseRulesTests
         Assert.Equal([(Rivets, 2u, 1)], PurchaseRules.BeforeGathering(new Dictionary<uint, int> { [Rivets] = target }, Gathered.Contains, SoldForGil.Contains, _ => 1));
         Assert.Equal(3, PurchaseRules.BoughtTarget(3, 0));
     }
+
+    [Fact]
+    public void A_shop_shut_behind_a_quest_names_the_quest()
+        => Assert.Equal("sold by Sahagin vendor, whose shop opens after the quest 'Clutch and Kin'",
+            PurchaseRules.NoVendor(["Sahagin vendor"], PurchaseRules.NoVendorCause.Quest, "Clutch and Kin"));
 }

@@ -24,7 +24,7 @@ public static class VendorDevExclusions
 
     public static IReadOnlyList<VendorNpc> GetSelectableNpcs(IReadOnlyList<VendorNpc> npcs, string context, string? itemName = null)
     {
-        if (npcs.Count == 0 || !HasExclusions)
+        if (npcs.Count == 0)
             return npcs;
 
         var selectableNpcs = new List<VendorNpc>(npcs.Count);
@@ -53,6 +53,12 @@ public static class VendorDevExclusions
         if (ExcludedNpcIds.Contains(npc.NpcId))
         {
             reason = $"npcId={npc.NpcId}";
+            return true;
+        }
+
+        if (npc.MenuShopType == VendorMenuShopType.GilShop && ShopGates.Locked(npc.ShopId, 0, out var quest))
+        {
+            reason = $"the shop opens after the quest '{quest}'";
             return true;
         }
 

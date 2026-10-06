@@ -22,7 +22,7 @@ public enum MaterialSource
 
 public static class MaterialSourceClassifier
 {
-    private static HashSet<uint>? _gilVendorItems;
+    private static Dictionary<uint, List<uint>>? _gilShops;
     private static HashSet<uint>? _scripItems;
     private static HashSet<uint>? _specialCurrencyItems;
     private static HashSet<uint>? _craftableItems;
@@ -31,7 +31,7 @@ public static class MaterialSourceClassifier
 
     public static void Reset()
     {
-        _gilVendorItems       = null;
+        _gilShops             = null;
         _scripItems           = null;
         _specialCurrencyItems = null;
         _craftableItems       = null;
@@ -43,7 +43,7 @@ public static class MaterialSourceClassifier
     {
         EnsureInitialized();
 
-        if (preferVendors && _gilVendorItems?.Contains(itemId) == true)
+        if (preferVendors && SoldOpenly(itemId))
             return MaterialSource.GilVendor;
 
         if (GatherBuddy.GameData.Gatherables.ContainsKey(itemId))
@@ -56,7 +56,7 @@ public static class MaterialSourceClassifier
         if (_craftableItems?.Contains(itemId) == true)
             return MaterialSource.Craftable;
 
-        if (_gilVendorItems?.Contains(itemId) == true)
+        if (SoldOpenly(itemId))
             return MaterialSource.GilVendor;
 
         if (_scripItems?.Contains(itemId) == true)
@@ -76,8 +76,12 @@ public static class MaterialSourceClassifier
     public static bool IsSoldForGil(uint itemId)
     {
         EnsureInitialized();
-        return _gilVendorItems?.Contains(itemId) == true;
+        return SoldOpenly(itemId);
     }
+
+    // fork: a shop still shut behind a quest does not make an item sold
+    private static bool SoldOpenly(uint itemId)
+        => _gilShops != null && _gilShops.TryGetValue(itemId, out var shops) && shops.Any(shop => !Vulcan.Vendors.ShopGates.Locked(shop, itemId, out _));
 
     private static void EnsureInitialized()
     {
@@ -92,15 +96,21 @@ public static class MaterialSourceClassifier
 
     private static void BuildGilVendorSet()
     {
-        _gilVendorItems = new HashSet<uint>();
+        _gilShops = new Dictionary<uint, List<uint>>();
         try
         {
             var sheet = Dalamud.GameData.GetSubrowExcelSheet<GilShopItem>();
             if (sheet == null) return;
             foreach (var subrow in sheet.SelectMany(s => s))
-                if (subrow.Item.RowId > 0)
-                    _gilVendorItems.Add(subrow.Item.RowId);
-            GatherBuddy.Log.Debug($"[MaterialSourceClassifier] Gil vendor set: {_gilVendorItems.Count} items");
+            {
+                if (subrow.Item.RowId == 0)
+                    continue;
+                if (!_gilShops.TryGetValue(subrow.Item.RowId, out var shops))
+                    _gilShops[subrow.Item.RowId] = shops = new List<uint>();
+                if (!shops.Contains(subrow.RowId))
+                    shops.Add(subrow.RowId);
+            }
+            GatherBuddy.Log.Debug($"[MaterialSourceClassifier] Gil vendor set: {_gilShops.Count} items");
         }
         catch (Exception ex)
         {

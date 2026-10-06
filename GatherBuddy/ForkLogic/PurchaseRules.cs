@@ -53,17 +53,20 @@ public static class PurchaseRules
     public static string NoWayToGet(int count)
         => $"{count} material(s) the run cannot get itself";
 
-    public enum NoVendorCause { ShopKind, LeftOut }
+    public enum NoVendorCause { ShopKind, LeftOut, Quest }
 
-    public static string NoVendor(IReadOnlyList<string> sellers, NoVendorCause cause)
+    public static string NoVendor(IReadOnlyList<string> sellers, NoVendorCause cause, string quest = "")
     {
         if (sellers.Count == 0)
             return "no vendor is known for the shop that sells it";
 
         var named = sellers.Count <= 2 ? string.Join(" and ", sellers) : $"{sellers[0]}, {sellers[1]} and {sellers.Count - 2} more";
-        return cause == NoVendorCause.ShopKind
-            ? $"sold by {named}, but through a kind of shop window GatherBuddy cannot work"
-            : $"sold by {named}, which GatherBuddy's own list of vendors leaves out";
+        return cause switch
+        {
+            NoVendorCause.ShopKind => $"sold by {named}, but through a kind of shop window GatherBuddy cannot work",
+            NoVendorCause.Quest    => $"sold by {named}, whose shop opens after the quest '{quest}'",
+            _                      => $"sold by {named}, which GatherBuddy's own list of vendors leaves out",
+        };
     }
 
     public static string PlaceUnknown(string vendor)
