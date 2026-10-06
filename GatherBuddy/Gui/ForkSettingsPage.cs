@@ -136,6 +136,29 @@ internal static class ForkSettingsPage
             GcMissions.MakeLists();
     }
 
+    public static void DrawRunsCaption()
+        => ImGui.TextDisabled("Runs");
+
+    public static void DrawButtonsCaption()
+    {
+        ImGui.Spacing();
+        ImGui.TextDisabled("Buttons");
+    }
+
+    public static void DrawEverydayButtons()
+    {
+        DrawGcMissionLists();
+        ImGui.SameLine();
+        KeepMarkButton.DrawGreen();
+    }
+
+    public static void DrawResetButtons()
+    {
+        DrawResetLists();
+        ImGui.SameLine();
+        DrawResetSettings();
+    }
+
     public static void DrawElsewhere()
     {
         ImGui.Spacing();

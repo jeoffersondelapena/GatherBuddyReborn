@@ -1664,6 +1664,7 @@ public partial class Interface
         ]),
         new("", "Fork",
         [
+            new("Runs fork",                                      ForkSettingsPage.DrawRunsCaption),
             new("Buy From Vendors master switch vendor run fork", ForkSettingsPage.DrawBuyBeforeGathering),
             new("Sprint When Walking sprint vnavmesh fork",               ForkSettingsPage.DrawSprint),
             new("Summoning Bell retainer bell per character fork", ForkSettingsPage.DrawBellZone),
@@ -1674,10 +1675,9 @@ public partial class Interface
                     if (GatherBuddy.Config.VulcanRepairConfig.RepairAfterRun)
                         layout.Child.Draw(ForkSettingsPage.DrawAfterRunThreshold);
                 }),
-            new("Reset settings to policy fork",                  ForkSettingsPage.DrawResetSettings),
-            new("Reset generated lists fork",                     ForkSettingsPage.DrawResetLists),
-            new("GC Mission Lists fork",                          ForkSettingsPage.DrawGcMissionLists),
-            new("Clear Green Marks Keep fork",                    KeepMarkButton.DrawGreen),
+            new("Buttons fork",                                   ForkSettingsPage.DrawButtonsCaption),
+            new("GC Mission Lists Clear Green Marks Keep fork",   ForkSettingsPage.DrawEverydayButtons),
+            new("Reset generated lists Reset settings to policy fork", ForkSettingsPage.DrawResetButtons),
             new("Skip Logged Items Skip Logged Recipes Skip Retainers Skip Buying Skip Gathering Retry skipped fork", ForkSettingsPage.DrawElsewhere),
         ]),
     ];
