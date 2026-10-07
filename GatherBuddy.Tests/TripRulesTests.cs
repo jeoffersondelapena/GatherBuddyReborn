@@ -28,4 +28,21 @@ public class TripRulesTests
         Assert.False(TripRules.WalksToVendor(true, 120f));
         Assert.False(TripRules.WalksToVendor(false, 24.7f));
     }
+
+    [Fact]
+    public void The_last_stretch_to_a_vendor_off_the_mesh_is_walked_straight_only_when_short_and_level()
+    {
+        Assert.True(TripRules.WalksStraight(true, 9.1f, 0.1f));
+        Assert.False(TripRules.WalksStraight(true, 14f, 0.1f));
+        Assert.False(TripRules.WalksStraight(true, 9.1f, 3f));
+        Assert.False(TripRules.WalksStraight(false, 9.1f, 0.1f));
+    }
+
+    [Fact]
+    public void Standing_on_a_canopy_right_above_the_vendor_is_recognised()
+    {
+        Assert.True(TripRules.StandsAbove(0.1f, 3.2f, 5f, 2f));
+        Assert.False(TripRules.StandsAbove(0.1f, 1.0f, 5f, 2f));
+        Assert.False(TripRules.StandsAbove(9f, 3.2f, 5f, 2f));
+    }
 }

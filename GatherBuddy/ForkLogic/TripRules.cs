@@ -12,6 +12,17 @@ public static class TripRules
     public static bool WalksToVendor(bool onFoot, float distance)
         => onFoot && distance <= WalkToVendorDistance;
 
+    // a vendor under a canopy stands off the mesh; the last stretch is walked in a straight line
+    public const float StraightWalkDistance = 12f;
+    public const float StraightWalkHeight   = 2.5f;
+    public const int   StraightWalkTries    = 3;
+
+    public static bool WalksStraight(bool onFoot, float horizontal, float vertical)
+        => onFoot && horizontal <= StraightWalkDistance && vertical <= StraightWalkHeight;
+
+    public static bool StandsAbove(float horizontal, float heightAboveNpc, float interactionDistance, float maxVertical)
+        => horizontal <= interactionDistance && heightAboveNpc > maxVertical;
+
     public static readonly Trip Aethernet = new(0, false);
 
     public static bool Cheaper(Trip trip, Trip than)

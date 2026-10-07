@@ -566,6 +566,8 @@ public class VendorNavigator
     private DateTime                 _lastGroundRetryTime;
     private int                      _groundRetryCount;
     private DateTime                 _forceInteractionRangeApproachUntil;
+    private DateTime                 _straightWalkUntil;
+    private int                      _straightWalks;
     private DateTime                 _lastTeleportWaitDiagnosticsLogTime;
 
     public bool               IsReadyToPurchase => _state == State.ReadyToPurchase;
@@ -698,6 +700,8 @@ public class VendorNavigator
         _lastGroundRetryTime                 = DateTime.MinValue;
         _groundRetryCount                    = 0;
         _forceInteractionRangeApproachUntil  = DateTime.MinValue;
+        _straightWalkUntil                   = DateTime.MinValue;
+        _straightWalks                       = 0;
         _teleportWaitStartTime               = DateTime.MinValue;
         _lastTeleportWaitDiagnosticsLogTime  = DateTime.MinValue;
     }
@@ -1338,6 +1342,15 @@ public class VendorNavigator
             return;
         }
 
+        if (DateTime.UtcNow < _straightWalkUntil)
+            return;
+
+        if (liveNpc != null && OnFoot()
+         && TripRules.StandsAbove(GetHorizontalDistance(playerPos, liveNpc.Position), playerPos.Y - liveNpc.Position.Y, LiveNpcInteractionDistance, VendorInteractionMaxVerticalDistance)
+         && TryGetVendorStagingDestination(liveNpc, out var stepDown, out _)
+         && WalkStraight(stepDown, $"standing {playerPos.Y - liveNpc.Position.Y:F1}m above {GetDisplayName(liveNpc)}, walking off towards {stepDown}"))
+            return;
+
         if (ShouldRepath(destination, usingLiveNpc, destinationMode))
         {
             StartVNavmesh(destination, usingLiveNpc, destinationMode);
@@ -1414,7 +1427,8 @@ public class VendorNavigator
         if (isAirborne && hasStagingDestination && shouldUseCloseRangeLiveNpcApproach && liveNpc != null)
         {
             airborneDirectLiveNpcDestination = ResolveLiveNpcFallbackDestination(liveNpc, out var usesProjectedDestination);
-            useAirborneDirectLiveNpcNavigation = !usesProjectedDestination;
+            // without a floor point near the vendor, the raw position is whatever is above it, as a canopy was
+            useAirborneDirectLiveNpcNavigation = usesProjectedDestination;
         }
 
         if (useAirborneDirectLiveNpcNavigation && liveNpc != null)
@@ -1506,6 +1520,32 @@ public class VendorNavigator
 
     private bool IsGroundApproachStabilizing()
         => DateTime.UtcNow < _forceGroundApproachUntil;
+
+    private bool OnFoot()
+        => !_pathUsesFlight && !_pathUsesCombinedApproach && !_mountingUp && !_waitingForMount
+         && !Dalamud.Conditions[ConditionFlag.Mounted] && !Dalamud.Conditions[ConditionFlag.InFlight] && !Dalamud.Conditions[ConditionFlag.Diving];
+
+    // fork: vnavmesh follows given waypoints as they are, so a short stretch off the mesh is walked in a straight line
+    private bool WalkStraight(Vector3 destination, string why)
+    {
+        if (_straightWalks >= TripRules.StraightWalkTries)
+            return false;
+
+        StopPathing();
+        _straightWalks++;
+        _straightWalkUntil        = DateTime.UtcNow.AddSeconds(6);
+        _navigationDestination    = destination;
+        _hasNavigationDestination = true;
+        _usingLiveNpcDestination  = true;
+        _lastRepathTime           = DateTime.UtcNow;
+        GatherBuddy.Log.Debug($"[VendorNavigator] Walking straight ({_straightWalks}/{TripRules.StraightWalkTries}): {why}");
+        VNavmesh.Path.MoveTo([destination], false);
+        return true;
+    }
+
+    private bool TryWalkStraightToVendor(Vector3 playerPosition, IGameObject liveNpc, string why)
+        => TripRules.WalksStraight(OnFoot(), GetHorizontalDistance(playerPosition, liveNpc.Position), MathF.Abs(playerPosition.Y - liveNpc.Position.Y))
+         && WalkStraight(liveNpc.Position, $"{why}; {GetDisplayName(liveNpc)} is {GetHorizontalDistance(playerPosition, liveNpc.Position):F1}m away off the mesh");
 
     private bool IsFlightVendorApproachActive(Vector3 destination)
     {
@@ -1673,6 +1713,9 @@ public class VendorNavigator
                     return;
                 }
             }
+            if (!_pathUsesFlight && FindLiveNpcObject() is { } unreached && Dalamud.Objects.LocalPlayer?.Position is { } here
+             && TryWalkStraightToVendor(here, unreached, "no path to the vendor"))
+                return;
             GatherBuddy.Log.Error($"[VendorNavigator] VNavmesh failed to find a path to {_navigationDestination}");
             StopPathing();
             _state = State.Failed;
@@ -2486,6 +2529,8 @@ public class VendorNavigator
         }
         if (stalledSeconds < VendorGroundInteractionRangeFallbackTimeout)
             return false;
+        if (liveNpc != null && TryWalkStraightToVendor(playerPosition, liveNpc, "the ground path stalled short of the vendor"))
+            return true;
         if (liveNpc != null
          && destinationMode != NavigationDestinationMode.TargetInteractionRange
          && _forceInteractionRangeApproachUntil < now)
