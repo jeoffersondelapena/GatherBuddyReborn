@@ -94,7 +94,7 @@ public partial class AutoGatherListsManager : IDisposable
             if (!GatherRules.BuyInstead(Crafting.MaterialSourceClassifier.IsSoldForGil(item.ItemId), toBuy))
                 continue;
 
-            targets.Add((item.ItemId, (uint)(Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(item.ItemId) + toBuy)));
+            targets.Add((item.ItemId, (uint)(Vulcan.Vendors.VendorBuyListManager.HeldCount(item.ItemId) + toBuy)));
         }
 
         return targets;

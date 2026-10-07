@@ -411,7 +411,7 @@ internal static unsafe class GcMissions
     }
 
     private static int Held(uint itemId)
-        => Vulcan.Vendors.VendorBuyListManager.GetCurrentInventoryAndArmoryCount(itemId);
+        => Vulcan.Vendors.VendorBuyListManager.HeldCount(itemId);
 
     private static bool Waits(uint itemId, int needed, bool soldForGil)
         => MissionRules.Waits(

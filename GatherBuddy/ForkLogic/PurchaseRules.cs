@@ -4,7 +4,7 @@ using System.Collections.Generic;
 
 namespace GatherBuddy.ForkLogic;
 
-// targets are the plan's full amounts, since the buy run itself subtracts what the bags and armoury hold
+// targets are the plan's full amounts, since the buy run itself subtracts what the bags hold
 public static class PurchaseRules
 {
     public static List<(uint ItemId, uint Target, int Missing)> BeforeGathering(IEnumerable<KeyValuePair<uint, int>> materials,

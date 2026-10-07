@@ -589,7 +589,7 @@ public sealed partial class VendorBuyListWindow : Window
         var selectedVendor = GetSelectedVendorOption(vendorOptions, resolvedVendor);
         var isActive     = manager.ActiveEntryId == entry.Id;
         var isEnabled    = entry.Enabled;
-        var currentCount = Math.Max(0, VendorBuyListManager.GetCurrentInventoryAndArmoryCount(entry.ItemId));
+        var currentCount = Math.Max(0, VendorBuyListManager.HeldCount(entry.ItemId));
         var remaining    = manager.GetRemainingQuantity(entry);
         var targetCount  = entry.TargetQuantity > int.MaxValue ? int.MaxValue : (int)entry.TargetQuantity;
 

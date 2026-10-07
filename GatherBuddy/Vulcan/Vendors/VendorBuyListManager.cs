@@ -671,7 +671,7 @@ public sealed partial class VendorBuyListManager : IDisposable
     {
         if (!entry.Enabled)
             return 0;
-        var currentCount = (uint)Math.Max(0, GetCurrentInventoryAndArmoryCount(entry.ItemId));
+        var currentCount = (uint)Math.Max(0, HeldCount(entry.ItemId));
         return entry.TargetQuantity > currentCount
             ? entry.TargetQuantity - currentCount
             : 0;
@@ -738,8 +738,8 @@ public sealed partial class VendorBuyListManager : IDisposable
         return new VendorNpcLocation(vendor.NpcId, vendor.Name, territory, map, position, VendorNpcLocationSource.Unknown);
     }
 
-    public static int GetCurrentInventoryAndArmoryCount(uint itemId)
-        => ItemHelper.GetInventoryAndArmoryItemCount(itemId);
+    public static int HeldCount(uint itemId)
+        => ItemHelper.GetHeldItemCount(itemId);
 
     private int GetPendingEntryCount(VendorBuyListDefinition? list)
         => list?.Entries.Count(entry => GetRemainingQuantity(entry) > 0) ?? 0;
@@ -1101,7 +1101,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (existingEntries.Count == 1)
         {
             var existing = existingEntries[0];
-            existing.TargetQuantity = SaturatingAdd(Math.Max(existing.TargetQuantity, (uint)Math.Max(0, GetCurrentInventoryAndArmoryCount(itemId))), amount);
+            existing.TargetQuantity = SaturatingAdd(Math.Max(existing.TargetQuantity, (uint)Math.Max(0, HeldCount(itemId))), amount);
             existing.Enabled = true;
             if (selectList)
                 GatherBuddy.Config.ActiveVendorBuyListId = list.Id;
@@ -1121,7 +1121,7 @@ public sealed partial class VendorBuyListManager : IDisposable
         if (!TryResolveDefaultEntry(itemId, out var liveEntry, out var vendor))
             return false;
 
-        var targetQuantity = SaturatingAdd((uint)Math.Max(0, GetCurrentInventoryAndArmoryCount(itemId)), amount);
+        var targetQuantity = SaturatingAdd((uint)Math.Max(0, HeldCount(itemId)), amount);
         return TryAddTarget(list, liveEntry, vendor, targetQuantity, selectList, openWindow, announce);
     }
 

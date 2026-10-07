@@ -28,6 +28,24 @@ public static class ItemHelper
     }
     
 
+    // fork: what a run counts as held is what the bags hold; gear in the armoury chest or worn is in use, not stock
+    public static unsafe int GetHeldItemCount(uint itemId)
+    {
+        try
+        {
+            var inventoryManager = InventoryManager.Instance();
+            if (inventoryManager != null)
+                return Math.Max(0, inventoryManager->GetInventoryItemCount(itemId, false, false, false))
+                  + Math.Max(0, inventoryManager->GetInventoryItemCount(itemId, true, false, false));
+        }
+        catch (Exception ex)
+        {
+            LogInventoryManagerFallback($"[ItemHelper] Failed to count item {itemId} with InventoryManager: {ex.Message}");
+        }
+
+        return 0;
+    }
+
     public static unsafe int GetInventoryAndArmoryItemCount(uint itemId, bool includeEquipped = false)
     {
         try

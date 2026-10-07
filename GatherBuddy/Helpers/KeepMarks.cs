@@ -20,9 +20,6 @@ public static unsafe class KeepMarks
     private static readonly InventoryType[] Holding =
     [
         InventoryType.Inventory1, InventoryType.Inventory2, InventoryType.Inventory3, InventoryType.Inventory4,
-        InventoryType.ArmoryMainHand, InventoryType.ArmoryOffHand, InventoryType.ArmoryHead, InventoryType.ArmoryBody,
-        InventoryType.ArmoryHands, InventoryType.ArmoryLegs, InventoryType.ArmoryFeets, InventoryType.ArmoryEar,
-        InventoryType.ArmoryNeck, InventoryType.ArmoryWrist, InventoryType.ArmoryRings, InventoryType.EquippedItems,
     ];
     private static int      _nextRun;
     private static DateTime _nextPrune;
@@ -233,7 +230,6 @@ public static unsafe class KeepMarks
         return made;
     }
 
-    // what is worn counts too: a run's gearset change moves gear between the armoury and the character, which must not read as a loss
     private static Dictionary<uint, int> Held(IEnumerable<uint> itemIds)
     {
         var held      = itemIds.Distinct().ToDictionary(id => id, _ => 0);

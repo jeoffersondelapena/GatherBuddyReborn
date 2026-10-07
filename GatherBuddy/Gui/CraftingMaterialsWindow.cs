@@ -841,7 +841,7 @@ public class CraftingMaterialsWindow : Window
         if (missingQuantity <= 0)
             return false;
 
-        var currentCount = (uint)Math.Max(0, VendorBuyListManager.GetCurrentInventoryAndArmoryCount(entry.ItemId));
+        var currentCount = (uint)Math.Max(0, VendorBuyListManager.HeldCount(entry.ItemId));
         target = new VendorBuyListManager.VendorTargetRequest(entry.ItemId, currentCount + (uint)missingQuantity);
         return true;
     }

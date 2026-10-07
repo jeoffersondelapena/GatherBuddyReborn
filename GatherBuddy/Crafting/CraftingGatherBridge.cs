@@ -401,7 +401,7 @@ public static class CraftingGatherBridge
 
     private static List<string> BeyondReach()
         => PurchaseRules.BeyondReach(_afterBuying!, Gatherable, MaterialSourceClassifier.IsSoldForGil,
-                VendorBuyListManager.GetCurrentInventoryAndArmoryCount, Buying)
+                VendorBuyListManager.HeldCount, Buying)
             .Select(b => $"{ForkTrace.ItemName(b.ItemId)} x{b.Missing} ({b.Why})").ToList();
 
     private static void StartBuying()
@@ -430,7 +430,7 @@ public static class CraftingGatherBridge
                     GatherBuddy.GameData.Fishes.TryGetValue(id, out var fish) ? fish.InternalLocationId : null,
                     AutoGather.Helpers.Diadem.ApprovedToRawItemIds.ContainsKey(id)),
                 Gatherable),
-            MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.GetCurrentInventoryAndArmoryCount);
+            MaterialSourceClassifier.IsSoldForGil, VendorBuyListManager.HeldCount);
 
     private static List<string> Named(IEnumerable<(uint ItemId, uint Target, int Missing)> targets)
         => targets.Select(t => $"{ForkTrace.ItemName(t.ItemId)} x{t.Missing}").ToList();
