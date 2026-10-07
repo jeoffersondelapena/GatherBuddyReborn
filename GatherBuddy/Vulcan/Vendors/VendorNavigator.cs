@@ -1311,15 +1311,13 @@ public class VendorNavigator
                     if (CanRetryLandingAttempt())
                         TryLand();
                 }
-                else
+                else if (liveNpc != null)
                 {
-                    if (usingLiveNpc && liveNpc != null)
-                    {
-                        _forceInteractionRangeApproachUntil = DateTime.UtcNow.AddSeconds(VendorInteractionRangeFallbackDurationSeconds);
-                        GatherBuddy.Log.Debug($"[VendorNavigator] Reached live NPC staging point near {GetDisplayName(liveNpc)}, falling back to direct interaction-range navigation");
-                        StartVNavmesh(GetLiveNpcFallbackDestination(liveNpc), true, NavigationDestinationMode.TargetInteractionRange);
-                        return;
-                    }
+                    // a staging point reached on foot is only ever a step towards the vendor; idling there was the old stall
+                    _forceInteractionRangeApproachUntil = DateTime.UtcNow.AddSeconds(VendorInteractionRangeFallbackDurationSeconds);
+                    GatherBuddy.Log.Debug($"[VendorNavigator] Reached live NPC staging point near {GetDisplayName(liveNpc)}, falling back to direct interaction-range navigation");
+                    StartVNavmesh(GetLiveNpcFallbackDestination(liveNpc), true, NavigationDestinationMode.TargetInteractionRange);
+                    return;
                 }
                 ClearGroundApproachProgress();
                 return;
@@ -1487,6 +1485,11 @@ public class VendorNavigator
         var playerPosition = Dalamud.Objects.LocalPlayer?.Position ?? Vector3.Zero;
         if (playerPosition == Vector3.Zero)
             return false;
+
+        var onFoot = !_pathUsesFlight && !_pathUsesCombinedApproach && !_mountingUp && !_waitingForMount
+         && !Dalamud.Conditions[ConditionFlag.Mounted] && !Dalamud.Conditions[ConditionFlag.InFlight] && !Dalamud.Conditions[ConditionFlag.Diving];
+        if (TripRules.WalksToVendor(onFoot, GetHorizontalDistance(playerPosition, liveNpc.Position)))
+            return true;
 
         if (_usingLiveNpcDestination
          && !_pathUsesFlight

@@ -20,4 +20,12 @@ public class TripRulesTests
         Assert.False(TripRules.WalkInstead(400, 20, 5, 15));
         Assert.True(TripRules.WalkInstead(30, 20, 5, 15));
     }
+
+    [Fact]
+    public void On_foot_near_a_vendor_the_run_walks_instead_of_mounting_for_a_landing_point()
+    {
+        Assert.True(TripRules.WalksToVendor(true, 24.7f));
+        Assert.False(TripRules.WalksToVendor(true, 120f));
+        Assert.False(TripRules.WalksToVendor(false, 24.7f));
+    }
 }
