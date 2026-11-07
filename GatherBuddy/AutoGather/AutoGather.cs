@@ -521,6 +521,12 @@ namespace GatherBuddy.AutoGather
 
             WentHome = true;
 
+            if (HomeNavigationHelper.AtHome())
+            {
+                ForkTrace.Info($"go home ({reason}): already home");
+                return false;
+            }
+
             if (Dalamud.Conditions[ConditionFlag.BoundByDuty])
             {
                 ForkTrace.Info($"go home ({reason}): bound by duty, staying put");

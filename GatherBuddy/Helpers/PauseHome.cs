@@ -2,15 +2,12 @@ using System;
 using Dalamud.Game.ClientState.Conditions;
 using GatherBuddy.Plugin;
 using GatherBuddy.Vulcan.Vendors;
-using Lumina.Excel.Sheets;
 
 namespace GatherBuddy.Helpers;
 
 // fork: a run waiting on the player waits at home, not among other players
 internal static class PauseHome
 {
-    private const uint HousingInterior = 14;
-
     private static string? _part;
     private static DateTime _since;
 
@@ -55,7 +52,7 @@ internal static class PauseHome
     }
 
     public static bool AtHome()
-        => Dalamud.GameData.GetExcelSheet<TerritoryType>().GetRowOrDefault(Dalamud.ClientState.TerritoryType)?.TerritoryIntendedUse.RowId == HousingInterior;
+        => HomeNavigationHelper.AtHome();
 
     internal static string? Blocker()
     {

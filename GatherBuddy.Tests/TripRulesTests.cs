@@ -45,4 +45,14 @@ public class TripRulesTests
         Assert.False(TripRules.StandsAbove(0.1f, 1.0f, 5f, 2f));
         Assert.False(TripRules.StandsAbove(9f, 3.2f, 5f, 2f));
     }
+
+    [Fact]
+    public void Home_is_an_inn_room_or_a_house_interior_and_not_the_ward_outside()
+    {
+        Assert.True(TripRules.IsHome(TripRules.InnRoom));
+        Assert.True(TripRules.IsHome(TripRules.HousingInterior));
+        Assert.False(TripRules.IsHome(13));
+        Assert.False(TripRules.IsHome(0));
+        Assert.False(TripRules.IsHome(1));
+    }
 }

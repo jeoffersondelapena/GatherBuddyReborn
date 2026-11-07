@@ -30,4 +30,10 @@ public static class TripRules
 
     public static bool WalkInstead(float walk, float? toShard, float shardToTarget, float hopCost)
         => toShard is not { } shard || walk <= shard + shardToTarget + hopCost;
+
+    public const uint InnRoom         = 2;
+    public const uint HousingInterior = 14;
+
+    public static bool IsHome(uint territoryIntendedUse)
+        => territoryIntendedUse is InnRoom or HousingInterior;
 }
