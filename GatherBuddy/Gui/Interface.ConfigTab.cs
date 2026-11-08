@@ -1668,6 +1668,7 @@ public partial class Interface
             new("Buy From Vendors master switch vendor run fork", ForkSettingsPage.DrawBuyBeforeGathering),
             new("Sprint When Walking sprint vnavmesh fork",               ForkSettingsPage.DrawSprint),
             new("Summoning Bell retainer bell per character fork", ForkSettingsPage.DrawBellZone),
+            new("Repair with dark matter only self repair mender fork", ForkSettingsPage.DrawDarkMatterOnly),
             new("Repair All Gear After a Run After-Run Threshold mender fork",
                 layout =>
                 {

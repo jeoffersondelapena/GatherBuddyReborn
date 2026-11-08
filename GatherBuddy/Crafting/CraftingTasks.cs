@@ -5,6 +5,8 @@ using FFXIVClientStructs.FFXIV.Client.UI;
 using FFXIVClientStructs.FFXIV.Client.UI.Agent;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using GatherBuddy.Automation;
+using GatherBuddy.ForkLogic;
+using GatherBuddy.Helpers;
 using Lumina.Excel.Sheets;
 using System;
 using System.Linq;
@@ -211,6 +213,36 @@ public static class CraftingTasks
 
         _nextRetry = DateTime.Now.AddMilliseconds(200);
         return TaskResult.Retry;
+    }
+
+    // fork: Repair All covers only the dropdown's current category, so the wanted one is selected first
+    public static unsafe TaskResult TaskShowRepairCategory(RepairRules.Category category)
+    {
+        if (DateTime.Now < _nextRetry)
+            return TaskResult.Retry;
+
+        if (!RepairManager.RepairWindowOpen())
+            return TaskResult.Abort;
+
+        var agent  = (AgentRepair*)AgentModule.Instance()->GetAgentByInternalId(AgentId.Repair);
+        var filter = (AgentRepair.ItemFilter)(int)category;
+        if (agent->Filter != filter)
+        {
+            agent->Filter = filter;
+            agent->ChangeRepairInventory(false);
+            _nextRetry = DateTime.Now.AddMilliseconds(600);
+            return TaskResult.Retry;
+        }
+
+        if (agent->IsAddonRefreshPending)
+        {
+            _nextRetry = DateTime.Now.AddMilliseconds(100);
+            return TaskResult.Retry;
+        }
+
+        ForkTrace.Info($"repair window: showing {RepairRules.Label(category)} ({agent->ShownRepairEntryAmount} item(s))");
+        _nextRetry = DateTime.MinValue;
+        return TaskResult.Done;
     }
 
     public static unsafe TaskResult TaskCloseRepairWindow()

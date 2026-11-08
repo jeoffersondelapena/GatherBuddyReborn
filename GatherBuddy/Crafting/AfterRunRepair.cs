@@ -48,6 +48,7 @@ public static unsafe class AfterRunRepair
     private static RepairNPCData? _mender;
     private static VendorNavigator? _walk;
     private static string?        _waitingOn;
+    private static bool           _byHand;
 
     public static bool Busy
         => Steps.Count > 0;
@@ -127,6 +128,7 @@ public static unsafe class AfterRunRepair
         _homeStarted = false;
         _mender      = null;
         _stepName    = null;
+        _byHand      = false;
     }
 
     private static TaskResult WaitUntilFree()
@@ -171,6 +173,9 @@ public static unsafe class AfterRunRepair
             return TaskResult.Done;
         }
 
+        if (RepairPause.DarkMatterOnly)
+            return PlanByHand(worn, threshold);
+
         var inSight = InSight();
         _mender = inSight ?? Choose();
         if (_mender == null)
@@ -197,7 +202,7 @@ public static unsafe class AfterRunRepair
         Steps.Enqueue(("open repairs", 15, CraftingTasks.TaskSelectRepairFromMenu));
         foreach (var category in worn)
         {
-            Steps.Enqueue(($"show {RepairRules.Label(category)}", 10, () => Show(category)));
+            Steps.Enqueue(($"show {RepairRules.Label(category)}", 10, () => CraftingTasks.TaskShowRepairCategory(category)));
             Steps.Enqueue(($"repair {RepairRules.Label(category)}", 20, RepairShown));
         }
 
@@ -207,6 +212,86 @@ public static unsafe class AfterRunRepair
         if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
             Steps.Enqueue(("go home", 120, GoHome));
         return TaskResult.Done;
+    }
+
+    // the Repair window does every category by hand where the run ended; what the character cannot repair is reported and left as it is
+    private static TaskResult PlanByHand(IReadOnlyList<RepairRules.Category> worn, int threshold)
+    {
+        if (Check(threshold).Blocker(threshold) is { } why)
+        {
+            RepairPause.SkippedAfterRun(why, _label);
+            if (_homeWithoutTrip)
+                Steps.Enqueue(("go home", 120, GoHome));
+            return TaskResult.Done;
+        }
+
+        ForkTrace.Info($"after-run repair ({_reason}): {string.Join(", ", worn)} below {threshold}%; repairing by hand with dark matter");
+        YesAlready.Lock();
+        _locked = true;
+        _byHand = true;
+        CraftingTasks.ResetRepairState();
+        Steps.Enqueue(("dismount", 20, Dismount));
+        Steps.Enqueue(("open repairs", 15, CraftingTasks.TaskOpenRepairWindow));
+        foreach (var category in worn)
+        {
+            Steps.Enqueue(($"show {RepairRules.Label(category)}", 10, () => CraftingTasks.TaskShowRepairCategory(category)));
+            Steps.Enqueue(($"repair {RepairRules.Label(category)}", 30, RepairShown));
+            Steps.Enqueue(($"wait for {RepairRules.Label(category)}", 15, CraftingTasks.TaskWaitForRepairAutoClose));
+        }
+
+        Steps.Enqueue(("close repairs", 15, CraftingTasks.TaskCloseRepairWindow));
+        Steps.Enqueue(("report", 5, Report));
+        Steps.Enqueue(("let go", 5, LetGo));
+        if (GatherBuddy.Config.AutoGatherConfig.GoHomeWhenDone)
+            Steps.Enqueue(("go home", 120, GoHome));
+        return TaskResult.Done;
+    }
+
+    // the game refuses the Repair action on a mount
+    private static TaskResult Dismount()
+    {
+        if (!Dalamud.Conditions[ConditionFlag.Mounted])
+            return TaskResult.Done;
+
+        if (DateTime.Now < _nextAt)
+            return TaskResult.Retry;
+
+        ActionManager.Instance()->UseAction(ActionType.GeneralAction, 23);
+        _nextAt = DateTime.Now.AddSeconds(1);
+        return TaskResult.Retry;
+    }
+
+    private static RepairManager.SelfRepairCheck Check(int threshold)
+    {
+        var check     = new RepairManager.SelfRepairCheck();
+        var items     = Dalamud.GameData.GetExcelSheet<Item>();
+        var inventory = InventoryManager.Instance();
+        foreach (var (category, containers) in Containers)
+        {
+            foreach (var type in containers)
+            {
+                var container = inventory->GetInventoryContainer(type);
+                if (container == null)
+                    continue;
+
+                for (var i = 0; i < container->Size; ++i)
+                {
+                    var slot = container->GetInventorySlot(i);
+                    if (slot == null || slot->ItemId == 0 || RepairRules.Percent(slot->Condition) >= threshold)
+                        continue;
+
+                    var item = items.GetRowOrDefault(slot->ItemId)?.Name.ExtractText() ?? "an item";
+                    check.Add(slot, category switch
+                    {
+                        RepairRules.Category.Equipped  => $"the {RepairRules.SlotName(i)}",
+                        RepairRules.Category.Inventory => $"{item} in your bags",
+                        _                              => $"{item} in the armoury chest",
+                    });
+                }
+            }
+        }
+
+        return check;
     }
 
     // fork: a mender in sight, a town's or one hired into the home (which the game data places nowhere), is used where it stands
@@ -270,33 +355,6 @@ public static unsafe class AfterRunRepair
         return failed ? TaskResult.Abort : TaskResult.Done;
     }
 
-    private static TaskResult Show(RepairRules.Category category)
-    {
-        if (DateTime.Now < _nextAt)
-            return TaskResult.Retry;
-
-        if (!RepairManager.RepairWindowOpen())
-            return TaskResult.Abort;
-
-        var agent  = (AgentRepair*)AgentModule.Instance()->GetAgentByInternalId(AgentId.Repair);
-        var filter = (AgentRepair.ItemFilter)(int)category;
-        if (agent->Filter != filter)
-        {
-            agent->Filter = filter;
-            agent->ChangeRepairInventory(false);
-            _nextAt = DateTime.Now.AddMilliseconds(600);
-            return TaskResult.Retry;
-        }
-
-        if (agent->IsAddonRefreshPending)
-        {
-            _nextAt = DateTime.Now.AddMilliseconds(100);
-            return TaskResult.Retry;
-        }
-
-        ForkTrace.Info($"after-run repair: showing {category} ({agent->ShownRepairEntryAmount} item(s), {agent->TotalRepairCost} gil)");
-        return TaskResult.Done;
-    }
 
     private static TaskResult RepairShown()
     {
@@ -316,7 +374,7 @@ public static unsafe class AfterRunRepair
             _clicked = true;
         }
 
-        var result = CraftingTasks.TaskExecuteRepair();
+        var result = CraftingTasks.TaskExecuteRepair(isSelfRepair: _byHand);
         if (result == TaskResult.Retry)
             return result;
 
@@ -329,6 +387,24 @@ public static unsafe class AfterRunRepair
     {
         var threshold = GatherBuddy.Config.VulcanRepairConfig.AfterRunThreshold;
         var still     = RepairRules.Worn(Pieces(), threshold);
+        if (_byHand)
+        {
+            ForkTrace.Info($"after-run repair ({_reason}): done by hand; still below {threshold}%: " + (still.Count == 0 ? "none" : string.Join(", ", still)));
+            if (still.Count == 0)
+            {
+                RepairPause.Repaired();
+                Communicator.PrintRun("[GatherBuddy] Repaired all gear after the run with dark matter (fork).", _label, Communicator.Tone.Good);
+            }
+            else
+            {
+                RepairPause.NoteAfterRun(RepairRules.StillWorn(threshold));
+                Communicator.PrintRun($"[GatherBuddy] Repaired gear after the run with dark matter, but "
+                  + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}% (fork).", _label);
+            }
+
+            return TaskResult.Done;
+        }
+
         var spent     = _gilBefore - Gil();
         var where     = _mender?.Name ?? "the mender";
         ForkTrace.Info($"after-run repair ({_reason}): done at {where}, {spent} gil; still below {threshold}%: "

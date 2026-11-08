@@ -5,7 +5,10 @@ using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using System;
 using Dalamud.Game.ClientState.Conditions;
 using GatherBuddy.Automation;
+using GatherBuddy.Crafting;
+using GatherBuddy.ForkLogic;
 using GatherBuddy.Helpers;
+using RepairManager = GatherBuddy.Crafting.RepairManager;
 
 namespace GatherBuddy.AutoGather;
 
@@ -69,7 +72,10 @@ public unsafe partial class AutoGather
         var itemToRepair = EquipmentNeedingRepair();
 
         if (itemToRepair == null)
+        {
+            _conditionBeforeRepair = -1;
             return false;
+        }
 
         if (!GatherBuddy.Config.AutoGatherConfig.DoRepair)
         {
@@ -78,19 +84,16 @@ public unsafe partial class AutoGather
             return true;
         }
 
-        if (!HasRepairJob((Item)itemToRepair))
+        // fork: every worn piece is judged at once, and a repair the character cannot do by hand pauses the run at home instead of ending it
+        if (SelfRepairBlocker() is { } why)
         {
-            AbortAutoGather("Repairs needed, but no repair job found.");
-            return true;
-        }
-        if (!HasDarkMatter((Item)itemToRepair))
-        {
-            AbortAutoGather("Repairs needed, but no dark matter found.");
+            PauseForRepair(why);
             return true;
         }
 
         ForkTrace.Info($"repair (gathering): {((Item)itemToRepair).Name.ExtractText()} is at or below {GatherBuddy.Config.AutoGatherConfig.RepairThreshold}% condition; dark matter on hand, repairing on the spot");
         AutoStatus = "Repairing...";
+        _conditionBeforeRepair = RepairManager.GetMinEquippedPercent();
         StopNavigation();
 
         var delay = (int)GatherBuddy.Config.AutoGatherConfig.ExecutionDelay;
@@ -116,6 +119,7 @@ public unsafe partial class AutoGather
             return true;
         }, 3000, "Wait for RepairAuto window to close or force close it.");
         TaskManager.DelayNext(delay);
+        TaskManager.Enqueue(NoteRepaired, "Note repaired.");
 
         return true;
     }
@@ -131,7 +135,8 @@ public unsafe partial class AutoGather
 
         if (itemToRepair == null)
         {
-            _lastRepairTime = DateTime.MinValue;
+            _lastRepairTime        = DateTime.MinValue;
+            _conditionBeforeRepair = -1;
             return false;
         }
         
@@ -148,20 +153,16 @@ public unsafe partial class AutoGather
             return true;
         }
 
-        if (!HasRepairJob((Item)itemToRepair))
+        if (SelfRepairBlocker() is { } why)
         {
-            AbortAutoGather("Repairs needed, but no repair job found.");
-            return true;
-        }
-        if (!HasDarkMatter((Item)itemToRepair))
-        {
-            AbortAutoGather("Repairs needed, but no dark matter found.");
+            PauseForRepair(why);
             return true;
         }
 
         ForkTrace.Info($"repair (fishing): {((Item)itemToRepair).Name.ExtractText()} is at or below {GatherBuddy.Config.AutoGatherConfig.RepairThreshold}% condition; dark matter on hand, repairing on the spot");
         AutoStatus = "Repairing...";
         _lastRepairTime = DateTime.Now;
+        _conditionBeforeRepair = RepairManager.GetMinEquippedPercent();
         var delay = (int)GatherBuddy.Config.AutoGatherConfig.ExecutionDelay;
         
         TaskManager.Enqueue(StopNavigation);
@@ -213,7 +214,36 @@ public unsafe partial class AutoGather
                 AutoHook.SetAutoStartFishing?.Invoke(true);
             }
         });
+        TaskManager.Enqueue(NoteRepaired, "Note repaired.");
 
         return true;
+    }
+
+    private int _conditionBeforeRepair = -1;
+
+    private string? SelfRepairBlocker()
+    {
+        var threshold = GatherBuddy.Config.AutoGatherConfig.RepairThreshold;
+        var why       = RepairManager.EquippedCheck(c => c / 300 <= threshold).Blocker(threshold);
+        // the window was used already and the lowest piece is no better: the game refused what the rule allowed
+        if (why == null && _conditionBeforeRepair >= 0 && !TaskManager.IsBusy && RepairManager.GetMinEquippedPercent() <= _conditionBeforeRepair)
+            why = RepairRules.StillWorn(threshold);
+        return why;
+    }
+
+    private void PauseForRepair(string why)
+    {
+        _conditionBeforeRepair = -1;
+        RepairPause.Paused(CraftingGatherBridge.IsQueueMode ? TextRules.Crafting : TextRules.Gathering, why);
+        AbortAutoGather(why, why);
+    }
+
+    private void NoteRepaired()
+    {
+        if (EquipmentNeedingRepair() != null)
+            return;
+
+        _conditionBeforeRepair = -1;
+        RepairPause.Repaired();
     }
 }

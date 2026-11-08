@@ -467,6 +467,7 @@ public class VulcanRepairConfig
     public bool Enabled { get; set; } = true;
     public int RepairThreshold { get; set; } = 10;
     public bool PrioritizeNPCRepair { get; set; } = true;
+    public bool DarkMatterOnly { get; set; } = true;
 
     [JsonIgnore]
     public RepairNPCData? PreferredRepairNPC { get; set; } = null;

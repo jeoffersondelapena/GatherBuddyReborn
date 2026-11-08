@@ -68,6 +68,23 @@ internal static class ForkSettingsPage
               + "Automatic picks the town that is cheapest to teleport to. Saved for the character that is logged in.");
     }
 
+    public static void DrawDarkMatterOnly()
+    {
+        var config = GatherBuddy.Config.VulcanRepairConfig;
+        var only   = config.DarkMatterOnly;
+        if (ImGui.Checkbox("Repair with dark matter only (fork)", ref only))
+        {
+            config.DarkMatterOnly = only;
+            GatherBuddy.Config.Save();
+        }
+        if (ImGui.IsItemHovered())
+            ImGui.SetTooltip("Every repair GatherBuddy makes goes through the game's Repair window with your dark matter, and no run visits a mender: "
+              + "between crafts (Prioritize NPC Repair in Vulcan's settings is ignored) and after a run (every category, armoury chest and bags "
+              + "included); gathering and fishing always repaired this way. A worn piece the character cannot repair by hand, for want of the dark "
+              + "matter grade or the repair class's level, pauses the run at home and says why in chat, in a toast and in the attention note; the "
+              + "run's end lists it again. Off: between crafts and after a run GatherBuddy may visit a mender, as before.");
+    }
+
     public static void DrawRepairAfterRun()
     {
         var config   = GatherBuddy.Config.VulcanRepairConfig;
@@ -78,9 +95,10 @@ internal static class ForkSettingsPage
             GatherBuddy.Config.Save();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("When a crafting run or a gathering run is over, visit a mender, picked as a summoning bell is (one in sight, such as one hired "
-              + "into your home, else the nearest in the current zone, else the preferred one in Vulcan's settings, else the one cheapest to teleport "
-              + "to), repair every gear category including the armoury chest and bags, then go home unless already there.");
+            ImGui.SetTooltip("When a crafting run or a gathering run is over, repair every gear category including the armoury chest and bags, then go "
+              + "home unless already there. With Repair with dark matter only (fork) on, by hand where the run ended; otherwise at a mender, picked as "
+              + "a summoning bell is (one in sight, such as one hired into your home, else the nearest in the current zone, else the preferred one in "
+              + "Vulcan's settings, else the one cheapest to teleport to).");
     }
 
     public static void DrawAfterRunThreshold()
@@ -94,7 +112,7 @@ internal static class ForkSettingsPage
             GatherBuddy.Config.Save();
         }
         if (ImGui.IsItemHovered())
-            ImGui.SetTooltip("Visit the mender when any piece of gear is below this condition; 100 means anything not fully repaired");
+            ImGui.SetTooltip("Repair after the run when any piece of gear is below this condition; 100 means anything not fully repaired");
     }
 
     public static void DrawResetSettings()

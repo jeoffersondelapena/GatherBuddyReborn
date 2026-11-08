@@ -484,6 +484,7 @@ namespace GatherBuddy.AutoGather
                 
                 if (!Crafting.CraftingGatherBridge.IsQueueMode)
                 {
+                    RepairPause.BeginRun();
                     RunChat.Begin(TextRules.KindLabel(TextRules.Gathering, RunLabel.GatherLists()));
                     _keepRun = KeepMarks.BeginRun(RunLabel.GatherLists(), "gathered",
                         _plugin.AutoGatherListsManager.ActiveItems.Select(i => (i.Item.ItemId, (int)Math.Min(i.Quantity, int.MaxValue))));
@@ -2380,7 +2381,10 @@ namespace GatherBuddy.AutoGather
         {
             var (reason, status) = OutOfReachReason();
             if (!CraftingGatherBridge.IsQueueMode)
+            {
                 AnnounceGatheringEnd(reason);
+                RepairPause.ListAtEnd();
+            }
             AbortAutoGather(status, reason);
         }
 

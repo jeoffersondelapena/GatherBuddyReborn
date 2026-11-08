@@ -146,6 +146,8 @@ public class CraftingQueueProcessor
         _bellTravelTried = false;
         _setOut = false;
         _neededMarkedAt = (-1, -1);
+        _repairedFrom = -1;
+        RepairPause.BeginRun();
         _currentState = QueueState.WaitingForGather;
     }
 
@@ -1075,6 +1077,7 @@ public class CraftingQueueProcessor
     {
         GatherBuddy.Log.Information($"[CraftingQueueProcessor] Queue complete!");
         AnnounceRunEnd();
+        RepairPause.ListAtEnd();
         if (CraftingGatherBridge.GatheredInstead is { Count: > 0 } gatheredInstead)
             ForkChat.List($"{gatheredInstead.Count} item(s) could not be bought, so the run gathered them instead:", gatheredInstead, 12);
         if (CraftingGatherBridge.BoughtInstead is { Count: > 0 } boughtInstead)
@@ -1233,6 +1236,13 @@ public class CraftingQueueProcessor
             _tasks.Add(() => CraftingTasks.TaskExitCraft());
         }
 
+        // fork: with dark matter only there is no mender to fall back on; what the character cannot repair by hand pauses the run at home
+        if (RepairPause.DarkMatterOnly)
+        {
+            QueueSelfRepairOnly();
+            return;
+        }
+
         var canSelfRepair = RepairManager.CanRepairAny();
         var hasRepairNPC = RepairManager.RepairNPCNearby(out var npc);
         var prioritizeNPC = GatherBuddy.Config.VulcanRepairConfig.PrioritizeNPCRepair;
@@ -1345,6 +1355,60 @@ public class CraftingQueueProcessor
 
         GatherBuddy.Log.Error("[CraftingQueueProcessor] Cannot repair: no dark matter and no repair NPC available");
         _tasks.Add(() => { CompleteQueue(); return CraftingTasks.TaskResult.Abort; });
+    }
+
+    // the lowest condition when the Repair window was last used, -1 once the gear is whole again
+    private int _repairedFrom = -1;
+
+    private void QueueSelfRepairOnly()
+    {
+        var threshold = GatherBuddy.Config.VulcanRepairConfig.RepairThreshold;
+        var before    = RepairManager.GetMinEquippedPercent();
+        // a second pass at the same condition means the game refused what the rule allowed
+        var why = RepairManager.EquippedCheck(c => Math.Ceiling(c / 300.0) < threshold).Blocker(threshold)
+         ?? (_repairedFrom >= 0 && before <= _repairedFrom ? RepairRules.StillWorn(threshold) : null);
+        ForkTrace.Info($"repair (crafting): lowest gear condition {before}%, dark matter only, {(why == null ? "repairing by hand" : $"paused: {why}")}");
+        if (why != null)
+        {
+            _tasks.Add(() =>
+            {
+                _currentState = QueueState.WaitingForJobSwitch;
+                StateChanged?.Invoke(_currentState);
+                PauseForRepair(why);
+                return CraftingTasks.TaskResult.Done;
+            });
+            return;
+        }
+
+        _repairedFrom = before;
+        _tasks.Add(() => CraftingTasks.TaskOpenRepairWindow());
+        _tasks.Add(() => CraftingTasks.TaskShowRepairCategory(RepairRules.Category.Equipped));
+        _tasks.Add(() => CraftingTasks.TaskExecuteRepair(isSelfRepair: true));
+        _tasks.Add(() => CraftingTasks.TaskWaitForRepairAutoClose());
+        _tasks.Add(() => CraftingTasks.TaskCloseRepairWindow());
+        _tasks.Add(() =>
+        {
+            if (!NeedsRepair())
+            {
+                _repairedFrom = -1;
+                RepairPause.Repaired();
+            }
+
+            TransitionFromRepairComplete();
+            return CraftingTasks.TaskResult.Done;
+        });
+    }
+
+    private void PauseForRepair(string why)
+    {
+        _repairedFrom = -1;
+        RepairPause.Paused(TextRules.Crafting, why);
+        Communicator.PrintRun(TextRules.RunStopped(TextRules.Crafting, why));
+        Pause($"Paused: {why}. Fix the cause and press Resume.");
+        if (_setOut)
+            PauseHome.Request("repair");
+        else
+            ForkTrace.Info("crafting run paused for repair before it went anywhere, so it stays where it was started");
     }
 
     private void QueueRetainerBellNavigationTasks()

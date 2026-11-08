@@ -93,7 +93,15 @@ public static class TextRules
     // a whole gathering or buy run pausing, where nothing comes after to skip to
     public static string RunStopped(string run, string? why)
         => $"[GatherBuddy] This {RunName(run)} run stopped: {Why(why)}. Fix the cause and press Resume in the {RunWindow(run)} to "
-         + $"{(run == BuyList ? "buy" : "gather")} the rest, or {(run == BuyList ? "press Stop" : "untick Enabled")} there to end the run (fork).";
+         + $"{Verb(run)} the rest, or {(run == Gathering ? "untick Enabled" : "press Stop")} there to end the run (fork).";
+
+    private static string Verb(string run)
+        => run switch
+        {
+            Gathering => "gather",
+            BuyList   => "buy",
+            _         => "craft",
+        };
 
     public static string StoppedShortReason(string part, string? why)
     {

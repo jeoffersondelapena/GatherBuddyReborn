@@ -247,6 +247,8 @@ public partial class VulcanWindow
         }
         if (ImGui.IsItemHovered())
             ImGui.SetTooltip("Use NPC repair if available and you have enough gil, otherwise use self-repair");
+        if (config.DarkMatterOnly)
+            ImGui.TextDisabled("Ignored while Repair with dark matter only (fork) is on, in the Fork page of GatherBuddy's settings.");
 
         
         if (config.PrioritizeNPCRepair)

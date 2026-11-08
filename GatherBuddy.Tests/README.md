@@ -17,7 +17,9 @@ What is covered:
 - `QueueRules`: putting a recipe off to the end of a run (the loop that once froze the game), skipping within a bound,
   queueing every producer of a material before its consumer, and which class makes a shared material.
 - `CharacterSettingsRules`: a character's own mount beside the shared setting.
-- `RepairRules`: which gear categories a mender visit after a run covers, when a run counts as over, and which mender.
+- `RepairRules`: which gear categories an after-run repair covers, when a run counts as over, which mender when one is allowed, and
+  whether the character can repair every worn piece by hand (dark matter grade and count, repair class level) with the pause line
+  it gets when it cannot.
 - `TextRules`: the chat lists, the solver's "no solution" against a real failure, and the XIV Doctor note line.
 - `GatherLevelRules`: the level a stop line names is exactly the lowest the gathering filter lets through, and how the
   line reads for one item and for several.

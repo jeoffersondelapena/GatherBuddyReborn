@@ -4,11 +4,11 @@ using GatherBuddy.ForkLogic;
 
 namespace GatherBuddy.Helpers;
 
-// Fork only. XIV Doctor repeats each line of its attention file in chat every half hour; the plugin's own chat line
-// about a failed solve scrolls past once, so the failure also lives there until the solver works again.
+// Fork only. XIV Helper repeats each line of its attention file in chat every half hour, so a problem lives there until it is gone.
 public static class DoctorNote
 {
     private const string Source = "GatherBuddyReborn crafting";
+    private const string Reader = "XIVHelper";
 
     private static readonly object Lock = new();
 
@@ -16,6 +16,9 @@ public static class DoctorNote
         => TextRules.FirstLine(reason);
 
     public static void Set(string? note)
+        => Set(Source, note);
+
+    public static void Set(string source, string? note)
     {
         try
         {
@@ -23,10 +26,10 @@ public static class DoctorNote
             if (configs == null)
                 return;
 
-            var path = Path.Combine(configs.FullName, "XIVDoctor", "attention.txt");
+            var path = Path.Combine(configs.FullName, Reader, "attention.txt");
             lock (Lock)
             {
-                var kept = TextRules.WithNote(File.Exists(path) ? File.ReadAllLines(path) : [], Source, note);
+                var kept = TextRules.WithNote(File.Exists(path) ? File.ReadAllLines(path) : [], source, note);
                 if (kept == null)
                     return;
 
