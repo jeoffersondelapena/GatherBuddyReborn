@@ -134,10 +134,8 @@ public class RepairRulesTests
         Assert.Equal("gear is still below 10% after a dark matter repair", RepairRules.StillWorn(10));
 
         const string why = "Grade 8 Dark Matter is missing, 1 piece below 10%";
-        Assert.Equal("paused: " + why, RepairRules.PausedNote(why));
         Assert.Equal("GatherBuddy: gathering run paused, " + why, RepairRules.PausedToast(TextRules.Gathering, why));
         Assert.Equal("GatherBuddy: crafting run paused, " + why, RepairRules.PausedToast(TextRules.Crafting, why));
-        Assert.Equal("not repaired after the run: " + why, RepairRules.AfterRunNote(why));
         Assert.Equal("GatherBuddy: gear not repaired after the run, " + why, RepairRules.AfterRunToast(why));
         Assert.Equal("[GatherBuddy] After-run repair skipped: " + why + " (fork).", RepairRules.AfterRunLine(why));
         Assert.Equal("[GatherBuddy] This crafting run stopped: " + why + ". Fix the cause and press Resume in the Craft Status window to craft "

@@ -119,7 +119,6 @@ public unsafe partial class AutoGather
             return true;
         }, 3000, "Wait for RepairAuto window to close or force close it.");
         TaskManager.DelayNext(delay);
-        TaskManager.Enqueue(NoteRepaired, "Note repaired.");
 
         return true;
     }
@@ -214,7 +213,6 @@ public unsafe partial class AutoGather
                 AutoHook.SetAutoStartFishing?.Invoke(true);
             }
         });
-        TaskManager.Enqueue(NoteRepaired, "Note repaired.");
 
         return true;
     }
@@ -236,14 +234,5 @@ public unsafe partial class AutoGather
         _conditionBeforeRepair = -1;
         RepairPause.Paused(CraftingGatherBridge.IsQueueMode ? TextRules.Crafting : TextRules.Gathering, why);
         AbortAutoGather(why, why);
-    }
-
-    private void NoteRepaired()
-    {
-        if (EquipmentNeedingRepair() != null)
-            return;
-
-        _conditionBeforeRepair = -1;
-        RepairPause.Repaired();
     }
 }

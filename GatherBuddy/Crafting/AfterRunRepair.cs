@@ -391,16 +391,10 @@ public static unsafe class AfterRunRepair
         {
             ForkTrace.Info($"after-run repair ({_reason}): done by hand; still below {threshold}%: " + (still.Count == 0 ? "none" : string.Join(", ", still)));
             if (still.Count == 0)
-            {
-                RepairPause.Repaired();
                 Communicator.PrintRun("[GatherBuddy] Repaired all gear after the run with dark matter (fork).", _label, Communicator.Tone.Good);
-            }
             else
-            {
-                RepairPause.NoteAfterRun(RepairRules.StillWorn(threshold));
                 Communicator.PrintRun($"[GatherBuddy] Repaired gear after the run with dark matter, but "
                   + $"{string.Join(", ", still.Select(RepairRules.Label))} is still below {threshold}% (fork).", _label);
-            }
 
             return TaskResult.Done;
         }

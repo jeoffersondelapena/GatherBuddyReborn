@@ -16,9 +16,6 @@ public static class DoctorNote
         => TextRules.FirstLine(reason);
 
     public static void Set(string? note)
-        => Set(Source, note);
-
-    public static void Set(string source, string? note)
     {
         try
         {
@@ -29,7 +26,7 @@ public static class DoctorNote
             var path = Path.Combine(configs.FullName, Reader, "attention.txt");
             lock (Lock)
             {
-                var kept = TextRules.WithNote(File.Exists(path) ? File.ReadAllLines(path) : [], source, note);
+                var kept = TextRules.WithNote(File.Exists(path) ? File.ReadAllLines(path) : [], Source, note);
                 if (kept == null)
                     return;
 

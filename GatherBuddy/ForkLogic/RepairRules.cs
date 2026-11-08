@@ -118,14 +118,8 @@ public static class RepairRules
     private static int Units(IReadOnlyDictionary<int, int> darkMatter, int grade)
         => darkMatter.Where(kv => kv.Key >= grade).Sum(kv => kv.Value);
 
-    public static string PausedNote(string why)
-        => $"paused: {why}";
-
     public static string PausedToast(string run, string why)
         => $"GatherBuddy: {TextRules.RunName(run)} run paused, {why}";
-
-    public static string AfterRunNote(string why)
-        => $"not repaired after the run: {why}";
 
     public static string AfterRunToast(string why)
         => $"GatherBuddy: gear not repaired after the run, {why}";

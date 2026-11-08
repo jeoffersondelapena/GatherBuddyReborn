@@ -1389,10 +1389,7 @@ public class CraftingQueueProcessor
         _tasks.Add(() =>
         {
             if (!NeedsRepair())
-            {
                 _repairedFrom = -1;
-                RepairPause.Repaired();
-            }
 
             TransitionFromRepairComplete();
             return CraftingTasks.TaskResult.Done;

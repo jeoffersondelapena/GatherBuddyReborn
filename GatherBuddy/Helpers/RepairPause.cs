@@ -5,11 +5,9 @@ using GatherBuddy.Plugin;
 
 namespace GatherBuddy.Helpers;
 
-// fork: a repair the character cannot do by hand holds the run; the reason goes to a toast, the attention note and the run's end-of-run lists
+// fork: a repair the character cannot do by hand holds the run, as a full inventory does; the reason goes to a toast and the run's end-of-run lists
 public static class RepairPause
 {
-    private const string Source = "GatherBuddyReborn repair";
-
     private static readonly List<string> Issues = new();
 
     public static bool DarkMatterOnly
@@ -20,7 +18,6 @@ public static class RepairPause
         Issues.Add(why);
         ForkTrace.Info($"repair ({TextRules.RunName(run)}): paused, {why}");
         Dalamud.ToastGui.ShowNormal(RepairRules.PausedToast(run, why));
-        DoctorNote.Set(Source, RepairRules.PausedNote(why));
     }
 
     public static void SkippedAfterRun(string why, string? label)
@@ -28,14 +25,7 @@ public static class RepairPause
         ForkTrace.Info($"after-run repair: skipped, {why}");
         Communicator.PrintRun(RepairRules.AfterRunLine(why), label);
         Dalamud.ToastGui.ShowNormal(RepairRules.AfterRunToast(why));
-        NoteAfterRun(why);
     }
-
-    public static void NoteAfterRun(string why)
-        => DoctorNote.Set(Source, RepairRules.AfterRunNote(why));
-
-    public static void Repaired()
-        => DoctorNote.Set(Source, null);
 
     public static void BeginRun()
         => Issues.Clear();
