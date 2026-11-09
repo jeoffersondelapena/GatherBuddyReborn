@@ -65,7 +65,13 @@ public static unsafe class KeepMarks
 
     public static KeepRules.Run BeginRun(string? label, string verb, IEnumerable<(uint ItemId, int Target)> targets)
     {
-        var run = new KeepRules.Run(++_nextRun, string.IsNullOrWhiteSpace(label) ? "this run" : label, verb);
+        var shown = string.IsNullOrWhiteSpace(label) ? "this run" : label;
+        foreach (var stale in KeepRules.Superseded(Open.Keys, shown, verb))
+        {
+            ForkTrace.Info($"keep marks: run {stale.Id} ({stale.Label}, {stale.Verb}) was never ended; ended now that the list runs again");
+            EndRun(stale);
+        }
+        var run = new KeepRules.Run(++_nextRun, shown, verb);
         Open[run] = targets.Select(t => (Id: KeepRules.BaseItemId(t.ItemId), t.Target))
             .Where(t => t.Id != 0 && t.Target > 0)
             .GroupBy(t => t.Id)

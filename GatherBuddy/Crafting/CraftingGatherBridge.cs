@@ -228,6 +228,7 @@ public static class CraftingGatherBridge
                 _queueProcessor = null;
                 _activeExecutionPlan = null;
                 _isQueueMode = false;
+                KeepMarks.EndRun(_keepRun);
                 _keepRun = null;
                 ClearBuying();
 
@@ -280,6 +281,7 @@ public static class CraftingGatherBridge
         _activeExecutionPlan = executionPlan;
         if (!executionPlan.CountHeld)
             executionPlan.SourceOnTopOf(executionPlan.Materials.Keys.ToDictionary(id => id, GetInventoryCount));
+        KeepMarks.EndRun(_keepRun);
         _keepRun = KeepMarks.BeginRun(executionPlan.ListName, "crafted", CraftingTargets(executionPlan));
         ResetCollectablesInterruptionState();
         _lastCollectablesHardFailLog = DateTime.MinValue;

@@ -36,6 +36,10 @@ public static class KeepRules
         return merged;
     }
 
+    // a list run again while an earlier run of it never ended: that run is ended first, or it would keep marking on every bag change
+    public static List<Run> Superseded(IEnumerable<Run> open, string label, string verb)
+        => open.Where(r => r.Label == label && r.Verb == verb).OrderBy(r => r.Id).ToList();
+
     public static Dictionary<uint, Mark> WithoutRun(IReadOnlyDictionary<uint, Mark> current, Run run)
     {
         var left = new Dictionary<uint, Mark>();

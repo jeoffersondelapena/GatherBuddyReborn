@@ -39,6 +39,18 @@ public class KeepRulesTests
     }
 
     [Fact]
+    public void A_list_run_again_ends_its_earlier_open_runs_first()
+    {
+        var bsm      = new KeepRules.Run(1, "BSM Lv 1-15", "crafted");
+        var arm      = new KeepRules.Run(2, "ARM Lv 1-15", "crafted");
+        var gathered = new KeepRules.Run(3, "BSM Lv 1-15", "gathered");
+        var bsmAgain = new KeepRules.Run(4, "BSM Lv 1-15", "crafted");
+
+        Assert.Equal(new[] { bsm, bsmAgain }, KeepRules.Superseded(new[] { gathered, bsmAgain, arm, bsm }, "BSM Lv 1-15", "crafted"));
+        Assert.Empty(KeepRules.Superseded(new[] { arm, gathered }, "BSM Lv 1-15", "crafted"));
+    }
+
+    [Fact]
     public void Two_runs_of_one_list_are_kept_apart_but_read_as_one()
     {
         var again = new Run(4, "LTW Lv 1-15", "crafted");
